@@ -1,0 +1,58 @@
+<?php
+
+class Customer extends BaseModel {
+  protected $table = 'customers';
+
+  public function findWithOrderStats($limit = 10, $offset = 0) {
+    $limit = (int)$limit;
+    $offset = (int)$offset;
+    $this->db->query("SELECT customers.*, COUNT(DISTINCT orders.id) AS total_orders, COUNT(order_items.id) AS total_items FROM customers LEFT JOIN orders ON orders.buyer_username = customers.username LEFT JOIN order_items ON order_items.order_id = orders.id GROUP BY customers.id, customers.username, customers.address, customers.created_at ORDER BY customers.created_at DESC LIMIT {$limit} OFFSET {$offset}");
+    return $this->db->getAll();
+  }
+
+  public function findOrderHistory($username) {
+    $this->db->query("SELECT orders.id, orders.order_sn, orders.status_type, orders.total_price, orders.created_at, order_items.name AS item_name, order_items.variation_name, order_items.quantity, order_items.image AS item_image FROM orders LEFT JOIN order_items ON order_items.order_id = orders.id WHERE orders.buyer_username = :username ORDER BY orders.created_at DESC, order_items.id ASC");
+    $this->db->bind('username', $username);
+    return $this->db->getAll();
+  }
+
+  public function syncFromOrders() {
+    $this->db->query("SELECT buyer_username, shipping_address, created_at FROM orders WHERE COALESCE(buyer_username, '') <> '' ORDER BY created_at DESC");
+    $orders = $this->db->getAll();
+    $customers = [];
+
+    foreach ($orders as $order) {
+      $username = trim($order['buyer_username'] ?? '');
+      $identity = 'username:' . strtolower($username);
+      if (isset($customers[$identity])) continue;
+
+      $customers[$identity] = [
+        'username' => $username,
+        'address' => trim($order['shipping_address'] ?? ''),
+        'created_at' => $order['created_at'] ?: date('Y-m-d H:i:s')
+      ];
+    }
+
+    $existingCustomers = [];
+    foreach ($this->findAll() as $customer) {
+      $username = trim($customer['username'] ?? '');
+      $identity = 'username:' . strtolower($username);
+      if ($username !== '') $existingCustomers[$identity] = $customer;
+    }
+
+    $added = 0;
+    $updated = 0;
+    foreach ($customers as $identity => $customer) {
+      if (isset($existingCustomers[$identity])) {
+        unset($customer['created_at']);
+        $this->update($existingCustomers[$identity]['id'], $customer);
+        $updated++;
+      } else {
+        $this->insert($customer);
+        $added++;
+      }
+    }
+
+    return ['added' => $added, 'updated' => $updated];
+  }
+}

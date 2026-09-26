@@ -1,0 +1,18 @@
+# Local configuration and secrets
+config/.env
+
+# Dependencies and generated output
+node_modules/
+
+# macOS metadata
+.DS_Store
+._*
+
+# Local agent captures may contain session tokens or private payloads
+.agents/
+
+# Runtime logs and local exports
+*.log
+*.tmp
+storage/
+tmp/

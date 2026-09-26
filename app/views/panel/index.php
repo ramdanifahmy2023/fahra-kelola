@@ -1,0 +1,225 @@
+<?php
+$summary = $data['summary'] ?? [];
+$shopHealth = $data['shop_health'] ?? [];
+$recentOrders = $data['recent_orders'] ?? [];
+$realtimeShop = $shopHealth[0] ?? [];
+$totalShops = (int)($summary['total_shops'] ?? 0);
+$connectedShops = (int)($summary['connected_shops'] ?? 0);
+$pendingOrderDetails = (int)($summary['pending_order_details'] ?? 0);
+$completedOrderValue = (int)($summary['completed_order_value'] ?? 0);
+$formatMoney = static function ($amount) {
+  return 'Rp ' . number_format((int)$amount, 0, ',', '.');
+};
+$formatDate = static function ($date) {
+  if (empty($date)) return 'Belum tersedia';
+  $timestamp = strtotime($date);
+  return $timestamp ? date('d M Y, H:i', $timestamp) : 'Belum tersedia';
+};
+$statusClass = static function ($status) {
+  $normalized = strtolower((string)$status);
+  if (strpos($normalized, 'completed') !== false || strpos($normalized, 'selesai') !== false) return 'badge-success';
+  if (strpos($normalized, 'cancel') !== false || strpos($normalized, 'batal') !== false) return 'badge-error';
+  if (strpos($normalized, 'menunggu') !== false || strpos($normalized, 'belum') !== false) return 'badge-warning';
+  return 'badge-ghost';
+};
+?>
+
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+  <div>
+    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">space_dashboard</span>Operations overview</div>
+    <h2 class="text-2xl font-black tracking-tight text-base-content">Dashboard</h2>
+    <p class="mt-1 text-sm text-base-content/60">Ringkasan data lokal yang terakhir tersimpan dari channel penjualan.</p>
+  </div>
+  <?php if ($totalShops > 0): ?>
+    <a href="<?= burl; ?>/panel/shops" class="btn btn-sm gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">storefront</span>Kelola toko</a>
+  <?php else: ?>
+    <a href="<?= burl; ?>/panel/shops" class="btn btn-sm btn-primary gap-2 rounded-lg"><span class="material-symbols-outlined text-base">add_business</span>Tambah toko</a>
+  <?php endif; ?>
+</div>
+
+<?php if (!empty($realtimeShop['id'])): ?>
+<section id="realtime-dashboard" class="mt-6 rounded-2xl border border-primary/20 bg-base-100 shadow-sm" data-shop-id="<?= (int)$realtimeShop['id']; ?>">
+  <div class="flex flex-col gap-3 border-b border-base-content/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+    <div>
+      <div class="flex items-center gap-2"><h3 class="font-black text-base-content">Monitoring realtime</h3><span id="realtime-live-badge" class="badge badge-ghost badge-sm">Memuat</span></div>
+      <p class="mt-1 text-xs text-base-content/55">Data live dari Shopee untuk <span id="realtime-shop-name"><?= htmlspecialchars($realtimeShop['name'] ?: 'toko aktif'); ?></span>.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+      <?php if (count($shopHealth) > 1): ?>
+        <label class="sr-only" for="realtime-shop-select">Toko monitoring realtime</label>
+        <select id="realtime-shop-select" class="select select-bordered select-sm min-h-11 w-full max-w-full sm:w-52">
+          <?php foreach ($shopHealth as $shop): ?>
+            <option value="<?= (int)$shop['id']; ?>" data-name="<?= htmlspecialchars($shop['name'] ?: 'Toko tanpa nama', ENT_QUOTES); ?>" <?= (int)$shop['id'] === (int)$realtimeShop['id'] ? 'selected' : ''; ?>><?= htmlspecialchars($shop['name'] ?: 'Toko tanpa nama'); ?></option>
+          <?php endforeach; ?>
+        </select>
+      <?php endif; ?>
+      <span id="realtime-updated-at" class="text-xs text-base-content/50">Belum diperbarui</span>
+    </div>
+  </div>
+  <div id="realtime-error" class="hidden border-b border-error/20 bg-error/5 px-5 py-3 text-xs text-error"></div>
+  <div class="grid grid-cols-2 gap-4 p-4 sm:grid-cols-3 sm:gap-5 sm:p-5 xl:grid-cols-6">
+    <div class="min-w-0"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Pengunjung</div><div id="rt-uv" class="mt-1 text-2xl font-black">-</div></div>
+    <div class="min-w-0"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Tampilan</div><div id="rt-pv" class="mt-1 text-2xl font-black">-</div></div>
+    <div class="min-w-0"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Klik produk</div><div id="rt-clicks" class="mt-1 text-2xl font-black">-</div></div>
+    <div class="min-w-0"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Order</div><div id="rt-orders" class="mt-1 text-2xl font-black">-</div></div>
+    <div class="min-w-0"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Pembeli</div><div id="rt-buyers" class="mt-1 text-2xl font-black">-</div></div>
+    <div class="min-w-0"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Omzet realtime</div><div id="rt-sales" class="mt-1 truncate text-xl font-black">-</div></div>
+  </div>
+  <div class="grid grid-cols-1 gap-5 border-t border-base-content/10 p-4 sm:gap-6 sm:p-5 xl:grid-cols-2">
+    <div class="min-w-0"><h4 class="text-sm font-black">Produk terlaris</h4><div id="realtime-top-products" class="mt-3 space-y-2 text-sm text-base-content/70"><div class="text-xs text-base-content/45">Menunggu data…</div></div></div>
+    <div class="min-w-0"><h4 class="text-sm font-black">Penjualan per jam</h4><div class="mt-3 overflow-x-auto pb-1"><div id="realtime-hourly" class="grid min-w-[420px] grid-cols-11 items-end gap-1"></div></div></div>
+  </div>
+</section>
+<script>
+(() => {
+  const root = document.getElementById('realtime-dashboard');
+  if (!root) return;
+  const number = value => new Intl.NumberFormat('id-ID').format(Number(value || 0));
+  const money = value => 'Rp ' + number(value);
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+  const badge = document.getElementById('realtime-live-badge');
+  const error = document.getElementById('realtime-error');
+  const shopSelect = document.getElementById('realtime-shop-select');
+  const shopName = document.getElementById('realtime-shop-name');
+  let activeShopId = shopSelect ? shopSelect.value : root.dataset.shopId;
+  let inFlight = false;
+
+  async function loadRealtime() {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      badge.textContent = 'Memuat'; badge.className = 'badge badge-ghost badge-sm';
+      const response = await fetch('<?= burl; ?>/procrealtime/metrics?shop_id=' + encodeURIComponent(activeShopId), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, cache: 'no-store' });
+      const payload = await response.json();
+      if (!response.ok || payload.status !== 'success') throw new Error(payload.message || 'Metrik realtime gagal dimuat.');
+      const metrics = payload.metrics || {};
+      const key = metrics.key_metrics || {};
+      setText('rt-uv', number(key.uv));
+      setText('rt-pv', number(key.pv));
+      setText('rt-clicks', number(key.product_clicks));
+      setText('rt-orders', number(key.orders));
+      setText('rt-buyers', number(key.buyers));
+      setText('rt-sales', money(key.sales));
+      const time = Number(metrics.time || 0) * 1000;
+      setText('realtime-updated-at', time ? 'Diperbarui ' + new Date(time).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : 'Baru saja');
+      badge.textContent = 'Live'; badge.className = 'badge badge-success badge-sm text-white';
+      error.classList.add('hidden');
+
+      const products = document.getElementById('realtime-top-products');
+      products.innerHTML = (metrics.top_sales_items || []).slice(0, 5).map(item => '<div class="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 last:border-0"><span class="min-w-0 truncate" title="' + String(item.item_name || '').replace(/"/g, '&quot;') + '">' + String(item.item_name || 'Produk').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</span><strong class="shrink-0 text-xs">' + money(item.sales) + '</strong></div>').join('') || '<div class="text-xs text-base-content/45">Belum ada produk terjual.</div>';
+
+      const hourly = document.getElementById('realtime-hourly');
+      const values = metrics.sales_hourly || [];
+      const max = Math.max(...values.map(Number), 1);
+      hourly.innerHTML = values.slice(-22).map((value, index) => '<div class="group flex h-24 flex-col justify-end gap-1"><div class="rounded-t bg-primary/70" style="height:' + Math.max(3, (Number(value || 0) / max) * 78) + 'px" title="' + money(value) + '"></div><span class="text-center text-[9px] text-base-content/40">' + index + '</span></div>').join('');
+    } catch (err) {
+      badge.textContent = 'Offline'; badge.className = 'badge badge-error badge-sm text-white';
+      error.textContent = err.message || 'Metrik realtime gagal dimuat.';
+      error.classList.remove('hidden');
+    } finally {
+      inFlight = false;
+    }
+  }
+  if (shopSelect) {
+    shopSelect.addEventListener('change', () => {
+      activeShopId = shopSelect.value;
+      const option = shopSelect.options[shopSelect.selectedIndex];
+      if (shopName) shopName.textContent = option?.dataset.name || option?.textContent || 'toko aktif';
+      loadRealtime();
+    });
+  }
+  loadRealtime();
+  window.setInterval(loadRealtime, 30000);
+})();
+</script>
+<?php endif; ?>
+
+<?php if ($totalShops === 0): ?>
+  <div class="mb-6 rounded-2xl border border-warning/30 bg-warning/10 p-5">
+    <div class="flex items-start gap-3">
+      <span class="material-symbols-outlined text-warning">info</span>
+      <div>
+        <h3 class="font-bold text-base-content">Belum ada toko yang terhubung</h3>
+        <p class="mt-1 text-sm text-base-content/65">Tambahkan toko dari menu Toko untuk mulai mengambil produk dan pesanan.</p>
+      </div>
+    </div>
+  </div>
+<?php elseif ($pendingOrderDetails > 0): ?>
+  <div class="mb-6 rounded-2xl border border-warning/30 bg-warning/10 p-5">
+    <div class="flex items-start gap-3">
+      <span class="material-symbols-outlined text-warning">sync_problem</span>
+      <div class="min-w-0 flex-1">
+        <h3 class="font-bold text-base-content">Data order masih dalam proses sinkronisasi detail</h3>
+        <p class="mt-1 text-sm text-base-content/65"><?= number_format($pendingOrderDetails); ?> order sudah terdaftar, tetapi detailnya belum lengkap.</p>
+      </div>
+      <a href="<?= burl; ?>/panel/orders?sync=1" class="btn btn-sm btn-warning shrink-0">Lanjutkan sync</a>
+    </div>
+  </div>
+<?php endif; ?>
+
+<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
+    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Toko aktif</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary"><span class="material-symbols-outlined">storefront</span></span></div>
+    <div class="mt-4 text-3xl font-black tracking-tight"><?= number_format($connectedShops); ?><span class="ml-1 text-sm font-semibold text-base-content/45">/ <?= number_format($totalShops); ?></span></div>
+    <p class="mt-1 text-xs text-base-content/55">Terhubung ke channel</p>
+  </div>
+  <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
+    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Produk</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-secondary/10 text-secondary"><span class="material-symbols-outlined">inventory_2</span></span></div>
+    <div class="mt-4 text-3xl font-black tracking-tight"><?= number_format((int)($summary['total_products'] ?? 0)); ?></div>
+    <p class="mt-1 text-xs text-base-content/55">Produk aktif di database</p>
+  </div>
+  <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
+    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Pesanan</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-info/10 text-info"><span class="material-symbols-outlined">receipt_long</span></span></div>
+    <div class="mt-4 text-3xl font-black tracking-tight"><?= number_format((int)($summary['total_orders'] ?? 0)); ?></div>
+    <p class="mt-1 text-xs text-base-content/55"><?= number_format((int)($summary['completed_orders'] ?? 0)); ?> selesai</p>
+  </div>
+  <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
+    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Nilai order selesai</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-success/10 text-success"><span class="material-symbols-outlined">payments</span></span></div>
+    <div class="mt-4 truncate text-2xl font-black tracking-tight" title="<?= htmlspecialchars($formatMoney($completedOrderValue)); ?>"><?= htmlspecialchars($formatMoney($completedOrderValue)); ?></div>
+    <p class="mt-1 text-xs text-base-content/55">Akumulasi total order berstatus selesai</p>
+  </div>
+</div>
+
+<div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+  <section class="rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
+    <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
+      <div><h3 class="font-black text-base-content">Kesehatan toko</h3><p class="mt-1 text-xs text-base-content/55">Status koneksi dan kelengkapan data per toko.</p></div>
+      <a href="<?= burl; ?>/panel/shops" class="btn btn-ghost btn-sm">Lihat semua</a>
+    </div>
+    <?php if (!$shopHealth): ?>
+      <div class="p-8 text-center text-sm text-base-content/50">Belum ada data toko.</div>
+    <?php else: ?>
+      <div class="divide-y divide-base-content/10">
+        <?php foreach ($shopHealth as $shop): ?>
+          <div class="flex flex-wrap items-center gap-3 px-5 py-4">
+            <div class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-base-200 text-primary"><span class="material-symbols-outlined">store</span></div>
+            <div class="min-w-0 flex-1"><div class="truncate text-sm font-bold"><?= htmlspecialchars($shop['name'] ?: 'Toko tanpa nama'); ?></div><div class="mt-0.5 truncate text-xs text-base-content/50">@<?= htmlspecialchars($shop['username'] ?: '-'); ?></div></div>
+            <div class="text-right"><div class="text-sm font-black"><?= number_format((int)$shop['product_count']); ?> produk</div><div class="text-xs text-base-content/50"><?= number_format((int)$shop['order_count']); ?> order</div></div>
+            <span class="badge <?= $shop['sync_status'] === 'connected' ? 'badge-success' : 'badge-warning'; ?> badge-sm"><?= htmlspecialchars($shop['sync_status'] ?: 'unknown'); ?></span>
+          </div>
+          <?php if ((int)$shop['pending_order_details'] > 0): ?>
+            <div class="bg-warning/5 px-5 py-2 text-xs text-warning-content"><span class="font-semibold"><?= number_format((int)$shop['pending_order_details']); ?> order</span> masih menunggu detail.</div>
+          <?php endif; ?>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </section>
+
+  <section class="rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
+    <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Data pelanggan</h3><p class="mt-1 text-xs text-base-content/55">Pelanggan yang sudah terbentuk dari order detail.</p></div><a href="<?= burl; ?>/panel/customers?sync=1" class="btn btn-ghost btn-sm">Sync</a></div>
+    <div class="p-5"><div class="text-4xl font-black tracking-tight"><?= number_format((int)($summary['total_customers'] ?? 0)); ?></div><p class="mt-1 text-sm text-base-content/55">Pelanggan tersimpan</p><div class="mt-5 h-2 overflow-hidden rounded-full bg-base-200"><div class="h-full rounded-full bg-primary" style="width: <?= $totalShops > 0 && (int)($summary['total_customers'] ?? 0) > 0 ? '100' : '0'; ?>%"></div></div><p class="mt-2 text-xs text-base-content/50">Sync pelanggan berjalan dari menu Pelanggan.</p></div>
+  </section>
+</div>
+
+<section class="mt-6 rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
+  <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Order terbaru</h3><p class="mt-1 text-xs text-base-content/55">Order yang sudah memiliki detail atau waktu pembuatan.</p></div><a href="<?= burl; ?>/panel/orders" class="btn btn-ghost btn-sm">Buka pesanan</a></div>
+  <?php if (!$recentOrders): ?>
+    <div class="p-8 text-center text-sm text-base-content/50">Belum ada order detail untuk ditampilkan.</div>
+  <?php else: ?>
+    <div class="overflow-x-auto"><table class="table w-full"><thead><tr><th>Order</th><th>Toko</th><th>Status</th><th>Tanggal</th><th class="text-right">Total</th></tr></thead><tbody>
+      <?php foreach ($recentOrders as $order): ?>
+        <tr class="hover"><td><div class="font-mono text-xs font-bold"><?= htmlspecialchars($order['order_sn'] ?: $order['id']); ?></div></td><td class="text-xs"><?= htmlspecialchars($order['shop_name'] ?: '-'); ?></td><td><span class="badge <?= $statusClass($order['display_status']); ?> badge-sm"><?= htmlspecialchars($order['display_status']); ?></span></td><td class="whitespace-nowrap text-xs text-base-content/60"><?= htmlspecialchars($formatDate($order['created_at'])); ?></td><td class="whitespace-nowrap text-right text-xs font-bold"><?= htmlspecialchars($formatMoney($order['total_price'] ?? 0)); ?></td></tr>
+      <?php endforeach; ?>
+    </tbody></table></div>
+  <?php endif; ?>
+</section>

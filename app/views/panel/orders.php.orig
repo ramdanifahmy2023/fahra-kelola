@@ -1,0 +1,395 @@
+<!-- Loading Overlay -->
+<div id="page-loader" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
+  <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
+  <p class="text-lg font-medium text-base-content">Sedang Memuat Data...</p>
+</div>
+
+<!-- Page Header -->
+<div class="mb-8 flex items-center justify-between">
+  <div>
+    <h2 class="text-2xl font-bold mb-1 text-base-content">Daftar Pesanan</h2>
+    <p class="opacity-70 text-sm">Kelola semua pesanan dari seluruh toko cabang Anda di satu tempat.</p>
+  </div>
+  <div class="form-control w-full max-w-xs relative">
+    <div class="dropdown dropdown-bottom dropdown-end w-full">
+      <div tabindex="0" role="button" class="btn w-full justify-start border-base-300 hover:border-base-400 gap-3 font-normal bg-base-100 shadow-sm" id="selectedShopDisplay">
+        <?php if (!empty($data['shops'])): ?>
+          <?php 
+          $activeShop = null;
+          foreach ($data['shops'] as $s) {
+              if ($s['id'] == $data['active_shop_id']) {
+                  $activeShop = $s;
+                  break;
+              }
+          }
+          if (!$activeShop) $activeShop = $data['shops'][0];
+          ?>
+          <img src="<?= htmlspecialchars($activeShop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
+          <span class="truncate flex-1 text-left"><?= htmlspecialchars($activeShop['name'] ?: 'Toko Tanpa Nama'); ?></span>
+          <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
+        <?php else: ?>
+          <span class="material-symbols-outlined text-[20px] opacity-50">storefront</span>
+          <span class="truncate flex-1 text-left text-base-content/50">Belum ada toko...</span>
+        <?php endif; ?>
+      </div>
+      <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow-lg bg-base-100 rounded-box w-full border border-base-200 mt-2 max-h-64 overflow-y-auto flex-nowrap block">
+        <?php if (!empty($data['shops'])): ?>
+          <?php foreach ($data['shops'] as $index => $shop): ?>
+            <li class="mb-1 last:mb-0">
+              <a onclick="selectShop(this, <?= $shop['id']; ?>, '<?= addslashes(htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama')); ?>', '<?= addslashes(htmlspecialchars($shop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png')); ?>')" class="flex items-center gap-3 py-2.5 <?= $shop['id'] == $data['active_shop_id'] ? 'bg-base-200' : '' ?>">
+                <img src="<?= htmlspecialchars($shop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
+                <span class="truncate font-medium"><?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?></span>
+              </a>
+            </li>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </ul>
+    </div>
+    <!-- Hidden input untuk menyimpan ID toko yang dipilih -->
+    <input type="hidden" id="selectedShopId" value="<?= !empty($data['shops']) ? $data['shops'][0]['id'] : ''; ?>" />
+  </div>
+</div>
+
+<!-- Table Section -->
+<div class="bg-base-100 shadow-sm rounded-2xl border border-base-200 overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="table table-zebra w-full">
+      <!-- head -->
+      <thead class="bg-base-200/50 text-base-content">
+        <tr>
+          <th>Tanggal</th>
+          <th>No. Pesanan</th>
+          <th>Produk</th>
+          <th>Jenis Pesanan</th>
+          <th>Toko</th>
+          <th class="text-right">Total Harga</th>
+          <th>Status</th>
+          <th>Kurir & Resi</th>
+          <th class="text-center w-32">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (empty($data['orders'])): ?>
+        <tr>
+          <td colspan="8" class="text-center py-10">
+            <div class="flex flex-col items-center justify-center text-base-content/50">
+              <span class="material-symbols-outlined text-[48px] mb-2 opacity-50">receipt_long</span>
+              <p>Belum ada pesanan yang ditarik dari Shopee.</p>
+            </div>
+          </td>
+        </tr>
+        <?php else: ?>
+        <?php foreach ($data['orders'] as $ord): ?>
+        <?php require __DIR__ . '/order_row.php'; ?>
+        <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- Pagination Controls -->
+  <div class="p-4 border-t border-base-200 flex items-center justify-between bg-base-100 flex-wrap gap-4">
+    <div class="text-sm opacity-70 flex items-center gap-2">
+      Menampilkan 
+      <select class="select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200 focus:outline-none" onchange="changeLimit(this.value, <?= $data['active_shop_id'] ?>)">
+        <option value="10" <?= $data['limit'] == 10 ? 'selected' : '' ?>>10</option>
+        <option value="20" <?= $data['limit'] == 20 ? 'selected' : '' ?>>20</option>
+        <option value="50" <?= $data['limit'] == 50 ? 'selected' : '' ?>>50</option>
+        <option value="100" <?= $data['limit'] == 100 ? 'selected' : '' ?>>100</option>
+      </select>
+      dari <span class="font-bold text-base-content"><?= $data['total_orders'] ?></span> pesanan
+    </div>
+    
+    <?php if ($data['total_pages'] > 1): ?>
+    <div class="join">
+      <?php 
+      $current = $data['current_page'];
+      $total = $data['total_pages'];
+      $shopId = $data['active_shop_id'];
+      $limit = $data['limit'];
+      
+      // Previous Button
+      if ($current > 1): 
+      ?>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current - 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">«</a>
+      <?php else: ?>
+        <button class="join-item btn btn-sm btn-disabled border-base-300">«</button>
+      <?php endif; ?>
+      
+      <!-- Page Numbers -->
+      <button class="join-item btn btn-sm bg-base-100 border-base-300 no-animation cursor-default">Hal <?= $current ?> / <?= $total ?></button>
+      
+      <?php 
+      // Next Button
+      if ($current < $total): 
+      ?>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current + 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">»</a>
+      <?php else: ?>
+        <button class="join-item btn btn-sm btn-disabled border-base-300">»</button>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
+  </div>
+</div>
+
+<!-- Floating Sync Progress Card (UI Only) -->
+<div id="sync-detail-card" class="fixed bottom-6 right-6 z-50 w-80 bg-base-100/80 backdrop-blur-md border border-base-200 shadow-xl rounded-xl p-4 transition-all duration-300 transform translate-y-24 opacity-0 pointer-events-none">
+  <div class="flex items-center justify-between mb-3">
+    <div class="font-bold text-sm text-base-content flex items-center gap-2">
+      <span class="material-symbols-outlined text-[18px] text-primary">cloud_sync</span>
+      Proses Sinkronisasi
+    </div>
+    <div id="sync-detail-badge" class="badge badge-primary badge-sm badge-outline">0%</div>
+  </div>
+  
+  <div class="flex items-center gap-3 mb-3">
+    <span class="loading loading-spinner loading-md text-primary" id="sync-detail-spinner"></span>
+    <div class="text-xs font-medium text-base-content/80 flex flex-col">
+      <span id="sync-detail-text">Menyiapkan antrean...</span>
+      <span id="sync-detail-id" class="font-mono text-[11px] opacity-70"></span>
+    </div>
+  </div>
+  
+  <progress id="sync-detail-progress" class="progress progress-primary w-full h-1.5" value="0" max="100"></progress>
+</div>
+
+<script>
+function changeLimit(limit, shopId) {
+    window.location.href = '<?= burl; ?>/panel/orders?shop_id=' + shopId + '&limit=' + limit;
+}
+
+function selectShop(element, id, name, logo) {
+    document.getElementById('selectedShopId').value = id;
+    document.getElementById('selectedShopDisplay').innerHTML = `
+        <img src="${logo}" class="w-6 h-6 rounded object-cover" />
+        <span class="truncate flex-1 text-left">${name}</span>
+        <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
+    `;
+    
+    const menu = element.closest('.menu');
+    menu.querySelectorAll('a').forEach(a => a.classList.remove('bg-base-200'));
+    element.classList.add('bg-base-200');
+    document.activeElement.blur();
+    
+    syncOrders(id);
+}
+
+function syncOrders(id, sentinel = '', pageNumber = 1, syncMode = '') {
+    const loader = document.getElementById('page-loader');
+    if (loader && !sentinel) {
+        loader.style.display = 'flex';
+        loader.style.opacity = '1';
+        loader.querySelector('p').innerText = 'Sedang mengecek database...';
+    }
+
+    const formData = new FormData();
+    formData.append('shop_id', id);
+    formData.append('page_number', pageNumber);
+    if (sentinel) {
+        formData.append('next_page_sentinel', sentinel);
+    }
+    if (syncMode) {
+        formData.append('sync_mode', syncMode);
+    }
+
+    fetch('<?= burl; ?>/procorders/sync_index', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status === 'success') {
+            if (data.has_next && data.next_page_sentinel) {
+                let currentMode = syncMode || (data.is_empty_mode ? 'full' : 'diff');
+                if (!sentinel && loader) {
+                    // Ini adalah tarikan pertama, tampilkan status database
+                    if (data.is_empty_mode) {
+                        loader.querySelector('p').innerText = 'Database kosong...';
+                        setTimeout(() => {
+                            if (loader) loader.querySelector('p').innerText = 'Penarikan data pertama kali membutuhkan lebih banyak waktu mohon tunggu.. (' + (data.progress_percent || 0) + '%)';
+                            setTimeout(() => {
+                                syncOrders(id, data.next_page_sentinel, pageNumber + 1, currentMode);
+                            }, 1000);
+                        }, 1500);
+                    } else {
+                        loader.querySelector('p').innerText = 'Database ditemukan';
+                        setTimeout(() => {
+                            if (loader) loader.querySelector('p').innerText = 'Sedang sinkronisasi data pesanan..';
+                            setTimeout(() => {
+                                syncOrders(id, data.next_page_sentinel, pageNumber + 1, currentMode);
+                            }, 1000);
+                        }, 1500);
+                    }
+                } else {
+                    // Tarikan selanjutnya (halaman 2 dst), update persentase
+                    if (currentMode === 'full' && loader) {
+                        loader.querySelector('p').innerText = 'Penarikan data pertama kali membutuhkan lebih banyak waktu mohon tunggu.. (' + (data.progress_percent || 0) + '%)';
+                    }
+                    setTimeout(() => {
+                        syncOrders(id, data.next_page_sentinel, pageNumber + 1, currentMode);
+                    }, 1000);
+                }
+            } else {
+                window.location.href = '<?= burl; ?>/panel/orders?shop_id=' + id;
+            }
+        } else {
+            if (loader) {
+                loader.style.opacity = '0';
+                setTimeout(() => loader.style.display = 'none', 300);
+            }
+            if (data.debug) {
+                alert(data.message + '\n\nDEBUG INFO:\n' + JSON.stringify(data.debug, null, 2));
+            } else {
+                alert(data.message);
+            }
+        }
+    })
+    .catch(err => {
+        if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.display = 'none', 300);
+        }
+        alert('Terjadi kesalahan saat menarik data pesanan.');
+    });
+}
+
+function startDetailSync(shopId) {
+    const queueKey = 'sync_queue_' + shopId;
+    const totalKey = 'sync_queue_total_' + shopId;
+    
+    const runQueue = () => {
+        let queue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+        let total = parseInt(localStorage.getItem(totalKey) || '0');
+        
+        const card = document.getElementById('sync-detail-card');
+        const badge = document.getElementById('sync-detail-badge');
+        const progress = document.getElementById('sync-detail-progress');
+        const textLabel = document.getElementById('sync-detail-text');
+        const textId = document.getElementById('sync-detail-id');
+        const spinner = document.getElementById('sync-detail-spinner');
+        
+        if (queue.length === 0) {
+            // Selesai
+            if (card && !card.classList.contains('opacity-0')) {
+                textLabel.innerText = 'Selesai sinkronisasi!';
+                textId.innerText = '';
+                spinner.classList.remove('loading-spinner');
+                spinner.classList.add('loading-dots');
+                
+                setTimeout(() => {
+                    card.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+                }, 3000);
+            }
+            return;
+        }
+        
+        if (total === 0) {
+            total = queue.length;
+            localStorage.setItem(totalKey, total);
+        }
+        
+        // Munculkan card jika belum
+        card.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+        progress.max = total;
+        
+        const currentOrderId = queue.shift();
+        localStorage.setItem(queueKey, JSON.stringify(queue)); // Simpan sisa queue
+        
+        let completed = total - queue.length; 
+        
+        textLabel.innerText = 'Sedang mengambil data';
+        textId.innerText = currentOrderId;
+        
+        const formData = new FormData();
+        formData.append('shop_id', shopId);
+        formData.append('order_id', currentOrderId);
+        
+        fetch('<?= burl; ?>/procorders/sync_detail', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success' && data.html) {
+                // Temukan baris tabel lama jika kebetulan ada di layar
+                const oldRow = document.getElementById('order-row-' + currentOrderId);
+                if (oldRow) {
+                    const temp = document.createElement('table');
+                    temp.innerHTML = '<tbody>' + data.html + '</tbody>';
+                    const newRow = temp.querySelector('tr');
+                    
+                    if (newRow) {
+                        oldRow.style.opacity = '0.5';
+                        setTimeout(() => {
+                            oldRow.replaceWith(newRow);
+                        }, 150);
+                    }
+                }
+            }
+            
+            const pct = Math.round((completed / total) * 100);
+            badge.innerText = pct + '%';
+            progress.value = completed;
+            
+            setTimeout(runQueue, 200);
+        })
+        .catch(err => {
+            console.error('Error detail sync for ' + currentOrderId, err);
+            const pct = Math.round((completed / total) * 100);
+            badge.innerText = pct + '%';
+            progress.value = completed;
+            setTimeout(runQueue, 200);
+        });
+    };
+    
+    // Cek local storage
+    let existingQueue = JSON.parse(localStorage.getItem(queueKey) || '[]');
+    
+    if (existingQueue.length === 0) {
+        // Tarik antrean dari backend
+        const fd = new FormData();
+        fd.append('shop_id', shopId);
+        fetch('<?= burl; ?>/procorders/get_sync_queue', {
+            method: 'POST',
+            body: fd
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.status === 'success' && d.queue && d.queue.length > 0) {
+                localStorage.setItem(queueKey, JSON.stringify(d.queue));
+                localStorage.setItem(totalKey, d.queue.length.toString());
+                runQueue();
+            }
+        })
+        .catch(e => console.error("Gagal mendapatkan antrean sinkronisasi", e));
+    } else {
+        // Lanjutkan sisa antrean di local storage
+        runQueue();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const activeShopId = '<?= $data['active_shop_id'] ?? '' ?>';
+    
+    if (activeShopId && !sessionStorage.getItem('synced_orders_' + activeShopId)) {
+        sessionStorage.setItem('synced_orders_' + activeShopId, '1');
+        syncOrders(activeShopId);
+    } else {
+        const loader = document.getElementById('page-loader');
+        if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.style.display = 'none';
+                
+                // Setelah loading menghilang, jalankan background sync detail
+                if (activeShopId) {
+                    startDetailSync(activeShopId);
+                }
+            }, 300);
+        }
+    }
+});
+</script>
