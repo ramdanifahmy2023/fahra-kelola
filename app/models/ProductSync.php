@@ -27,6 +27,7 @@ class ProductSync extends BaseModel {
     if ($shopId < 1 || $cookie === '') return ['ok' => false, 'message' => 'Cookie toko kosong.'];
     require_once __DIR__ . '/Product.php';
     require_once __DIR__ . '/ProductModel.php';
+    require_once __DIR__ . '/StockAlert.php';
     require_once __DIR__ . '/ShopeeCurl.php';
     $this->ensureCheckpointSchema();
     $shopee = new ShopeeCurl();
@@ -99,7 +100,8 @@ class ProductSync extends BaseModel {
     $this->db->bind('shop_id', $shopId);
     $this->db->exe();
     if ($mode === 'full' && $cursor === '') $this->cleanup($shopId, array_keys($seenProducts), array_keys($seenModels));
-    return ['ok' => true, 'pages' => $page, 'added' => $added, 'updated' => $updated, 'total' => $total ?: count($seenProducts)];
+    $criticalCount = (new StockAlert())->reconcileShop($shopId);
+    return ['ok' => true, 'pages' => $page, 'added' => $added, 'updated' => $updated, 'total' => $total ?: count($seenProducts), 'critical_count' => $criticalCount];
   }
 
   private function saveCheckpoint($shopId, $mode, $cursor, $page, array $products, array $models, $status, $error) {

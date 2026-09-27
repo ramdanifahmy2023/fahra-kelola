@@ -15,7 +15,10 @@ class Dashboard extends BaseModel {
       (SELECT COUNT(*) FROM customers) AS total_customers,
       (SELECT MAX(updated_at) FROM shops) AS shops_updated_at,
       (SELECT MAX(updated_at) FROM orders) AS orders_updated_at,
-      (SELECT MAX(modify_time) FROM products WHERE deleted_at IS NULL) AS products_updated_at");
+      (SELECT MAX(modify_time) FROM products WHERE deleted_at IS NULL) AS products_updated_at,
+      (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND status = 1 AND total_stock = 0) AS stock_out_count,
+      (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND status = 1 AND total_stock > 0 AND total_stock < 15) AS stock_low_count,
+      (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND status = 1 AND total_stock < 15) AS stock_critical_count");
     return $this->db->single();
   }
 
@@ -56,6 +59,17 @@ class Dashboard extends BaseModel {
         AND (orders.order_sn IS NOT NULL OR orders.created_at IS NOT NULL)
       ORDER BY COALESCE(orders.created_at, orders.updated_at) DESC, orders.id DESC
       LIMIT {$limit}");
+    return $this->db->getAll();
+  }
+
+  public function lowStockProducts($limit = 10) {
+    $limit = max(1, min(50, (int)$limit));
+    $this->db->query("SELECT p.id, p.shop_id, p.name, p.total_stock, s.name AS shop_name FROM products p LEFT JOIN shops s ON s.id = p.shop_id WHERE p.deleted_at IS NULL AND p.status = 1 AND p.total_stock < 15 ORDER BY p.total_stock ASC, p.name ASC LIMIT {$limit}");
+    return $this->db->getAll();
+  }
+
+  public function lowStockByShop() {
+    $this->db->query("SELECT s.id AS shop_id, s.name AS shop_name, COALESCE(SUM(p.total_stock = 0), 0) AS stock_out_count, COALESCE(SUM(p.total_stock > 0 AND p.total_stock < 15), 0) AS stock_low_count, COUNT(p.id) AS stock_critical_count FROM shops s LEFT JOIN products p ON p.shop_id = s.id AND p.deleted_at IS NULL AND p.status = 1 AND p.total_stock < 15 GROUP BY s.id, s.name ORDER BY s.name ASC");
     return $this->db->getAll();
   }
 }

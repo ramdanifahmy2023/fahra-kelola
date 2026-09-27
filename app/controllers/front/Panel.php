@@ -9,6 +9,8 @@ class Panel extends Controller {
     $data['summary'] = $dashboard->summary();
     $data['shop_health'] = $dashboard->shopHealth();
     $data['recent_orders'] = $dashboard->recentOrders();
+    $data['low_stock_products'] = $dashboard->lowStockProducts();
+    $data['low_stock_by_shop'] = $dashboard->lowStockByShop();
     
     $this->v('panel/templates/header', $data);
     $this->v('panel/index', $data);
@@ -88,10 +90,12 @@ class Panel extends Controller {
     // Ambil produk berdasarkan toko
     if ($activeShopId) {
         $productModel = $this->m('Product');
-        $data['total_products'] = $productModel->countWhere(['shop_id' => $activeShopId]);
+        $criticalFilter = ($_GET['stock'] ?? '') === 'critical';
+        $data['stock_filter'] = $criticalFilter ? 'critical' : '';
+        $data['total_products'] = $criticalFilter ? $productModel->countCritical($activeShopId) : $productModel->countWhere(['shop_id' => $activeShopId]);
         $data['total_pages'] = ceil($data['total_products'] / $limit);
         $data['current_page'] = $page;
-        $data['products'] = $productModel->findWherePaginated(['shop_id' => $activeShopId], $limit, $offset);
+        $data['products'] = $criticalFilter ? $productModel->findCriticalPaginated($activeShopId, $limit, $offset) : $productModel->findWherePaginated(['shop_id' => $activeShopId], $limit, $offset);
     } else {
         $data['products'] = [];
         $data['total_products'] = 0;

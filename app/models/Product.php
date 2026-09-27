@@ -31,4 +31,18 @@ class Product extends BaseModel {
         foreach ($ids as $index => $id) $this->db->bind('product_id_' . $index, $id);
         return $this->db->getAll();
     }
+
+    public function countCritical($shopId = 0) {
+        $where = 'deleted_at IS NULL AND status = 1 AND total_stock < 15';
+        if ((int)$shopId > 0) $where .= ' AND shop_id = :shop_id';
+        $this->db->query("SELECT COUNT(*) AS total FROM {$this->table} WHERE {$where}");
+        if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+        return (int)($this->db->single()['total'] ?? 0);
+    }
+
+    public function findCriticalPaginated($shopId, $limit = 10, $offset = 0) {
+        $this->db->query("SELECT * FROM {$this->table} WHERE shop_id = :shop_id AND deleted_at IS NULL AND status = 1 AND total_stock < 15 ORDER BY total_stock ASC, name ASC LIMIT " . (int)$limit . " OFFSET " . (int)$offset);
+        $this->db->bind('shop_id', (int)$shopId);
+        return $this->db->getAll();
+    }
 }

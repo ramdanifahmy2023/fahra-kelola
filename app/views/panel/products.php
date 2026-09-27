@@ -11,13 +11,18 @@ foreach (($data['shops'] ?? []) as $s) {
   if ((int)$s['id'] === (int)($data['active_shop_id'] ?? 0)) { $activeShop = $s; break; }
 }
 if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
+$isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 ?>
 <div class="mb-5 flex items-center justify-between">
   <div>
-    <h2 class="text-2xl font-bold mb-1 text-base-content">Daftar Produk</h2>
-    <p class="opacity-70 text-sm">Kelola semua produk dari seluruh toko cabang Anda di satu tempat.</p>
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="text-2xl font-bold mb-1 text-base-content"><?= $isCriticalFilter ? 'Stok Kritis' : 'Daftar Produk'; ?></h2>
+      <?php if ($isCriticalFilter): ?><span class="badge badge-error badge-sm gap-1"><span class="material-symbols-outlined text-[14px]">warning</span>Di bawah 15</span><?php endif; ?>
+    </div>
+    <p class="opacity-70 text-sm"><?= $isCriticalFilter ? 'Produk aktif dengan stok 0–14 yang perlu ditangani.' : 'Kelola semua produk dari seluruh toko cabang Anda di satu tempat.'; ?></p>
   </div>
   <div class="flex w-full max-w-sm items-center gap-2">
+  <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm gap-1" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>
   <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
     <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
   </button>
@@ -74,13 +79,13 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
           <td colspan="6" class="text-center py-10">
             <div class="flex flex-col items-center justify-center text-base-content/50">
               <span class="material-symbols-outlined text-[48px] mb-2 opacity-50">inventory_2</span>
-              <p>Belum ada produk yang ditarik dari Shopee.</p>
+              <p><?= $isCriticalFilter ? 'Tidak ada produk aktif dengan stok di bawah 15.' : 'Belum ada produk yang ditarik dari Shopee.'; ?></p>
             </div>
           </td>
         </tr>
         <?php else: ?>
         <?php foreach ($data['products'] as $p): ?>
-        <tr class="hover">
+        <tr id="product-<?= (int)$p['id']; ?>" class="hover">
           <td>
             <div class="flex items-center gap-3">
               <div class="avatar">
@@ -156,11 +161,12 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
       $total = $data['total_pages'];
       $shopId = $data['active_shop_id'];
       $limit = $data['limit'];
+      $stockQuery = $isCriticalFilter ? '&stock=critical' : '';
       
       // Previous Button
       if ($current > 1): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current - 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">«</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current - 1 ?><?= $stockQuery; ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">«</a>
       <?php else: ?>
         <button class="join-item btn btn-sm btn-disabled border-base-300">«</button>
       <?php endif; ?>
@@ -172,7 +178,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
       // Next Button
       if ($current < $total): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current + 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">»</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current + 1 ?><?= $stockQuery; ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">»</a>
       <?php else: ?>
         <button class="join-item btn btn-sm btn-disabled border-base-300">»</button>
       <?php endif; ?>
@@ -213,7 +219,11 @@ function pauseProductSync() {
 }
 
 function changeLimit(limit, shopId) {
-    window.location.href = '<?= burl; ?>/panel/products?shop_id=' + shopId + '&limit=' + limit;
+    const url = new URL('<?= burl; ?>/panel/products', window.location.origin);
+    url.searchParams.set('shop_id', shopId);
+    url.searchParams.set('limit', limit);
+    <?php if ($isCriticalFilter): ?>url.searchParams.set('stock', 'critical');<?php endif; ?>
+    window.location.href = url.toString();
 }
 
 function selectShop(element, id, name, logo) {
@@ -446,5 +456,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const loader = document.getElementById('page-loader');
     if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 300); }
     if (activeShopId) refreshBackgroundStatus(activeShopId);
+    const highlight = currentUrl.searchParams.get('highlight');
+    if (highlight) {
+        const row = document.getElementById('product-' + highlight);
+        if (row) {
+            row.classList.add('bg-warning/20');
+            row.scrollIntoView({behavior: 'smooth', block: 'center'});
+            setTimeout(() => row.classList.remove('bg-warning/20'), 3500);
+        }
+    }
 });
 </script>

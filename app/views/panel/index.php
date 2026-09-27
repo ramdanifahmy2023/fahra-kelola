@@ -7,6 +7,11 @@ $totalShops = (int)($summary['total_shops'] ?? 0);
 $connectedShops = (int)($summary['connected_shops'] ?? 0);
 $pendingOrderDetails = (int)($summary['pending_order_details'] ?? 0);
 $completedOrderValue = (int)($summary['completed_order_value'] ?? 0);
+$stockOutCount = (int)($summary['stock_out_count'] ?? 0);
+$stockLowCount = (int)($summary['stock_low_count'] ?? 0);
+$stockCriticalCount = (int)($summary['stock_critical_count'] ?? 0);
+$lowStockProducts = $data['low_stock_products'] ?? [];
+$lowStockByShop = $data['low_stock_by_shop'] ?? [];
 $formatMoney = static function ($amount) {
   return 'Rp ' . number_format((int)$amount, 0, ',', '.');
 };
@@ -152,7 +157,7 @@ $statusClass = static function ($status) {
         <h3 class="font-bold text-base-content">Data order masih dalam proses sinkronisasi detail</h3>
         <p class="mt-1 text-sm text-base-content/65"><?= number_format($pendingOrderDetails); ?> order sudah terdaftar, tetapi detailnya belum lengkap.</p>
       </div>
-      <a href="<?= burl; ?>/panel/orders?sync=1" class="btn btn-sm btn-warning shrink-0">Lanjutkan sync</a>
+      <a href="<?= burl; ?>/panel/orders" class="btn btn-sm btn-warning shrink-0">Buka pesanan</a>
     </div>
   </div>
 <?php endif; ?>
@@ -180,6 +185,28 @@ $statusClass = static function ($status) {
   </div>
 </div>
 
+<section class="mt-6 rounded-2xl border border-error/20 bg-base-100 shadow-sm">
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-base-content/10 px-5 py-4">
+    <div class="flex items-start gap-3"><span class="material-symbols-outlined mt-0.5 text-2xl <?= $stockCriticalCount > 0 ? 'text-error' : 'text-success'; ?>"><?= $stockCriticalCount > 0 ? 'notification_important' : 'check_circle'; ?></span><div><h3 class="font-black text-base-content">Monitoring stok kritis</h3><p class="mt-1 text-xs text-base-content/55"><?= $stockCriticalCount > 0 ? 'Ada produk aktif yang perlu segera diperiksa.' : 'Tidak ada stok aktif di bawah batas 15.'; ?></p></div></div>
+    <a href="<?= burl; ?>/panel/products?stock=critical" class="btn btn-sm <?= $stockCriticalCount > 0 ? 'btn-error text-error-content' : 'btn-ghost'; ?>">Lihat produk</a>
+  </div>
+  <div class="grid grid-cols-1 gap-3 p-5 sm:grid-cols-3">
+    <div class="rounded-xl border border-error/20 bg-error/5 p-3"><div class="text-[10px] font-bold uppercase tracking-wide text-error/70">Stok habis</div><div class="mt-1 text-2xl font-black text-error"><?= number_format($stockOutCount); ?></div><div class="text-[11px] text-base-content/55">produk aktif</div></div>
+    <div class="rounded-xl border border-warning/20 bg-warning/5 p-3"><div class="text-[10px] font-bold uppercase tracking-wide text-warning/80">Stok 1–14</div><div class="mt-1 text-2xl font-black text-warning-content"><?= number_format($stockLowCount); ?></div><div class="text-[11px] text-base-content/55">produk perlu dipantau</div></div>
+    <div class="rounded-xl border border-base-content/10 bg-base-200/40 p-3"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/50">Total kritis</div><div class="mt-1 text-2xl font-black"><?= number_format($stockCriticalCount); ?></div><div class="text-[11px] text-base-content/55">stok di bawah 15</div></div>
+  </div>
+  <?php if ($lowStockByShop): ?>
+    <div class="grid grid-cols-1 gap-2 border-t border-base-content/10 px-5 py-4 sm:grid-cols-2">
+      <?php foreach ($lowStockByShop as $stockShop): if ((int)$stockShop['stock_critical_count'] < 1) continue; ?>
+        <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$stockShop['shop_id']; ?>&stock=critical" class="flex items-center justify-between gap-3 rounded-xl border border-base-content/10 px-3 py-2.5 hover:bg-base-200"><span class="truncate text-xs font-bold"><?= htmlspecialchars($stockShop['shop_name'] ?: 'Toko tanpa nama'); ?></span><span class="shrink-0 text-[11px] text-base-content/60"><strong class="text-error"><?= number_format((int)$stockShop['stock_out_count']); ?></strong> habis · <strong class="text-warning-content"><?= number_format((int)$stockShop['stock_low_count']); ?></strong> kritis</span></a>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+  <?php if ($lowStockProducts): ?>
+    <div class="border-t border-base-content/10 px-5 py-4"><div class="mb-2 text-[10px] font-bold uppercase tracking-wide text-base-content/45">Produk yang perlu ditangani</div><div class="grid gap-2 sm:grid-cols-2"><?php foreach ($lowStockProducts as $product): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$product['shop_id']; ?>&stock=critical&highlight=<?= urlencode($product['id']); ?>" class="flex min-w-0 items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-base-200"><span class="min-w-0 truncate text-xs" title="<?= htmlspecialchars($product['name']); ?>"><?= htmlspecialchars($product['name']); ?></span><span class="badge <?= (int)$product['total_stock'] === 0 ? 'badge-error' : 'badge-warning'; ?> badge-sm shrink-0"><?= (int)$product['total_stock'] === 0 ? 'Habis' : (int)$product['total_stock']; ?></span></a><?php endforeach; ?></div></div>
+  <?php endif; ?>
+</section>
+
 <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
   <section class="rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
     <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
@@ -206,7 +233,7 @@ $statusClass = static function ($status) {
   </section>
 
   <section class="rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
-    <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Data pelanggan</h3><p class="mt-1 text-xs text-base-content/55">Pelanggan yang sudah terbentuk dari order detail.</p></div><a href="<?= burl; ?>/panel/customers?sync=1" class="btn btn-ghost btn-sm">Sync</a></div>
+    <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Data pelanggan</h3><p class="mt-1 text-xs text-base-content/55">Pelanggan yang sudah terbentuk dari order detail.</p></div><a href="<?= burl; ?>/panel/customers" class="btn btn-ghost btn-sm">Buka pelanggan</a></div>
     <div class="p-5"><div class="text-4xl font-black tracking-tight"><?= number_format((int)($summary['total_customers'] ?? 0)); ?></div><p class="mt-1 text-sm text-base-content/55">Pelanggan tersimpan</p><div class="mt-5 h-2 overflow-hidden rounded-full bg-base-200"><div class="h-full rounded-full bg-primary" style="width: <?= $totalShops > 0 && (int)($summary['total_customers'] ?? 0) > 0 ? '100' : '0'; ?>%"></div></div><p class="mt-2 text-xs text-base-content/50">Sync pelanggan berjalan dari menu Pelanggan.</p></div>
   </section>
 </div>
