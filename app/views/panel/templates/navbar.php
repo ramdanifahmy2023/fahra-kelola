@@ -12,6 +12,16 @@
     <a class="btn btn-ghost px-2 text-lg font-black tracking-tight text-primary lg:hidden"><?= app_name; ?></a>
   </div>
   <div class="panel-navbar-actions flex-none flex items-center gap-1.5 sm:gap-2">
+    <div class="dropdown dropdown-end" id="theme-menu">
+      <button type="button" id="theme-menu-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Pilih tema" aria-expanded="false" aria-controls="theme-menu-list" tabindex="0">
+        <span id="theme-menu-icon" class="material-symbols-outlined" aria-hidden="true">contrast</span>
+      </button>
+      <ul id="theme-menu-list" tabindex="-1" role="menu" aria-label="Pilihan tema" class="menu dropdown-content z-50 mt-2 w-48 rounded-2xl border border-base-content/10 bg-base-100 p-2 shadow-2xl">
+        <li><button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false"><span class="material-symbols-outlined text-base">routine</span><span class="flex-1 text-left">Sistem</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
+        <li><button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false"><span class="material-symbols-outlined text-base">light_mode</span><span class="flex-1 text-left">Terang</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
+        <li><button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false"><span class="material-symbols-outlined text-base">dark_mode</span><span class="flex-1 text-left">Gelap</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
+      </ul>
+    </div>
     <div class="dropdown dropdown-end" id="notification-menu">
       <button type="button" id="notification-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Notifikasi" aria-expanded="false" aria-controls="notification-panel" tabindex="0">
         <span class="material-symbols-outlined notification-bell-icon" aria-hidden="true">notifications</span>
@@ -104,6 +114,26 @@
 </style>
 <script>
 (() => {
+  const themeButton = document.getElementById('theme-menu-button');
+  const themeMenu = document.getElementById('theme-menu');
+  const themeIcon = document.getElementById('theme-menu-icon');
+  const themeChoices = Array.from(document.querySelectorAll('[data-theme-choice]'));
+  const themeIcons = { system: 'routine', light: 'light_mode', dark: 'dark_mode' };
+  const themeLabels = { system: 'Sistem', light: 'Terang', dark: 'Gelap' };
+  function renderTheme(mode) {
+    const selected = mode || window.shopdashTheme?.getMode?.() || 'system';
+    if (themeIcon) themeIcon.textContent = themeIcons[selected] || 'contrast';
+    if (themeButton) themeButton.setAttribute('aria-label', 'Pilih tema, ' + (themeLabels[selected] || 'Sistem'));
+    themeChoices.forEach(choice => {
+      const active = choice.dataset.themeChoice === selected;
+      choice.setAttribute('aria-checked', active ? 'true' : 'false');
+      choice.querySelector('.theme-choice-check')?.classList.toggle('hidden', !active);
+    });
+  }
+  themeChoices.forEach(choice => choice.addEventListener('click', () => window.shopdashTheme?.setMode(choice.dataset.themeChoice)));
+  window.addEventListener('shopdash:theme', event => renderTheme(event.detail?.mode));
+  renderTheme();
+
   const badge = document.getElementById('notification-badge');
   const summary = document.getElementById('notification-summary');
   const list = document.getElementById('notification-list');

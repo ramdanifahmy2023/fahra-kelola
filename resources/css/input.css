@@ -5,36 +5,126 @@
 @source "../../public/assets/js/**/*.js";
 
 @plugin "daisyui/theme" {
-  name: "cupcake";
-  default: false;
+  name: "shopdash-light";
+  default: true;
   prefersdark: false;
   color-scheme: "light";
-  --color-base-100: oklch(98% 0.002 247.839);
-  --color-base-200: oklch(96% 0.003 264.542);
-  --color-base-300: oklch(92% 0.006 264.531);
-  --color-base-content: oklch(21% 0.034 264.665);
-  --color-primary: oklch(70% 0 0);
-  --color-primary-content: oklch(14% 0 0);
-  --color-secondary: oklch(77% 0.152 181.912);
-  --color-secondary-content: oklch(27% 0.046 192.524);
-  --color-accent: oklch(70% 0.04 256.788);
-  --color-accent-content: oklch(12% 0.042 264.695);
-  --color-neutral: oklch(44% 0.03 256.802);
-  --color-neutral-content: oklch(98% 0.002 247.839);
-  --color-info: oklch(74% 0.16 232.661);
-  --color-info-content: oklch(29% 0.066 243.157);
-  --color-success: oklch(76% 0.177 163.223);
-  --color-success-content: oklch(26% 0.051 172.552);
-  --color-warning: oklch(82% 0.189 84.429);
-  --color-warning-content: oklch(27% 0.077 45.635);
-  --color-error: oklch(71% 0.202 349.761);
-  --color-error-content: oklch(28% 0.109 3.907);
-  --radius-selector: 0.25rem;
-  --radius-field: 1rem;
+  --color-base-100: #fffdf9;
+  --color-base-200: #f7f1e8;
+  --color-base-300: #ebe6dd;
+  --color-base-content: #1a1714;
+  --color-primary: #e98425;
+  --color-primary-content: #1a1714;
+  --color-secondary: #ff6b3d;
+  --color-secondary-content: #1a1714;
+  --color-accent: #6cba5b;
+  --color-accent-content: #10230d;
+  --color-neutral: #1a1714;
+  --color-neutral-content: #f5efe4;
+  --color-info: #4a86e9;
+  --color-info-content: #07162d;
+  --color-success: #6cba5b;
+  --color-success-content: #10230d;
+  --color-warning: #f0b54a;
+  --color-warning-content: #332207;
+  --color-error: #d8523e;
+  --color-error-content: #0e0d0c;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.75rem;
   --radius-box: 1rem;
   --size-selector: 0.25rem;
   --size-field: 0.25rem;
   --border: 1.5px;
   --depth: 1;
   --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "shopdash-dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: "dark";
+  --color-base-100: #1a1714;
+  --color-base-200: #0e0d0c;
+  --color-base-300: #3a322a;
+  --color-base-content: #f5efe4;
+  --color-primary: #e98425;
+  --color-primary-content: #21150a;
+  --color-secondary: #ff7a52;
+  --color-secondary-content: #2a1008;
+  --color-accent: #9ed88f;
+  --color-accent-content: #10230d;
+  --color-neutral: #0e0d0c;
+  --color-neutral-content: #f5efe4;
+  --color-info: #8db8ff;
+  --color-info-content: #07162d;
+  --color-success: #9ed88f;
+  --color-success-content: #10230d;
+  --color-warning: #ffd27c;
+  --color-warning-content: #332207;
+  --color-error: #ff8c7a;
+  --color-error-content: #2a1008;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1.5px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@layer base {
+  :root,
+  [data-theme="shopdash-light"] {
+    --sd-stage: #0e0d0c;
+    --sd-stage-2: #1a1714;
+    --sd-paper: #fffdf9;
+    --sd-ink: #1a1714;
+    --sd-muted: #6c6660;
+    --sd-line: #ebe6dd;
+    --sd-accent: #e98425;
+    --sd-accent-2: #ff6b3d;
+    --sd-tile-cream: #ffe9bf;
+    --sd-tile-peach: #ffe1d9;
+    --sd-tile-lavender: #f3e6ff;
+    --sd-tile-green: #d2eecb;
+    --sd-tile-blue: #d6e7ff;
+    --sd-tile-pink: #ffd6f1;
+  }
+
+  [data-theme="shopdash-dark"] {
+    --sd-stage: #0e0d0c;
+    --sd-stage-2: #1a1714;
+    --sd-paper: #1a1714;
+    --sd-ink: #f5efe4;
+    --sd-muted: #b9aea2;
+    --sd-line: #3a322a;
+    --sd-accent: #e98425;
+    --sd-accent-2: #ff7a52;
+    --sd-tile-cream: #59411e;
+    --sd-tile-peach: #593127;
+    --sd-tile-lavender: #473552;
+    --sd-tile-green: #2f4a2b;
+    --sd-tile-blue: #263c5c;
+    --sd-tile-pink: #542b45;
+  }
+
+  html {
+    color-scheme: light;
+    background: var(--color-base-200);
+  }
+
+  html[data-theme="shopdash-dark"] { color-scheme: dark; }
+}
+
+@layer components {
+  .sd-accent-surface { background: var(--sd-accent); color: var(--color-primary-content); }
+  .sd-stage-surface { background: var(--sd-stage); color: var(--color-neutral-content); }
+  .sd-tile-cream { background: var(--sd-tile-cream); }
+  .sd-tile-peach { background: var(--sd-tile-peach); }
+  .sd-tile-lavender { background: var(--sd-tile-lavender); }
+  .sd-tile-green { background: var(--sd-tile-green); }
+  .sd-tile-blue { background: var(--sd-tile-blue); }
+  .sd-tile-pink { background: var(--sd-tile-pink); }
 }

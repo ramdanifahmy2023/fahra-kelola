@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="cupcake">
+<html lang="id" data-theme="shopdash-light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +7,36 @@
   <link rel="icon" type="image/svg+xml" href="<?= images; ?>/favicon.svg">
   <link rel="apple-touch-icon" href="<?= images; ?>/favicon.svg">
   <meta name="theme-color" content="#a3a3a3">
+  <script>
+    (() => {
+      const key = 'shopdash-theme';
+      const valid = ['system', 'light', 'dark'];
+      const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+      const read = () => { try { const value = window.localStorage.getItem(key); return valid.includes(value) ? value : 'system'; } catch (_) { return 'system'; } };
+      const resolve = mode => mode === 'system' ? (media?.matches ? 'dark' : 'light') : mode;
+      const update = mode => {
+        const resolved = resolve(mode);
+        document.documentElement.dataset.theme = 'shopdash-' + resolved;
+        document.documentElement.dataset.themeMode = mode;
+        document.documentElement.style.colorScheme = resolved;
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.content = resolved === 'dark' ? '#0e0d0c' : '#fffdf9';
+        window.dispatchEvent(new CustomEvent('shopdash:theme', { detail: { mode, resolved } }));
+      };
+      window.shopdashTheme = {
+        getMode: read,
+        setMode: mode => {
+          const next = valid.includes(mode) ? mode : 'system';
+          try { window.localStorage.setItem(key, next); } catch (_) {}
+          update(next);
+        },
+        resolve
+      };
+      if (media?.addEventListener) media.addEventListener('change', () => { if (read() === 'system') update('system'); });
+      else if (media) media.addListener(() => { if (read() === 'system') update('system'); });
+      update(read());
+    })();
+  </script>
   <link rel="stylesheet" href="<?= assets; ?>/css/style.css">
   <link rel="stylesheet" href="<?= web_icons; ?>/material-symbols.css">
   <style>
