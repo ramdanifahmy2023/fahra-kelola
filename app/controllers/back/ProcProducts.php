@@ -66,7 +66,7 @@ class ProcProducts extends Controller {
         $monitor = $this->m('ProductBoostMonitor');
         $summary = $monitor->summary($shopId);
         if (!empty($summary['cooldown_active'])) {
-            $this->json(['status' => 'error', 'message' => 'Cooldown toko masih aktif sampai ' . $summary['next_allowed_at'] . ' UTC.', 'summary' => $summary], 409);
+            $this->json(['status' => 'error', 'message' => 'Batch toko masih diproses. Coba lagi setelah ' . $summary['next_allowed_at'] . ' UTC.', 'summary' => $summary], 409);
         }
         if (count($productIds) > (int)$summary['remaining_count']) {
             $this->json(['status' => 'error', 'message' => 'Pilihan melebihi sisa kuota lokal toko.', 'summary' => $summary], 422);

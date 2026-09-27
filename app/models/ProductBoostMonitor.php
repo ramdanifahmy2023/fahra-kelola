@@ -42,24 +42,37 @@ class ProductBoostMonitor extends BaseModel {
 
   public function summary($shopId) {
     $this->ensureSchema();
-    $this->db->query("SELECT MAX(attempted_at) AS last_attempted_at, MAX(CASE WHEN status IN ('success', 'unknown') THEN attempted_at END) AS last_consuming_at, SUM(CASE WHEN status IN ('success', 'unknown') AND attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 HOUR) THEN 1 ELSE 0 END) AS used_count FROM product_boost_items WHERE shop_id = :shop_id");
+    // A crashed request must not leave a shop locked forever. The worker/API
+    // call normally completes in seconds; fifteen minutes is only a recovery
+    // guard for an interrupted request.
+    $this->db->query("UPDATE {$this->table} SET status = 'failed', completed_at = UTC_TIMESTAMP(), error_message = 'Batch ditandai gagal setelah melewati batas lock.' WHERE shop_id = :shop_id AND status = 'running' AND started_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)");
+    $this->db->bind('shop_id', (int)$shopId);
+    $this->db->exe();
+
+    $this->db->query("SELECT MAX(attempted_at) AS last_attempted_at, MAX(CASE WHEN status IN ('success', 'unknown') THEN attempted_at END) AS last_consuming_at, MIN(CASE WHEN status IN ('success', 'unknown') AND attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 HOUR) THEN attempted_at END) AS oldest_consuming_at, SUM(CASE WHEN status IN ('success', 'unknown') AND attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 HOUR) THEN 1 ELSE 0 END) AS used_count FROM product_boost_items WHERE shop_id = :shop_id");
     $this->db->bind('shop_id', (int)$shopId);
     $row = $this->db->single() ?: [];
-    $nextAllowedAt = null;
-    if (!empty($row['last_consuming_at'])) {
-      $nextAllowedAt = gmdate('Y-m-d H:i:s', strtotime($row['last_consuming_at'] . ' UTC') + (4 * 3600) + (15 * 60));
-    }
+    $quotaResetAt = null;
+    if (!empty($row['oldest_consuming_at'])) $quotaResetAt = gmdate('Y-m-d H:i:s', strtotime($row['oldest_consuming_at'] . ' UTC') + (4 * 3600));
+    $this->db->query("SELECT started_at FROM {$this->table} WHERE shop_id = :shop_id AND status = 'running' ORDER BY id DESC LIMIT 1");
+    $this->db->bind('shop_id', (int)$shopId);
+    $running = $this->db->single() ?: [];
+    $batchReleaseAt = !empty($running['started_at']) ? gmdate('Y-m-d H:i:s', strtotime($running['started_at'] . ' UTC') + (15 * 60)) : null;
     $now = time();
-    $nextTimestamp = $nextAllowedAt ? strtotime($nextAllowedAt . ' UTC') : 0;
+    $batchTimestamp = $batchReleaseAt ? strtotime($batchReleaseAt . ' UTC') : 0;
+    $usedCount = min(5, (int)($row['used_count'] ?? 0));
     return [
-      'used_count' => min(5, (int)($row['used_count'] ?? 0)),
-      'remaining_count' => max(0, 5 - min(5, (int)($row['used_count'] ?? 0))),
+      'used_count' => $usedCount,
+      'remaining_count' => max(0, 5 - $usedCount),
       'last_attempted_at' => $row['last_attempted_at'] ?? null,
       'last_consuming_at' => $row['last_consuming_at'] ?? null,
-      'next_allowed_at' => $nextAllowedAt,
-      'cooldown_active' => $nextTimestamp > $now,
-      'cooldown_seconds' => max(0, $nextTimestamp - $now),
-      'buffer_minutes' => 15
+      'quota_reset_at' => $quotaResetAt,
+      'next_allowed_at' => $batchReleaseAt,
+      'cooldown_active' => $batchTimestamp > $now,
+      'cooldown_seconds' => max(0, $batchTimestamp - $now),
+      'batch_active' => $batchTimestamp > $now,
+      'batch_lock_minutes' => 15,
+      'quota_window_hours' => 4
     ];
   }
 
@@ -95,17 +108,12 @@ class ProductBoostMonitor extends BaseModel {
       $this->db->bind('shop_id', (int)$shopId);
       $row = $this->db->single() ?: [];
       $used = min(5, (int)($row['used_count'] ?? 0));
-      $nextAllowedAt = !empty($row['last_consuming_at']) ? gmdate('Y-m-d H:i:s', strtotime($row['last_consuming_at'] . ' UTC') + (4 * 3600) + (15 * 60)) : null;
-      if ($nextAllowedAt && strtotime($nextAllowedAt . ' UTC') > time()) {
-        $this->db->commit();
-        return ['error' => 'Cooldown toko masih aktif sampai ' . $nextAllowedAt . ' UTC.'];
-      }
       if (count($products) > (5 - $used)) {
         $this->db->commit();
         return ['error' => 'Pilihan melebihi sisa kuota lokal toko.'];
       }
 
-      $this->db->query("SELECT id FROM {$this->table} WHERE shop_id = :shop_id AND status = 'running' LIMIT 1");
+      $this->db->query("SELECT id FROM {$this->table} WHERE shop_id = :shop_id AND status = 'running' AND started_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 15 MINUTE) LIMIT 1");
       $this->db->bind('shop_id', (int)$shopId);
       if ($this->db->single()) {
         $this->db->commit();
@@ -132,18 +140,22 @@ class ProductBoostMonitor extends BaseModel {
   }
 
   public function finishRun($runId, $errorMessage = null) {
-    $this->db->query("SELECT SUM(status = 'success') AS success_count, SUM(status = 'failed') AS failed_count, SUM(status = 'unknown') AS unknown_count, MAX(CASE WHEN status IN ('success', 'unknown') THEN attempted_at END) AS last_consuming_at FROM product_boost_items WHERE run_id = :run_id");
+    $this->db->query("SELECT shop_id, SUM(status = 'success') AS success_count, SUM(status = 'failed') AS failed_count, SUM(status = 'unknown') AS unknown_count FROM product_boost_items WHERE run_id = :run_id GROUP BY shop_id");
     $this->db->bind('run_id', (int)$runId);
     $counts = $this->db->single() ?: [];
-    $nextAllowedAt = !empty($counts['last_consuming_at']) ? gmdate('Y-m-d H:i:s', strtotime($counts['last_consuming_at'] . ' UTC') + (4 * 3600) + (15 * 60)) : null;
     $status = ((int)($counts['unknown_count'] ?? 0) > 0) ? 'partial' : (((int)($counts['failed_count'] ?? 0) > 0 && (int)($counts['success_count'] ?? 0) === 0) ? 'failed' : 'completed');
-    $this->db->query("UPDATE {$this->table} SET status = :status, success_count = :success_count, failed_count = :failed_count, unknown_count = :unknown_count, completed_at = UTC_TIMESTAMP(), next_allowed_at = :next_allowed_at, error_message = :error_message WHERE id = :run_id");
+    $this->db->query("UPDATE {$this->table} SET status = :status, success_count = :success_count, failed_count = :failed_count, unknown_count = :unknown_count, completed_at = UTC_TIMESTAMP(), error_message = :error_message WHERE id = :run_id");
     $this->db->bind('status', $status);
     $this->db->bind('success_count', (int)($counts['success_count'] ?? 0));
     $this->db->bind('failed_count', (int)($counts['failed_count'] ?? 0));
     $this->db->bind('unknown_count', (int)($counts['unknown_count'] ?? 0));
-    $this->db->bind('next_allowed_at', $nextAllowedAt);
     $this->db->bind('error_message', $errorMessage);
+    $this->db->bind('run_id', (int)$runId);
+    $this->db->exe();
+    $summary = !empty($counts['shop_id']) ? $this->summary((int)$counts['shop_id']) : [];
+    $nextAllowedAt = $summary['quota_reset_at'] ?? null;
+    $this->db->query("UPDATE {$this->table} SET next_allowed_at = :next_allowed_at WHERE id = :run_id");
+    $this->db->bind('next_allowed_at', $nextAllowedAt);
     $this->db->bind('run_id', (int)$runId);
     $this->db->exe();
     return [

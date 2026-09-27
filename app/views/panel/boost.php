@@ -67,15 +67,16 @@
     card.querySelector('[data-used]').textContent = number(summary.used_count) + '/5';
     card.querySelector('[data-remaining]').textContent = number(summary.remaining_count);
     const cooldown = card.querySelector('[data-cooldown]');
-    cooldown.textContent = summary.cooldown_active ? 'Tersedia ' + localDate(summary.next_allowed_at) : 'Siap digunakan';
-    cooldown.className = summary.cooldown_active ? 'mt-1 text-sm font-bold text-warning' : 'mt-1 text-sm font-bold text-success';
+    const quotaEmpty = Number(summary.remaining_count || 0) < 1;
+    cooldown.textContent = summary.batch_active ? 'Batch sedang diproses…' : (quotaEmpty ? 'Kuota kembali ' + localDate(summary.quota_reset_at) : 'Siap digunakan');
+    cooldown.className = (summary.batch_active || quotaEmpty) ? 'mt-1 text-sm font-bold text-warning' : 'mt-1 text-sm font-bold text-success';
     const session = card.querySelector('[data-session-status]');
     const sessionExpired = !payload.shop || ['expired', 'disconnected', 'unknown'].includes(payload.shop.session_status);
     if (sessionExpired) { session.textContent = payload.shop && payload.shop.session_status === 'expired' ? 'Sesi habis' : 'Sesi perlu dicek'; session.className = 'badge badge-warning badge-sm'; }
     else { session.textContent = 'Sesi tersedia'; session.className = 'badge badge-success badge-sm text-white'; }
     const button = card.querySelector('[data-boost]');
-    button.disabled = sessionExpired || !!summary.cooldown_active || Number(summary.remaining_count || 0) < 1;
-    card.querySelector('[data-selection-help]').textContent = sessionExpired ? 'Perbarui cookie toko sebelum menjalankan boost.' : (summary.cooldown_active ? 'Cooldown aktif sampai ' + localDate(summary.next_allowed_at) : 'Pilih maksimal ' + Math.min(5, Number(summary.remaining_count || 0)) + ' produk di toko ini.');
+    button.disabled = sessionExpired || !!summary.batch_active || quotaEmpty;
+    card.querySelector('[data-selection-help]').textContent = sessionExpired ? 'Perbarui cookie toko sebelum menjalankan boost.' : (summary.batch_active ? 'Batch toko sedang diproses, tunggu sampai selesai.' : (quotaEmpty ? 'Kuota 5 produk sudah terpakai. Tunggu sampai kuota kembali.' : 'Pilih maksimal ' + Math.min(5, Number(summary.remaining_count || 0)) + ' produk di toko ini.'));
   }
 
   function renderProducts(card, products, append) {
