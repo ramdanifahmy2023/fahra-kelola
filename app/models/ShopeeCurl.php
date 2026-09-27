@@ -337,6 +337,14 @@ class ShopeeCurl {
         ];
     }
 
+    public function weeklyAdsPeriod(array $period = []) {
+        return $this->adsPeriod($period);
+    }
+
+    public function normalizeCapturedAdsMetrics(array $aggregate, $label) {
+        return $this->normalizeAdsMetrics($aggregate, $label);
+    }
+
     private function adsCampaignTypes() {
         return [
             'product_homepage_v2' => ['label' => 'Produk', 'type' => 'product_homepage_v2', 'filter' => 'new_cpc_homepage'],

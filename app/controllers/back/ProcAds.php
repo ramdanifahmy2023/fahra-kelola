@@ -35,4 +35,13 @@ class ProcAds extends Controller {
       'refreshed_at' => date('c')
     ]);
   }
+
+  public function mcp() {
+    $this->requireAjax();
+    $shopId = (int)($_POST['shop_id'] ?? $_GET['shop_id'] ?? 0);
+    if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Pilih toko yang akan diisi dari history Sniper.'], 422);
+    $result = $this->m('AdsMonitor')->syncShopFromSniper($shopId);
+    if (empty($result['ok'])) $this->json(['status' => 'error', 'message' => $result['message'] ?? 'History Sniper gagal diimpor.'], 502);
+    $this->json(['status' => 'success', 'message' => 'History Sniper berhasil dipetakan ke toko.', 'period' => $result['period'] ?? null, 'channels' => $result['channels'] ?? []]);
+  }
 }

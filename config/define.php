@@ -18,3 +18,8 @@ define('DB_HOST', $env['DB_HOST']);
 define('DB_USER', $env['DB_USER']);
 define('DB_PASS', $env['DB_PASS']);
 define('DB_NAME', $env['DB_NAME']);
+
+// Optional XYZ Sniper MCP bridge for browser-captured Seller Centre reports.
+define('SNIPER_MCP_URL', trim((string)($env['SNIPER_MCP_URL'] ?? getenv('SNIPER_MCP_URL') ?? '')));
+define('SNIPER_MCP_TOKEN', trim((string)($env['SNIPER_MCP_TOKEN'] ?? getenv('SNIPER_MCP_TOKEN') ?? '')));
+define('SNIPER_MCP_PROJECT_ID', (int)($env['SNIPER_MCP_PROJECT_ID'] ?? getenv('SNIPER_MCP_PROJECT_ID') ?? 1));

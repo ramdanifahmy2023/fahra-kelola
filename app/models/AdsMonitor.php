@@ -108,6 +108,54 @@ class AdsMonitor extends BaseModel {
     return $performanceStatus !== 'error';
   }
 
+  public function syncShopFromSniper($shopId) {
+    $this->ensureSchema();
+    $this->db->query('SELECT id, name FROM shops WHERE id = :shop_id LIMIT 1');
+    $this->db->bind('shop_id', (int)$shopId);
+    $shop = $this->db->single();
+    if (!is_array($shop)) return ['ok' => false, 'message' => 'Toko tidak ditemukan.'];
+    require_once __DIR__ . '/ShopeeCurl.php';
+    require_once __DIR__ . '/SniperMcpClient.php';
+    $shopee = new ShopeeCurl();
+    $period = $shopee->weeklyAdsPeriod();
+    $reports = (new SniperMcpClient())->weeklyReports($period);
+    if (empty($reports['available'])) {
+      return ['ok' => false, 'message' => $reports['error'] ?? 'History report Sniper belum tersedia untuk periode ini.'];
+    }
+    $labels = [
+      'product_homepage_v2' => 'Produk',
+      'shop_homepage' => 'Shop',
+      'live_stream_homepage' => 'Live stream'
+    ];
+    $channels = [];
+    foreach ((array)($reports['reports'] ?? []) as $type => $report) {
+      if (!isset($labels[$type]) || !is_array($report['aggregate'] ?? null)) continue;
+      $channels[$type] = $shopee->normalizeCapturedAdsMetrics($report['aggregate'], $labels[$type]);
+      $channels[$type]['captured_at'] = $report['created_at'] ?? null;
+    }
+    if (!$channels) return ['ok' => false, 'message' => 'History report Sniper tidak memiliki channel yang dipetakan.'];
+    $totals = ['impressions'=>0,'clicks'=>0,'ctr'=>0,'orders'=>0,'items_sold'=>0,'sales'=>0,'ad_cost'=>0,'roas'=>null,'broad_sales'=>0,'broad_orders'=>0,'broad_items_sold'=>0,'broad_roas'=>null,'atc'=>0,'checkout'=>0];
+    foreach ($channels as $metrics) {
+      foreach (['impressions','clicks','orders','items_sold','sales','ad_cost','broad_sales','broad_orders','broad_items_sold','atc','checkout'] as $field) $totals[$field] += (float)($metrics[$field] ?? 0);
+    }
+    $totals['impressions'] = (int)$totals['impressions']; $totals['clicks'] = (int)$totals['clicks'];
+    $totals['orders'] = (int)$totals['orders']; $totals['items_sold'] = (int)$totals['items_sold'];
+    $totals['broad_orders'] = (int)$totals['broad_orders']; $totals['broad_items_sold'] = (int)$totals['broad_items_sold'];
+    $totals['atc'] = (int)$totals['atc']; $totals['checkout'] = (int)$totals['checkout'];
+    $totals['sales'] = round($totals['sales'], 2); $totals['ad_cost'] = round($totals['ad_cost'], 2); $totals['broad_sales'] = round($totals['broad_sales'], 2);
+    $totals['ctr'] = $totals['impressions'] > 0 ? round(($totals['clicks'] / $totals['impressions']) * 100, 2) : 0;
+    $totals['roas'] = $totals['ad_cost'] > 0 ? round($totals['sales'] / $totals['ad_cost'], 2) : null;
+    $totals['broad_roas'] = $totals['ad_cost'] > 0 ? round($totals['broad_sales'] / $totals['ad_cost'], 2) : null;
+    $performance = ['available'=>true,'partial'=>count($channels) < 3,'period'=>['from'=>$period['from'],'to'=>$period['to'],'label'=>'7 hari terakhir'],'timezone'=>'Asia/Jakarta','totals'=>$totals,'channels'=>$channels,'errors'=>[],'source'=>'xyz_sniper_mcp'];
+    $this->persistPerformanceSnapshots((int)$shop['id'], $performance);
+    $publicPayload = ['performance'=>$performance];
+    foreach ($publicPayload['performance']['channels'] as $key => $channel) unset($publicPayload['performance']['channels'][$key]['raw_metrics']);
+    $this->db->query("UPDATE shops SET sync_status = 'connected' WHERE id = :shop_id"); $this->db->bind('shop_id', (int)$shop['id']); $this->db->exe();
+    $this->db->query("INSERT INTO {$this->table} (shop_id, status, payload, error_message, synced_at) VALUES (:shop_id, 'ok', :payload, NULL, NOW()) ON DUPLICATE KEY UPDATE status = 'ok', payload = VALUES(payload), error_message = NULL, synced_at = NOW()");
+    $this->db->bind('shop_id', (int)$shop['id']); $this->db->bind('payload', json_encode($publicPayload, JSON_UNESCAPED_UNICODE)); $this->db->exe();
+    return ['ok' => true, 'channels' => array_keys($channels), 'period' => $performance['period']];
+  }
+
   private function persistPerformanceSnapshots($shopId, array $performance) {
     $period = is_array($performance['period'] ?? null) ? $performance['period'] : [];
     $from = (string)($period['from'] ?? '');
@@ -187,10 +235,13 @@ class AdsMonitor extends BaseModel {
       $this->db->query("SELECT status, payload, error_message, synced_at FROM {$this->table} WHERE shop_id = :shop_id LIMIT 1");
       $this->db->bind('shop_id', (int)$shop['id']);
       $snapshot = $this->db->single();
+      $snapshotPayload = !empty($snapshot['payload']) ? json_decode($snapshot['payload'], true) : [];
+      $isSniperSnapshot = is_array($snapshotPayload)
+        && (($snapshotPayload['performance']['source'] ?? null) === 'xyz_sniper_mcp');
       // MariaDB server stores NOW() in UTC in this deployment; parse it explicitly
       // so a fresh snapshot is not marked stale because of the PHP app timezone.
       $age = !empty($snapshot['synced_at']) ? (time() - strtotime($snapshot['synced_at'] . ' UTC')) : PHP_INT_MAX;
-      if ($refresh && (!is_array($snapshot) || $age >= 300) && !empty($shop['cookie'])) {
+      if ($refresh && !$isSniperSnapshot && (!is_array($snapshot) || $age >= 300) && !empty($shop['cookie'])) {
         $this->syncShop($shop);
         $this->db->query("SELECT status, payload, error_message, synced_at FROM {$this->table} WHERE shop_id = :shop_id LIMIT 1");
         $this->db->bind('shop_id', (int)$shop['id']);

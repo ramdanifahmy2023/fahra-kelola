@@ -16,7 +16,7 @@
   <article class="overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-content/10 p-5">
       <div class="min-w-0"><div class="truncate text-base font-black" data-shop-name></div><div class="mt-1 text-xs text-base-content/50" data-shop-sync></div></div>
-      <span class="badge badge-ghost badge-sm" data-status></span>
+      <div class="flex flex-wrap items-center gap-2"><button type="button" class="btn btn-ghost btn-xs min-h-9 border border-base-content/10" data-mcp-import>Ambil dari Sniper</button><span class="badge badge-ghost badge-sm" data-status></span></div>
     </div>
     <div class="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
       <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Kredit iklan</div><div class="mt-1 text-lg font-black" data-credit>-</div></div>
@@ -143,6 +143,25 @@
         const available = Boolean(performance.available && totals);
         const channelData = performance.channels || {};
         node.querySelector('[data-shop-name]').textContent = shop.shop_name || 'Toko tanpa nama';
+        const importButton = node.querySelector('[data-mcp-import]');
+        importButton.dataset.shopId = shop.shop_id;
+        importButton.addEventListener('click', async () => {
+          importButton.disabled = true;
+          importButton.textContent = 'Mengambil...';
+          try {
+            const body = new URLSearchParams({shop_id: String(shop.shop_id)});
+            const response = await fetch('<?= burl; ?>/procads/mcp', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json','Content-Type':'application/x-www-form-urlencoded'}, body});
+            const result = await response.json();
+            if (!response.ok || result.status !== 'success') throw new Error(result.message || 'History Sniper gagal diimpor.');
+            await loadAds();
+          } catch (error) {
+            state.textContent = error.message || 'History Sniper gagal diimpor.';
+            state.className = 'mb-5 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-error';
+          } finally {
+            importButton.disabled = false;
+            importButton.textContent = 'Ambil dari Sniper';
+          }
+        });
         node.querySelector('[data-shop-sync]').textContent = shop.synced_at ? 'Diperbarui ' + new Date(shop.synced_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'Belum pernah disinkronkan';
         const status = node.querySelector('[data-status]');
         if (shop.session_expired || shop.session_status === 'expired' || shop.status === 'expired') { status.textContent = 'Sesi habis'; status.className = 'badge badge-warning badge-sm'; }
