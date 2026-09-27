@@ -1,8 +1,7 @@
-  <!-- Footer -->
-  <footer class="footer sm:footer-horizontal footer-center bg-base-300 text-base-content p-4">
-    <aside>
-      <p>Hak Cipta © <?= date('Y'); ?> - Dibuat oleh Ryad XYZ</p>
-    </aside>
+  <footer class="landing-footer">
+    <div class="landing-footer-brand"><span class="landing-mark landing-mark-small"><span class="material-symbols-outlined" aria-hidden="true">bolt</span></span><span><?= app_name; ?></span></div>
+    <p>Ruang kerja untuk operasi toko yang lebih terarah.</p>
+    <p>Hak Cipta © <?= date('Y'); ?> Shopdash</p>
   </footer>
 </body>
 </html>
