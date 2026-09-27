@@ -9,3 +9,6 @@ require_once '../core/Alert.php';
 
 // Global Configurations
 require_once '../config/define.php';
+
+// Authentication Helpers
+require_once '../app/helpers/Auth.php';

@@ -42,17 +42,18 @@
       <div id="sync-detail-badge" class="badge badge-primary badge-xs shrink-0 font-bold">0%</div>
     </div>
     <progress id="sync-detail-progress" class="hidden" value="0" max="100"></progress>
+    <?php $authUser = authUser() ?? []; $authName = trim((string)($authUser['name'] ?? 'Pengguna')); $authEmail = (string)($authUser['email'] ?? ''); $authInitial = strtoupper(substr($authName !== '' ? $authName : 'P', 0, 1)); ?>
     <div class="dropdown dropdown-end">
       <div tabindex="0" role="button" class="btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
-        <div class="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-primary to-secondary text-xs font-black text-primary-content">A</div>
-        <span class="hidden text-xs font-semibold sm:block">Admin</span>
+        <div class="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-primary to-secondary text-xs font-black text-primary-content"><?= htmlspecialchars($authInitial, ENT_QUOTES); ?></div>
+        <span class="hidden max-w-28 truncate text-xs font-semibold sm:block"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span>
         <span class="material-symbols-outlined hidden text-base-content/50 sm:block">expand_more</span>
       </div>
       <ul tabindex="0" class="menu dropdown-content z-[1] mt-2 w-52 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
-        <li class="menu-title px-3 py-2"><span class="text-xs font-bold text-base-content">Admin User</span><span class="text-[10px] font-normal normal-case text-base-content/50">admin@shopdash.com</span></li>
+        <li class="menu-title px-3 py-2"><span class="text-xs font-bold text-base-content"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span><span class="text-[10px] font-normal normal-case text-base-content/50"><?= htmlspecialchars($authEmail, ENT_QUOTES); ?></span></li>
         <li><a><span class="material-symbols-outlined text-base">person</span>Profil</a></li>
         <li><a><span class="material-symbols-outlined text-base">settings</span>Pengaturan</a></li>
-        <li class="mt-1 text-error"><a><span class="material-symbols-outlined text-base">logout</span>Keluar</a></li>
+        <li class="mt-1 text-error"><a href="<?= burl; ?>/auth/logout"><span class="material-symbols-outlined text-base">logout</span>Keluar</a></li>
       </ul>
     </div>
   </div>
