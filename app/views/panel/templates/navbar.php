@@ -11,14 +11,14 @@
     </div>
     <a class="btn btn-ghost px-2 text-lg font-black tracking-tight text-primary lg:hidden"><?= app_name; ?></a>
   </div>
-  <div class="flex-none flex items-center gap-1.5 sm:gap-2">
+  <div class="panel-navbar-actions flex-none flex items-center gap-1.5 sm:gap-2">
     <div class="dropdown dropdown-end" id="notification-menu">
-      <button type="button" id="notification-button" class="btn btn-ghost btn-square btn-sm relative rounded-lg border border-transparent hover:border-primary/30" aria-label="Notifikasi" aria-expanded="false" tabindex="0">
-        <span class="material-symbols-outlined text-[21px]">notifications</span>
-        <span id="notification-badge" class="badge badge-error badge-xs absolute -right-0.5 -top-0.5 hidden min-w-4 px-1 text-[9px] text-error-content">0</span>
+      <button type="button" id="notification-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Notifikasi" aria-expanded="false" aria-controls="notification-panel" tabindex="0">
+        <span class="material-symbols-outlined notification-bell-icon" aria-hidden="true">notifications</span>
+        <span id="notification-badge" class="badge badge-error absolute hidden text-error-content" aria-live="polite" aria-atomic="true">0</span>
       </button>
-      <div id="notification-panel" tabindex="0" class="dropdown-content z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 p-0 shadow-2xl">
-        <div class="flex items-center justify-between border-b border-base-content/10 px-4 py-3"><div><div class="text-sm font-black">Notifikasi</div><div id="notification-summary" class="text-[10px] text-base-content/50">Memuat...</div></div><button type="button" id="notification-mark-all" class="btn btn-ghost btn-xs">Tandai dibaca</button></div>
+      <div id="notification-panel" tabindex="-1" aria-label="Daftar notifikasi" class="dropdown-content z-50 mt-2 overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 p-0 shadow-2xl">
+        <div class="flex items-center justify-between gap-3 border-b border-base-content/10 px-4 py-3"><div class="min-w-0"><div class="text-sm font-black">Notifikasi</div><div id="notification-summary" aria-live="polite" class="text-[10px] text-base-content/60">Memuat...</div></div><button type="button" id="notification-mark-all" class="btn btn-ghost btn-sm min-h-10 shrink-0 px-3">Tandai dibaca</button></div>
         <div id="notification-list" class="max-h-[min(24rem,70vh)] overflow-y-auto p-2"><div class="px-3 py-8 text-center text-xs text-base-content/50">Memuat notifikasi...</div></div>
         <div class="border-t border-base-content/10 px-4 py-2.5 text-center"><a href="<?= burl; ?>/panel" class="text-[11px] font-bold text-primary">Buka dashboard</a></div>
       </div>
@@ -47,6 +47,61 @@
     </div>
   </div>
 </div>
+<style>
+  #notification-button {
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 2.75rem;
+    overflow: visible;
+  }
+  #notification-button:focus-visible,
+  #notification-mark-all:focus-visible,
+  #notification-panel a:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  .notification-bell-icon { font-size: 1.45rem; line-height: 1; }
+  #notification-badge {
+    top: -0.2rem;
+    right: -0.25rem;
+    z-index: 2;
+    min-width: 1.2rem;
+    height: 1.2rem;
+    padding: 0 0.25rem;
+    border: 2px solid var(--color-base-100);
+    border-radius: 999px;
+    font-size: 0.625rem;
+    font-weight: 800;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+  }
+  #notification-panel {
+    width: min(23rem, calc(100vw - 1rem));
+    max-height: min(32rem, calc(100vh - 5rem));
+    max-height: min(32rem, calc(100dvh - 5rem - env(safe-area-inset-top)));
+  }
+  #notification-list { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  @media (max-width: 639px) {
+    .panel-navbar-actions { gap: 0.25rem; }
+    #notification-button { width: 2.75rem; height: 2.75rem; }
+    #notification-panel {
+      position: fixed;
+      inset: calc(3.75rem + env(safe-area-inset-top)) 0.5rem auto auto;
+      left: 0.5rem;
+      right: 0.5rem;
+      width: auto;
+      max-width: none;
+      max-height: calc(100dvh - 4.5rem - env(safe-area-inset-top));
+      margin: 0;
+    }
+    #notification-panel > div:first-child { padding: 0.75rem; }
+    #notification-list { max-height: calc(100dvh - 11rem - env(safe-area-inset-top)); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #notification-panel, #notification-panel * { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+  }
+</style>
 <script>
 (() => {
   const badge = document.getElementById('notification-badge');
@@ -58,7 +113,12 @@
   const date = value => value ? new Date(String(value).replace(' ', 'T') + 'Z').toLocaleString('id-ID', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : '-';
   function render(payload) {
     const unread = Number(payload.unread_count || 0);
-    if (badge) { badge.textContent = unread > 99 ? '99+' : String(unread); badge.classList.toggle('hidden', unread < 1); }
+    if (badge) {
+      badge.textContent = unread > 99 ? '99+' : String(unread);
+      badge.classList.toggle('hidden', unread < 1);
+      const accessibleCount = unread > 99 ? '99 lebih' : number(unread);
+      document.getElementById('notification-button')?.setAttribute('aria-label', unread ? `Notifikasi, ${accessibleCount} belum dibaca` : 'Notifikasi');
+    }
     const s = payload.summary || {};
     if (summary) summary.textContent = unread ? `${number(unread)} belum dibaca · ${number(s.urgent)} urgent` : 'Tidak ada notifikasi baru';
     const rows = payload.notifications || [];
