@@ -13,6 +13,15 @@ foreach (($data['shops'] ?? []) as $s) {
 if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 ?>
+<style>
+  #product-toolbar { width: 100%; }
+  #product-toolbar .product-sync-action { width: 100%; }
+  #product-toolbar .dropdown { display: block; }
+  @media (min-width: 640px) {
+    #product-toolbar { width: 24rem; max-width: 24rem; flex: 0 0 24rem; flex-direction: row; }
+    #product-toolbar .product-sync-action { width: auto; white-space: nowrap; }
+  }
+</style>
 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <div class="min-w-0">
     <div class="flex flex-wrap items-center gap-2">
@@ -21,13 +30,13 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
     </div>
     <p class="opacity-70 text-sm"><?= $isCriticalFilter ? 'Produk aktif dengan stok 0–14 yang perlu ditangani.' : 'Kelola semua produk dari seluruh toko cabang Anda di satu tempat.'; ?></p>
   </div>
-  <div class="flex w-full max-w-none flex-col gap-2 sm:max-w-sm sm:flex-row sm:items-center">
+  <div id="product-toolbar" class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
   <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>
-  <button type="button" class="btn btn-primary btn-sm w-full gap-1 sm:w-auto" onclick="queueBackgroundSync('products')" id="product-sync-button">
+  <button type="button" class="product-sync-action btn btn-primary btn-sm w-full gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
     <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
   </button>
   <div class="form-control relative min-w-0 flex-1">
-    <div class="dropdown dropdown-bottom dropdown-end w-full">
+    <div class="dropdown dropdown-bottom dropdown-end !block w-full">
       <div tabindex="0" role="button" class="tooltip tooltip-bottom btn w-full justify-start gap-3 font-normal shadow-sm" data-tip="<?= htmlspecialchars($activeShop['name'] ?? 'Pilih toko'); ?>" id="selectedShopDisplay">
         <?php if (!empty($data['shops'])): ?>
           <img src="<?= htmlspecialchars($activeShop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
