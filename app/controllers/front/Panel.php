@@ -51,6 +51,17 @@ class Panel extends Controller {
     $this->v('panel/promotions', $data);
     $this->v('panel/templates/footer', $data);
   }
+
+  public function chat() {
+    $data['judul'] = 'Live Chat - ' . app_name;
+    $data['active_menu'] = 'chat';
+    $data['shops'] = $this->m('Shop')->findAll();
+    $data['active_shop_id'] = (int)($_GET['shop_id'] ?? 0);
+    $this->v('panel/templates/header', $data);
+    $this->v('panel/chat', $data);
+    $this->v('panel/templates/footer', $data);
+  }
+
   // Products
   public function products() {
     $data['judul'] = 'Daftar Produk - ' . app_name;

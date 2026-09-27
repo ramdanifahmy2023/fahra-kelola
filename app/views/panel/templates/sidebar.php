@@ -25,6 +25,7 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
       <a href="<?= burl; ?>/panel/customers?sync=1" class="<?= $navItemClass; ?> <?= ($active == 'customers') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">group</span><span>Pelanggan</span></a>
       <a href="<?= burl; ?>/panel/ads" class="<?= $navItemClass; ?> <?= ($active == 'ads') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">campaign</span><span>Iklan</span></a>
       <a href="<?= burl; ?>/panel/promotions" class="<?= $navItemClass; ?> <?= ($active == 'promotions') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">local_activity</span><span>Voucher & Flash Sale</span></a>
+      <a href="<?= burl; ?>/panel/chat" class="<?= $navItemClass; ?> <?= ($active == 'chat') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">chat</span><span>Live Chat</span></a>
       <a href="javascript:void(0)" class="<?= $navItemClass; ?> <?= ($active == 'reports') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">monitoring</span><span>Laporan</span></a>
     </div>
 
