@@ -649,6 +649,42 @@ class ShopeeCurl {
         ];
     }
 
+    /**
+     * Ambil metrik performa toko dari dashboard Seller Centre.
+     * Endpoint ini dipetakan dari rekaman MCP dan mengembalikan titik harian
+     * untuk laporan lokal. Cookie tetap dikirim hanya ke Shopee, tidak pernah
+     * dimasukkan ke hasil yang dikembalikan.
+     */
+    public function getShopPerformance($cookie, DateTimeInterface $start, DateTimeInterface $end, $period = 'custom') {
+        preg_match('/(?:^|;\s*)SPC_CDS=([^;]+)/', (string)$cookie, $matches);
+        $spcCds = $matches[1] ?? '';
+        if ($spcCds === '') {
+            return ['ok' => false, 'message' => 'SPC_CDS tidak ditemukan pada cookie toko.'];
+        }
+
+        $endpoint = 'https://seller.shopee.co.id/api/mydata/v3/dashboard/key-metrics/';
+        $query = [
+            'SPC_CDS' => $spcCds,
+            'SPC_CDS_VER' => 2,
+            'start_time' => (string)$start->getTimestamp(),
+            'end_time' => (string)$end->getTimestamp(),
+            'period' => (string)$period,
+            'fetag' => 'fetag'
+        ];
+        $response = $this->request('GET', $endpoint, $cookie, $query, [
+            'Origin: https://seller.shopee.co.id',
+            'Referer: https://seller.shopee.co.id/datacenter/overview'
+        ]);
+        if (!is_array($response)) {
+            return ['ok' => false, 'message' => 'Respons performa toko tidak valid.'];
+        }
+        if ((int)($response['code'] ?? -1) !== 0 || !is_array($response['result'] ?? null)) {
+            $message = (string)($response['message'] ?? $response['msg'] ?? 'Endpoint performa toko menolak permintaan.');
+            return ['ok' => false, 'message' => $message, 'response' => $response];
+        }
+        return ['ok' => true, 'result' => $response['result']];
+    }
+
     private function normalizeIncomeAmounts($value, $path = []) {
         if (!is_array($value)) {
             return $value;

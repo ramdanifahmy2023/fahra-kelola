@@ -10,6 +10,7 @@ require_once '../app/models/OrderIncome.php';
 require_once '../app/models/BackgroundSync.php';
 require_once '../app/models/ProductSync.php';
 require_once '../app/models/AdsMonitor.php';
+require_once '../app/models/ShopPerformance.php';
 require_once '../app/models/PromotionMonitor.php';
 require_once '../app/models/ChatMonitor.php';
 require_once '../app/models/Customer.php';
@@ -297,6 +298,10 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
     return [!empty($result['ok']), $result['message'] ?? null];
   }
   if ($type === 'ads') return [(new AdsMonitor())->syncShop($shop), null];
+  if ($type === 'performance') {
+    $result = (new ShopPerformance())->syncShop($shop);
+    return [!empty($result['ok']), $result['message'] ?? null];
+  }
   if ($type === 'promotions') return [(new PromotionMonitor())->syncShop($shop), null];
   if ($type === 'chat') {
     $result = (new ChatMonitor())->syncShop($shopId);

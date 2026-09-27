@@ -54,6 +54,15 @@ class Panel extends Controller {
     $this->v('panel/templates/footer', $data);
   }
 
+  public function reports() {
+    $data['judul'] = 'Laporan Performa Toko - ' . app_name;
+    $data['active_menu'] = 'reports';
+    $data['shops'] = $this->m('Shop')->findAll();
+    $this->v('panel/templates/header', $data);
+    $this->v('panel/reports', $data);
+    $this->v('panel/templates/footer', $data);
+  }
+
   public function chat() {
     $data['judul'] = 'Live Chat - ' . app_name;
     $data['active_menu'] = 'chat';
