@@ -5,10 +5,33 @@ $env = parse_ini_file(__DIR__ . '/.env');
 
 // Core Application Info
 define('app_name', $env['APP_NAME']);
-define('burl', $env['APP_URL']);
-define('assets', $env['APP_URL'] . '/assets');
-define('images', $env['APP_URL'] . '/assets/images');
-define('web_icons', $env['APP_URL'] . '/assets/web_icons');
+
+// Use the request origin for web requests so tunneled/public pages never
+// point a visitor's browser back to the server's loopback address.
+$configuredAppUrl = rtrim((string)($env['APP_URL'] ?? ''), '/');
+$requestHost = trim((string)($_SERVER['HTTP_HOST'] ?? ''));
+$requestAppUrl = '';
+if ($requestHost !== '') {
+  $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+  $forwardedProto = trim((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''));
+  if ($forwardedProto !== '') {
+    $scheme = strtolower(trim(explode(',', $forwardedProto)[0]));
+  } elseif (!empty($_SERVER['HTTP_CF_VISITOR'])) {
+    $cloudflareVisitor = json_decode((string)$_SERVER['HTTP_CF_VISITOR'], true);
+    if (is_array($cloudflareVisitor) && !empty($cloudflareVisitor['scheme'])) {
+      $scheme = strtolower((string)$cloudflareVisitor['scheme']);
+    }
+  }
+  if (!in_array($scheme, ['http', 'https'], true)) {
+    $scheme = 'http';
+  }
+  $requestAppUrl = $scheme . '://' . $requestHost;
+}
+$appUrl = $requestAppUrl !== '' ? $requestAppUrl : $configuredAppUrl;
+define('burl', $appUrl);
+define('assets', $appUrl . '/assets');
+define('images', $appUrl . '/assets/images');
+define('web_icons', $appUrl . '/assets/web_icons');
 
 // Routing Constants
 define('DEFAULT_CONTROLLER', $env['DEFAULT_CONTROLLER']);
