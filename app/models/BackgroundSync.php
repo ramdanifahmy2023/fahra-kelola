@@ -78,7 +78,7 @@ class BackgroundSync extends BaseModel {
       $mode = (string)$row['mode'];
       $fullDue = in_array($type, ['orders', 'products'], true)
         && (int)($row['full_interval_seconds'] ?? 0) > 0
-        && (empty($row['last_full_at']) || strtotime((string)$row['last_full_at']) <= time() - (int)$row['full_interval_seconds']);
+        && (empty($row['last_full_at']) || strtotime((string)$row['last_full_at'] . ' UTC') <= time() - (int)$row['full_interval_seconds']);
       if ($fullDue) $mode = 'full';
       $jobId = $type === 'orders'
         ? $sync->enqueue((int)$row['shop_id'], $mode)
