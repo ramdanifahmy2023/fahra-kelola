@@ -199,4 +199,13 @@ class Panel extends Controller {
     $this->v('panel/customers', $data);
     $this->v('panel/templates/footer', $data);
   }
+
+  public function sync() {
+    $data['judul'] = 'Status Sinkronisasi - ' . app_name;
+    $data['active_menu'] = 'sync';
+    $data['shops'] = $this->m('Shop')->findAll();
+    $this->v('panel/templates/header', $data);
+    $this->v('panel/sync', $data);
+    $this->v('panel/templates/footer', $data);
+  }
 }

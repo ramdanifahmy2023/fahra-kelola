@@ -361,14 +361,20 @@ do {
   $db->bind('shop_id', (int)$job['shop_id']);
   $shop = $db->single();
   if (!$shop || empty($shop['cookie'])) {
+    (new BackgroundSync())->markResult((int)$job['shop_id'], (string)($job['sync_type'] ?? 'orders'), false, 'Shop cookie unavailable', (string)($job['mode'] ?? 'diff'));
     $sync->releaseJob((int)$job['id'], 'failed', 'Shop cookie unavailable');
     break;
   }
   $jobId = (int)$job['id'];
   if (($job['sync_type'] ?? 'orders') !== 'orders') {
-    [$genericOk, $genericError] = processGenericJob($db, $job, $shop, $shopee, $rateMs, $packageLimit);
+    try {
+      [$genericOk, $genericError] = processGenericJob($db, $job, $shop, $shopee, $rateMs, $packageLimit);
+    } catch (Throwable $exception) {
+      $genericOk = false;
+      $genericError = 'Worker error: ' . substr($exception->getMessage(), 0, 500);
+    }
     $background = new BackgroundSync();
-    $background->markResult((int)$job['shop_id'], (string)$job['sync_type'], $genericOk, $genericError);
+    $background->markResult((int)$job['shop_id'], (string)$job['sync_type'], $genericOk, $genericError, (string)($job['mode'] ?? 'diff'));
     $sync->releaseJob($jobId, $genericOk ? 'completed' : 'failed', $genericError);
     $loops++;
     continue;
@@ -390,6 +396,7 @@ do {
   $db->bind('job_id', $jobId);
   $pageState = (int)($db->single()['page_number'] ?? 0);
   if ($remaining === 0 && $pageState === 0) {
+    (new BackgroundSync())->markResult((int)$job['shop_id'], 'orders', true, null, (string)($job['mode'] ?? 'diff'));
     $sync->releaseJob($jobId, 'completed');
   } else {
     $db->query("UPDATE sync_jobs SET lease_until = NULL WHERE id = :job_id");

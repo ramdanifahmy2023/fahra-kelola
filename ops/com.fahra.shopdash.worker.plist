@@ -4,14 +4,10 @@
 <dict>
   <key>Label</key><string>com.fahra.shopdash.worker</string>
   <key>ProgramArguments</key>
-  <array>
-    <string>/bin/zsh</string><string>-lc</string>
-    <string>while true; do /Users/fahra/.local/bin/php '/Volumes/DATA KERJA /Project Dev/fahra-kelola/shopdash/bin/sync-worker.php' --batch=10 --rate-ms=350; sleep 2; done</string>
-  </array>
+  <array><string>/Users/fahra/.local/bin/php</string><string>/Volumes/DATA KERJA /Project Dev/fahra-kelola/shopdash/bin/sync-worker.php</string><string>--batch=10</string><string>--rate-ms=350</string></array>
   <key>WorkingDirectory</key><string>/Volumes/DATA KERJA /Project Dev/fahra-kelola/shopdash</string>
   <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>ThrottleInterval</key><integer>5</integer>
+  <key>StartInterval</key><integer>5</integer>
   <key>StandardOutPath</key><string>/tmp/shopdash-sync-worker.log</string>
   <key>StandardErrorPath</key><string>/tmp/shopdash-sync-worker.error.log</string>
 </dict>
