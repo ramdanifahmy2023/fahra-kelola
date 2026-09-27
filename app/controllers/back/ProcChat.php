@@ -60,7 +60,11 @@ class ProcChat extends Controller {
     if (mb_strlen($message) > 2000) $this->json(['status' => 'error', 'message' => 'Pesan maksimal 2.000 karakter.'], 422);
     $result = $this->monitor()->send($shopId, $conversationId, $message);
     if (empty($result['ok'])) $this->json(['status' => 'error', 'message' => $result['message'] ?? 'Pesan gagal dikirim.'], 502);
-    $this->json(['status' => 'success', 'message' => $result['message'] ?? 'Pesan berhasil dikirim.']);
+    $this->json([
+      'status' => 'success',
+      'message' => $result['message'] ?? 'Pesan berhasil dikirim.',
+      'remote_message_id' => $result['remote_message_id'] ?? null
+    ]);
   }
 
   public function mark_read() {

@@ -73,6 +73,10 @@ class ShopeeChat {
     $token = (string)($body['token'] ?? '');
     $shop = is_array($body['shop'] ?? null) ? $body['shop'] : [];
     $user = is_array($body['user'] ?? null) ? $body['user'] : [];
+    $securityHeaders = [];
+    foreach (['af-ac-enc-dat', 'x-sz-sdk-version', 'x-sap-ri', 'x-sap-sec', 'af-ac-enc-sz-token'] as $headerName) {
+      if (!empty($cookies[$headerName])) $securityHeaders[$headerName] = $cookies[$headerName];
+    }
 
     if (!$response['ok'] || $token === '' || empty($shop['id'])) {
       $expired = in_array((int)$response['http_code'], [400, 401, 403], true);
@@ -95,6 +99,8 @@ class ShopeeChat {
       'remote_user_id' => (int)($shop['user_id'] ?? 0),
       'region' => 'GLOBAL',
       'message_region' => strtoupper((string)($shop['country'] ?? 'ID')),
+      'dfp_access' => (string)($cookies['dfp_access'] ?? ''),
+      'security_headers' => $securityHeaders,
       'biz_id' => 2,
       'access_token_expires_at' => time() + 86400,
       'shop' => $shop,
@@ -122,6 +128,9 @@ class ShopeeChat {
       'Authorization: Bearer ' . $session['token'],
       'x-shop-region: ' . ($session['region'] ?? 'GLOBAL')
     ];
+    foreach ((array)($session['security_headers'] ?? []) as $name => $value) {
+      if ($value !== '') $headers[] = $name . ': ' . $value;
+    }
     if ($body !== null) $headers[] = 'Content-Type: application/json';
     return $this->http($url, $cookie, $method, $body, $headers);
   }
@@ -164,11 +173,12 @@ class ShopeeChat {
     return $this->result($response);
   }
 
-  public function sendMessage($session, $cookie, array $conversation, $text) {
+  public function sendMessage($session, $cookie, array $conversation, $text, $requestId = null) {
     $message = trim((string)$text);
     if ($message === '') return ['ok' => false, 'expired' => false, 'message' => 'Pesan tidak boleh kosong.'];
+    if (empty($conversation['buyer_id']) || empty($conversation['remote_conversation_id'])) return ['ok' => false, 'expired' => false, 'message' => 'Tujuan percakapan Shopee tidak lengkap.'];
     $body = [
-      'request_id' => bin2hex(random_bytes(16)),
+      'request_id' => $requestId ?: bin2hex(random_bytes(16)),
       'to_id' => (int)($conversation['buyer_id'] ?? 0),
       'type' => 'text',
       'content' => ['text' => $message, 'uid' => bin2hex(random_bytes(16))],
@@ -180,8 +190,23 @@ class ShopeeChat {
       'conversation_id' => (string)$conversation['remote_conversation_id'],
       'source' => 'minichat'
     ];
+    if (!empty($session['dfp_access'])) $body['re_policy'] = ['dfp_access' => $session['dfp_access']];
     $response = $this->api($session, $cookie, '/mini/messages', 'POST', $body);
-    return $this->result($response);
+    $result = $this->result($response);
+    if (empty($result['ok'])) return $result;
+    $payload = $this->messagePayload($result['data']);
+    $remoteId = (string)($payload['id'] ?? $payload['message_id'] ?? $payload['msg_id'] ?? '');
+    if ($remoteId === '') {
+      return [
+        'ok' => false,
+        'expired' => false,
+        'ambiguous' => true,
+        'http_code' => $result['http_code'] ?? 200,
+        'message' => 'Shopee menerima respons tanpa ID pesan. Balasan tidak ditandai terkirim untuk mencegah duplikasi.'
+      ];
+    }
+    $payload['id'] = $remoteId;
+    return ['ok' => true, 'http_code' => $result['http_code'] ?? 200, 'data' => $payload, 'remote_message_id' => $remoteId];
   }
 
   public function markRead($session, $cookie, $conversationId) {
@@ -204,6 +229,17 @@ class ShopeeChat {
       ];
     }
     return ['ok' => true, 'http_code' => $response['http_code'], 'data' => $body];
+  }
+
+  private function messagePayload($payload) {
+    if (!is_array($payload)) return [];
+    if (!empty($payload['id']) || !empty($payload['message_id']) || !empty($payload['msg_id'])) return $payload;
+    foreach (['message', 'data', 'result', 'chat_message'] as $key) {
+      if (!array_key_exists($key, $payload)) continue;
+      $candidate = $this->messagePayload($payload[$key]);
+      if ($candidate) return $candidate;
+    }
+    return [];
   }
 
   private function message(array $body, $fallback) {

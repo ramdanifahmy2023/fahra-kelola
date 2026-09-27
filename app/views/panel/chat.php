@@ -1,8 +1,23 @@
 <style>
-  .chat-shell { min-height: min(720px, calc(100vh - 190px)); }
+  .chat-shell { position: relative; min-height: min(720px, calc(100vh - 190px)); }
   .chat-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--bc) / .16) transparent; }
   .chat-focus:focus-visible { outline: 3px solid hsl(var(--p) / .55); outline-offset: 2px; }
   .chat-message { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .chat-popup-backdrop { background: hsl(var(--b1) / .62); backdrop-filter: blur(3px); }
+  .chat-shell.is-popup { position: fixed; z-index: 60; right: 1rem; bottom: 1rem; width: min(1120px, calc(100vw - 2rem)); height: min(720px, calc(100vh - 2rem)); min-height: 0; margin: 0; grid-template-columns: 220px minmax(280px, 380px) minmax(0, 1fr); box-shadow: 0 24px 80px hsl(var(--b3) / .32); }
+  .chat-shell.is-popup .chat-popup-close { display: inline-flex; }
+  .chat-popup-close { display: none; }
+  @media (max-width: 767px) {
+    .chat-shell.is-popup { inset: 0; width: 100vw; height: 100dvh; border-radius: 0; grid-template-columns: minmax(0, 1fr); }
+    .chat-shell.is-popup:not(.chat-detail-open) > section[aria-label="Detail percakapan"] { display: none; }
+    .chat-shell.is-popup.chat-detail-open > aside,
+    .chat-shell.is-popup.chat-detail-open > section[aria-label="Daftar percakapan"] { display: none; }
+    .chat-shell.is-popup:not(.chat-detail-open) > aside { max-height: 132px; }
+    .chat-shell.is-popup:not(.chat-detail-open) > section[aria-label="Daftar percakapan"] { min-height: 0; }
+    .chat-shell.is-popup .chat-scroll { max-height: none; }
+    .chat-mobile-back { display: inline-flex !important; }
+  }
+  .chat-mobile-back { display: none; }
 </style>
 
 <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -11,7 +26,10 @@
     <h2 class="text-2xl font-black tracking-tight text-base-content">Live Chat</h2>
     <p class="mt-1 max-w-2xl text-sm text-base-content/60">Pantau percakapan semua toko, baca riwayat, dan balas dari satu ruang kerja.</p>
   </div>
-  <button id="chat-refresh" type="button" class="chat-focus btn btn-sm min-h-11 gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">refresh</span>Perbarui</button>
+  <div class="flex flex-wrap gap-2">
+    <button id="chat-open-popup" type="button" class="chat-focus btn btn-primary btn-sm min-h-11 gap-2 rounded-lg"><span class="material-symbols-outlined text-base">open_in_new</span>Buka popup chat</button>
+    <button id="chat-refresh" type="button" class="chat-focus btn btn-sm min-h-11 gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">refresh</span>Perbarui</button>
+  </div>
 </div>
 
 <div id="chat-session-warning" class="mb-5 hidden rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning-content" role="alert" aria-live="polite"></div>
@@ -24,7 +42,9 @@
   <div class="rounded-xl border border-base-content/10 bg-base-100 p-4"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Sesi perlu diperbarui</div><div id="chat-total-expired" class="mt-1 text-2xl font-black">-</div></div>
 </section>
 
-<section class="chat-shell grid grid-cols-1 overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm lg:grid-cols-[220px_minmax(280px,380px)_minmax(0,1fr)]" aria-label="Ruang kerja percakapan">
+<div id="chat-popup-backdrop" class="chat-popup-backdrop fixed inset-0 z-50 hidden" aria-hidden="true"></div>
+<section id="chat-shell" class="chat-shell grid grid-cols-1 overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm lg:grid-cols-[220px_minmax(280px,380px)_minmax(0,1fr)]" aria-label="Ruang kerja percakapan">
+  <button id="chat-popup-close" type="button" class="chat-popup-close chat-focus btn btn-circle btn-sm absolute right-3 top-3 z-10 bg-base-100/90" aria-label="Tutup popup chat"><span class="material-symbols-outlined text-base">close</span></button>
   <aside class="border-b border-base-content/10 bg-base-200/45 lg:border-b-0 lg:border-r" aria-label="Toko">
     <div class="border-b border-base-content/10 p-4"><div class="text-[10px] font-bold uppercase tracking-[0.16em] text-base-content/45">Toko</div><div class="mt-1 text-xs text-base-content/60">Pilih sumber percakapan</div></div>
     <div id="chat-shops" class="chat-scroll max-h-64 space-y-1 overflow-y-auto p-2 lg:max-h-[calc(100vh-300px)]">
@@ -44,19 +64,22 @@
   <section class="flex min-h-0 flex-col" aria-label="Detail percakapan">
     <div id="chat-detail-empty" class="flex min-h-[360px] flex-1 flex-col items-center justify-center p-8 text-center text-base-content/50"><span class="material-symbols-outlined text-5xl text-base-content/20">forum</span><h3 class="mt-4 text-sm font-black text-base-content/70">Pilih percakapan</h3><p class="mt-1 max-w-xs text-xs leading-relaxed">Riwayat pesan dan ruang balasan akan tampil di sini.</p></div>
     <div id="chat-detail" class="hidden min-h-0 flex-1 flex-col">
-      <header class="flex flex-wrap items-center justify-between gap-3 border-b border-base-content/10 p-4"><div class="min-w-0"><div id="chat-detail-buyer" class="truncate text-sm font-black"></div><div id="chat-detail-meta" class="mt-1 text-xs text-base-content/50"></div></div><button id="chat-mark-read" type="button" class="chat-focus btn btn-ghost btn-xs min-h-9 gap-1.5"><span class="material-symbols-outlined text-sm">done_all</span>Tandai dibaca</button></header>
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b border-base-content/10 p-4"><div class="flex min-w-0 items-center gap-2"><button id="chat-mobile-back" type="button" class="chat-mobile-back chat-focus btn btn-ghost btn-circle btn-sm" aria-label="Kembali ke daftar percakapan"><span class="material-symbols-outlined text-base">arrow_back</span></button><div class="min-w-0"><div id="chat-detail-buyer" class="truncate text-sm font-black"></div><div id="chat-detail-meta" class="mt-1 text-xs text-base-content/50"></div></div></div><button id="chat-mark-read" type="button" class="chat-focus btn btn-ghost btn-xs min-h-9 gap-1.5"><span class="material-symbols-outlined text-sm">done_all</span>Tandai dibaca</button></header>
       <div id="chat-messages" class="chat-scroll min-h-[250px] flex-1 space-y-3 overflow-y-auto bg-base-200/25 p-4" aria-live="polite"><div class="text-xs text-base-content/50">Memuat pesan…</div></div>
       <form id="chat-compose" class="border-t border-base-content/10 p-3"><label for="chat-message" class="sr-only">Tulis balasan</label><textarea id="chat-message" class="chat-focus textarea textarea-bordered min-h-24 w-full resize-y text-sm" maxlength="2000" placeholder="Tulis balasan…" required></textarea><div class="mt-2 flex items-center justify-between gap-3"><span id="chat-compose-state" class="text-xs text-base-content/50" aria-live="polite">Maksimal 2.000 karakter</span><button id="chat-send" type="submit" class="chat-focus btn btn-primary btn-sm min-h-10 gap-2"><span class="material-symbols-outlined text-base">send</span>Kirim</button></div></form>
     </div>
   </section>
 </section>
 
+<button id="chat-floating-launcher" type="button" class="chat-focus btn btn-primary fixed bottom-5 right-5 z-40 min-h-12 gap-2 rounded-full px-4 shadow-xl" aria-expanded="false" aria-controls="chat-shell"><span class="material-symbols-outlined text-lg">chat</span><span class="hidden sm:inline">Live Chat</span><span id="chat-floating-unread" class="badge badge-sm hidden bg-primary-content/20 text-primary-content">0</span></button>
+
 <script>
 (() => {
   const api = '<?= burl; ?>/procChat';
   const initialShopId = <?= (int)($data['active_shop_id'] ?? 0); ?>;
-  const state = { selectedShopId: initialShopId || 0, selectedConversationId: '', selectedConversationShopId: 0, shops: [], conversations: [], loading: false };
+  const state = { selectedShopId: initialShopId || 0, selectedConversationId: '', selectedConversationShopId: 0, selectedConversationShopName: '', shops: [], conversations: [], loading: false, popupOpen: false, composeLocked: false };
   const $ = id => document.getElementById(id);
+  const shell = $('chat-shell');
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const number = value => new Intl.NumberFormat('id-ID').format(Number(value || 0));
   const date = value => value ? new Date(String(value).replace(' ', 'T') + (String(value).includes('Z') || String(value).includes('+') ? '' : 'Z')).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'}) : '-';
@@ -70,6 +93,19 @@
   const setState = (message, error = false) => { $('chat-state').textContent = message; $('chat-state').className = 'mb-5 rounded-xl border p-4 text-sm ' + (error ? 'border-error/20 bg-error/5 text-error' : 'border-base-content/10 bg-base-100 text-base-content/60'); };
   const selectedShop = () => state.shops.find(shop => Number(shop.shop_id) === Number(state.selectedShopId));
 
+  function setPopup(open) {
+    state.popupOpen = Boolean(open);
+    shell.classList.toggle('is-popup', state.popupOpen);
+    $('chat-popup-backdrop').classList.toggle('hidden', !state.popupOpen);
+    $('chat-floating-launcher').setAttribute('aria-expanded', state.popupOpen ? 'true' : 'false');
+    $('chat-open-popup').setAttribute('aria-expanded', state.popupOpen ? 'true' : 'false');
+    document.body.classList.toggle('overflow-hidden', state.popupOpen);
+    if (state.popupOpen) {
+      const focusTarget = state.selectedConversationId ? $('chat-message') : $('chat-search');
+      window.setTimeout(() => focusTarget?.focus(), 40);
+    }
+  }
+
   function renderSummary(payload) {
     state.shops = payload.shops || [];
     const totals = payload.totals || {};
@@ -77,6 +113,9 @@
     $('chat-total-conversations').textContent = number(totals.conversation_count);
     $('chat-total-active').textContent = number(totals.active_count);
     $('chat-total-expired').textContent = number(totals.expired_shops);
+    const unreadBadge = $('chat-floating-unread');
+    unreadBadge.textContent = number(totals.unread_count);
+    unreadBadge.classList.toggle('hidden', !Number(totals.unread_count));
     const expired = state.shops.filter(shop => shop.session_expired);
     const warning = $('chat-session-warning');
     if (expired.length) { warning.className = 'mb-5 rounded-xl border border-warning/40 bg-warning/10 p-4 text-sm text-warning-content'; warning.innerHTML = '<div class="flex flex-wrap items-start gap-3"><span class="material-symbols-outlined text-xl">warning</span><div><strong>Sesi toko perlu diperbarui</strong><div class="mt-1">' + expired.map(shop => esc(shop.shop_name || ('Toko #' + shop.shop_id))).join(', ') + ' memerlukan cookie Shopee terbaru.</div><a class="mt-2 inline-flex min-h-11 items-center font-bold underline underline-offset-2" href="<?= burl; ?>/panel/shops">Perbarui cookie toko</a></div></div>'; }
@@ -86,13 +125,13 @@
     shops.innerHTML = '';
     const allButton = document.createElement('button'); allButton.type = 'button'; allButton.className = 'chat-focus flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ' + (Number(state.selectedShopId) === 0 ? 'bg-primary text-primary-content' : 'hover:bg-base-content/5');
     allButton.innerHTML = '<span class="grid h-8 w-8 shrink-0 place-items-center rounded-md ' + (Number(state.selectedShopId) === 0 ? 'bg-primary-content/15' : 'bg-base-content/10') + '"><span class="material-symbols-outlined text-base">all_inbox</span></span><span class="min-w-0 flex-1"><span class="block truncate text-xs font-bold">Semua toko</span><span class="mt-0.5 block truncate text-[10px] opacity-65">Gabungan percakapan</span></span><span class="shrink-0 text-xs font-black">' + (totals.unread_count ? number(totals.unread_count) : '') + '</span>';
-    allButton.addEventListener('click', () => { state.selectedShopId = 0; state.selectedConversationId = ''; state.selectedConversationShopId = 0; renderSummary({shops:state.shops,totals}); loadConversations(); showEmptyDetail(); });
+    allButton.addEventListener('click', () => { state.selectedShopId = 0; state.selectedConversationId = ''; state.selectedConversationShopId = 0; state.selectedConversationShopName = ''; renderSummary({shops:state.shops,totals}); loadConversations(); showEmptyDetail(); });
     shops.appendChild(allButton);
     state.shops.forEach(shop => {
       const button = document.createElement('button'); button.type = 'button'; button.className = 'chat-focus flex min-h-12 w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors ' + (Number(shop.shop_id) === Number(state.selectedShopId) ? 'bg-primary text-primary-content' : 'hover:bg-base-content/5'); button.dataset.shopId = shop.shop_id;
       const status = shop.session_expired ? 'Sesi habis' : shop.status === 'ok' ? 'Terhubung' : shop.status === 'error' ? 'Gagal' : 'Menunggu';
       button.innerHTML = '<span class="grid h-8 w-8 shrink-0 place-items-center rounded-md ' + (Number(shop.shop_id) === Number(state.selectedShopId) ? 'bg-primary-content/15' : 'bg-base-content/10') + '"><span class="material-symbols-outlined text-base">storefront</span></span><span class="min-w-0 flex-1"><span class="block truncate text-xs font-bold">' + esc(shop.shop_name || ('Toko #' + shop.shop_id)) + '</span><span class="mt-0.5 block truncate text-[10px] opacity-65">' + esc(status) + '</span></span><span class="shrink-0 text-xs font-black">' + (shop.unread_count ? number(shop.unread_count) : '') + '</span>';
-      button.addEventListener('click', () => { state.selectedShopId = Number(shop.shop_id); state.selectedConversationId = ''; state.selectedConversationShopId = 0; renderSummary({shops:state.shops,totals}); loadConversations(); showEmptyDetail(); }); shops.appendChild(button);
+      button.addEventListener('click', () => { state.selectedShopId = Number(shop.shop_id); state.selectedConversationId = ''; state.selectedConversationShopId = 0; state.selectedConversationShopName = ''; renderSummary({shops:state.shops,totals}); loadConversations(); showEmptyDetail(); }); shops.appendChild(button);
     });
     const shop = selectedShop(); $('chat-selected-shop').textContent = shop ? (shop.shop_name || 'Toko terpilih') : 'Semua toko';
   }
@@ -107,18 +146,23 @@
       const button = document.createElement('button'); button.type = 'button'; button.className = 'chat-focus flex min-h-[76px] w-full items-start gap-3 rounded-xl p-3 text-left transition-colors ' + (String(conversation.remote_conversation_id) === String(state.selectedConversationId) ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-base-content/5');
       const unread = Number(conversation.unread_count || 0);
       button.innerHTML = '<span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-base-200 text-base-content/55"><span class="material-symbols-outlined text-lg">person</span></span><span class="min-w-0 flex-1"><span class="flex items-center justify-between gap-2"><span class="truncate text-xs font-bold">' + esc(conversation.buyer_name || ('Pembeli #' + conversation.buyer_id)) + '</span><span class="shrink-0 text-[10px] text-base-content/45">' + esc(date(conversation.latest_message_at)) + '</span></span><span class="mt-1 block truncate text-[11px] text-base-content/55">' + esc(conversation.latest_message_text || 'Belum ada preview pesan') + '</span><span class="mt-2 flex items-center gap-2 text-[10px] text-base-content/45"><span class="badge badge-ghost badge-xs">' + esc(statusLabel(conversation.status)) + '</span>' + (Number(state.selectedShopId) === 0 && conversation.shop_name ? '<span class="truncate">' + esc(conversation.shop_name) + '</span>' : '') + (unread ? '<span class="badge badge-primary badge-xs">' + number(unread) + ' baru</span>' : '') + '</span></span>';
-      button.addEventListener('click', () => { state.selectedConversationId = String(conversation.remote_conversation_id); state.selectedConversationShopId = Number(conversation.shop_id); renderConversations(state.conversations); loadMessages(); }); target.appendChild(button);
+      button.addEventListener('click', () => { state.selectedConversationId = String(conversation.remote_conversation_id); state.selectedConversationShopId = Number(conversation.shop_id); state.selectedConversationShopName = String(conversation.shop_name || ''); renderConversations(state.conversations); loadMessages(); }); target.appendChild(button);
     });
   }
 
-  function showEmptyDetail() { $('chat-detail').classList.add('hidden'); $('chat-detail').classList.remove('flex'); $('chat-detail-empty').classList.remove('hidden'); }
-  function showDetail() { $('chat-detail-empty').classList.add('hidden'); $('chat-detail').classList.remove('hidden'); $('chat-detail').classList.add('flex'); }
+  function showEmptyDetail() { state.composeLocked = false; $('chat-message').disabled = false; $('chat-send').disabled = false; shell.classList.remove('chat-detail-open'); $('chat-detail').classList.add('hidden'); $('chat-detail').classList.remove('flex'); $('chat-detail-empty').classList.remove('hidden'); }
+  function showDetail() { shell.classList.add('chat-detail-open'); $('chat-detail-empty').classList.add('hidden'); $('chat-detail').classList.remove('hidden'); $('chat-detail').classList.add('flex'); }
 
   function renderMessages(payload) {
     showDetail();
     const conversation = payload.conversation || {};
     $('chat-detail-buyer').textContent = conversation.buyer_name || ('Pembeli #' + (conversation.buyer_id || ''));
-    $('chat-detail-meta').textContent = statusLabel(conversation.status) + ' · Pesan terakhir ' + date(conversation.latest_message_at);
+    const closed = conversation.status === 'closed';
+    state.composeLocked = closed;
+    $('chat-message').disabled = closed;
+    $('chat-send').disabled = closed;
+    $('chat-compose-state').textContent = closed ? 'Percakapan ini sudah ditutup oleh Shopee.' : 'Maksimal 2.000 karakter';
+    $('chat-detail-meta').textContent = (state.selectedConversationShopName ? state.selectedConversationShopName + ' · ' : '') + statusLabel(conversation.status) + ' · Pesan terakhir ' + date(conversation.latest_message_at);
     const target = $('chat-messages'); const messages = payload.messages || [];
     if (!messages.length) { target.innerHTML = '<div class="rounded-lg bg-base-100 p-4 text-xs text-base-content/50">Belum ada riwayat pesan pada percakapan ini.</div>'; return; }
     target.innerHTML = messages.map(message => {
@@ -155,10 +199,17 @@
     catch (error) { if (!silent) $('chat-compose-state').textContent = error.message; }
   }
   $('chat-refresh').addEventListener('click', loadOverview);
+  $('chat-open-popup').addEventListener('click', () => setPopup(true));
+  $('chat-floating-launcher').addEventListener('click', () => setPopup(!state.popupOpen));
+  $('chat-popup-close').addEventListener('click', () => setPopup(false));
+  $('chat-popup-backdrop').addEventListener('click', () => setPopup(false));
+  $('chat-mobile-back').addEventListener('click', () => { state.selectedConversationId = ''; state.selectedConversationShopId = 0; state.selectedConversationShopName = ''; showEmptyDetail(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.popupOpen) setPopup(false); });
   $('chat-search').addEventListener('input', () => { window.clearTimeout(window.chatSearchTimer); window.chatSearchTimer = window.setTimeout(() => loadConversations(), 250); });
   $('chat-status').addEventListener('change', () => loadConversations()); $('chat-unread').addEventListener('change', () => loadConversations());
   $('chat-mark-read').addEventListener('click', () => markRead(false));
-  $('chat-compose').addEventListener('submit', async event => { event.preventDefault(); const message = $('chat-message').value.trim(); const conversationShopId = state.selectedConversationShopId || state.selectedShopId; if (!message || !conversationShopId || !state.selectedConversationId) return; const send = $('chat-send'); send.disabled = true; $('chat-compose-state').textContent = 'Mengirim pesan…'; const body = new URLSearchParams({shop_id: conversationShopId, conversation_id: state.selectedConversationId, message}); try { await request(api + '/send', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}, body}); $('chat-message').value = ''; $('chat-compose-state').textContent = 'Pesan terkirim.'; await loadMessages(); await loadOverview(); } catch (error) { $('chat-compose-state').textContent = error.message; } finally { send.disabled = false; } });
+  $('chat-compose').addEventListener('submit', async event => { event.preventDefault(); const message = $('chat-message').value.trim(); const conversationShopId = state.selectedConversationShopId || state.selectedShopId; if (state.composeLocked || !message || !conversationShopId || !state.selectedConversationId) return; const send = $('chat-send'); send.disabled = true; $('chat-compose-state').textContent = 'Mengirim dan menunggu konfirmasi Shopee…'; const body = new URLSearchParams({shop_id: conversationShopId, conversation_id: state.selectedConversationId, message}); try { const result = await request(api + '/send', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json','Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'}, body}); $('chat-message').value = ''; await loadMessages(); await loadOverview(); $('chat-compose-state').textContent = result.remote_message_id ? 'Terkirim · ID Shopee ' + result.remote_message_id : 'Terkirim dan dikonfirmasi Shopee.'; } catch (error) { $('chat-compose-state').textContent = error.message; } finally { send.disabled = state.composeLocked; } });
+  $('chat-message').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); $('chat-compose').requestSubmit(); } });
   showEmptyDetail(); loadOverview(); window.setInterval(loadOverview, 30000);
 })();
 </script>

@@ -405,14 +405,24 @@ class ChatMonitor extends BaseModel {
     $client = $this->client();
     $session = $client->bootstrap($shop['cookie']);
     if (empty($session['ok'])) return $this->saveError($shop, !empty($session['expired']), $session['message']);
-    $response = $client->sendMessage($session, $shop['cookie'], $conversation, $text);
+    $requestId = bin2hex(random_bytes(16));
+    $response = $client->sendMessage($session, $shop['cookie'], $conversation, $text, $requestId);
+    if (empty($response['ok']) && !empty($response['expired'])) {
+      $retrySession = $client->bootstrap($shop['cookie']);
+      if (!empty($retrySession['ok'])) {
+        $session = $retrySession;
+        $response = $client->sendMessage($session, $shop['cookie'], $conversation, $text, $requestId);
+      }
+    }
     if (empty($response['ok'])) {
       if (!empty($response['expired'])) $this->saveError($shop, true, $response['message']);
       return ['ok' => false, 'status' => 'error', 'message' => $response['message'] ?? 'Pesan gagal dikirim.'];
     }
     $message = is_array($response['data'] ?? null) ? $response['data'] : [];
-    if (!empty($message['id'])) $this->upsertMessage($shopId, $conversation['remote_conversation_id'], $message, (int)($session['user_id'] ?? 0), 'outgoing');
-    return ['ok' => true, 'message' => 'Pesan berhasil dikirim.'];
+    $remoteMessageId = (string)($response['remote_message_id'] ?? $message['id'] ?? '');
+    if ($remoteMessageId === '') return ['ok' => false, 'status' => 'error', 'message' => 'Shopee tidak mengembalikan ID pesan. Balasan tidak ditandai terkirim.'];
+    $this->upsertMessage($shopId, $conversation['remote_conversation_id'], $message, (int)($session['user_id'] ?? 0), 'outgoing');
+    return ['ok' => true, 'message' => 'Pesan berhasil dikirim ke Shopee.', 'remote_message_id' => $remoteMessageId];
   }
 
   public function markRead($shopId, $conversationId) {
