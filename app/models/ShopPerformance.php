@@ -248,4 +248,34 @@ class ShopPerformance extends BaseModel {
     $this->db->bind('ps', $ranges['previous']['start']->format('Y-m-d')); $this->db->bind('pe', $ranges['previous']['end']->format('Y-m-d'));
     return ['ranges' => array_map(static function ($range) { return ['start' => $range['start']->format('Y-m-d'), 'end' => $range['end']->format('Y-m-d')]; }, $ranges), 'rows' => $this->db->getAll()];
   }
+
+  public function compare(array $shopIds = [], $endDate = null) {
+    $this->ensureSchema();
+    $ranges = $this->ranges($endDate);
+    $shopIds = array_values(array_unique(array_filter(array_map('intval', $shopIds), static function ($id) { return $id > 0; })));
+    $where = '';
+    if ($shopIds) {
+      $placeholders = [];
+      foreach ($shopIds as $index => $id) $placeholders[] = ':shop_' . $index;
+      $where = ' AND d.shop_id IN (' . implode(',', $placeholders) . ')';
+    }
+    $this->db->query("SELECT d.shop_id, s.name AS shop_name, d.metric_date, d.confirmed_gmv, d.confirmed_orders, d.shop_uv, d.product_clicks FROM shop_performance_daily d INNER JOIN shops s ON s.id = d.shop_id WHERE d.source = 'homepage' AND d.metric_date BETWEEN :start_date AND :end_date {$where} ORDER BY d.metric_date ASC, d.shop_id ASC");
+    $this->db->bind('start_date', $ranges['current']['start']->format('Y-m-d'));
+    $this->db->bind('end_date', $ranges['current']['end']->format('Y-m-d'));
+    foreach ($shopIds as $index => $id) $this->db->bind('shop_' . $index, $id);
+    $rows = $this->db->getAll();
+    $series = [];
+    foreach ($rows as $row) {
+      $id = (int)$row['shop_id'];
+      if (!isset($series[$id])) $series[$id] = ['shop_id' => $id, 'shop_name' => $row['shop_name'], 'points' => []];
+      $series[$id]['points'][] = [
+        'date' => $row['metric_date'],
+        'confirmed_gmv' => (float)$row['confirmed_gmv'],
+        'confirmed_orders' => (float)$row['confirmed_orders'],
+        'shop_uv' => (float)$row['shop_uv'],
+        'product_clicks' => (float)$row['product_clicks']
+      ];
+    }
+    return ['ranges' => ['current' => ['start' => $ranges['current']['start']->format('Y-m-d'), 'end' => $ranges['current']['end']->format('Y-m-d')]], 'series' => array_values($series)];
+  }
 }

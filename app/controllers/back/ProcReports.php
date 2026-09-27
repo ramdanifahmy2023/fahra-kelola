@@ -44,4 +44,16 @@ class ProcReports extends Controller {
       $this->json(['status' => 'error', 'message' => 'Detail laporan belum siap.'], 500);
     }
   }
+
+  public function compare() {
+    $this->requireAjax();
+    $raw = (string)($_GET['shop_ids'] ?? $_POST['shop_ids'] ?? '');
+    $shopIds = $raw === '' ? [] : explode(',', $raw);
+    $endDate = $this->validDate($_GET['end_date'] ?? $_POST['end_date'] ?? '') ?: null;
+    try {
+      $this->json(['status' => 'success'] + $this->m('ShopPerformance')->compare($shopIds, $endDate));
+    } catch (Throwable $exception) {
+      $this->json(['status' => 'error', 'message' => 'Perbandingan belum siap.'], 500);
+    }
+  }
 }

@@ -37,6 +37,11 @@ $shops = $data['shops'] ?? [];
       <div class="overflow-x-auto"><table class="table table-sm min-w-[820px]"><thead><tr class="text-[11px] uppercase tracking-wide text-base-content/50"><th>#</th><th>Toko</th><th>Penjualan</th><th>vs bulan lalu</th><th>Pesanan</th><th>UV</th><th>Klik produk</th><th>Konversi</th><th>Data</th></tr></thead><tbody id="report-rows"><tr><td colspan="9" class="py-10 text-center text-sm text-base-content/50">—</td></tr></tbody></table></div>
     </div>
 
+    <div class="rounded-2xl border border-base-300 bg-base-100 shadow-sm">
+      <div class="flex flex-col gap-3 border-b border-base-300 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"><div><h2 class="font-black">Grafik perbandingan toko</h2><p class="mt-1 text-xs text-base-content/50">Garis menunjukkan perubahan harian tiap toko pada periode berjalan.</p></div><label class="form-control w-full sm:w-48"><span class="mb-1 text-[11px] font-bold text-base-content/55">Metrik grafik</span><select id="compare-metric" class="select select-bordered select-sm"><option value="confirmed_gmv">Penjualan</option><option value="confirmed_orders">Pesanan</option><option value="shop_uv">UV</option><option value="product_clicks">Klik produk</option></select></label></div>
+      <div class="overflow-x-auto p-3 sm:p-5"><div id="compare-legend" class="mb-3 flex min-h-6 flex-wrap gap-x-4 gap-y-2 text-xs font-semibold"></div><div class="relative min-w-[680px]"><svg id="compare-chart" viewBox="0 0 1000 320" class="h-auto w-full overflow-visible" role="img" aria-label="Grafik perbandingan performa toko"></svg><div id="compare-empty" class="hidden py-12 text-center text-sm text-base-content/50">Belum ada data grafik.</div></div></div>
+    </div>
+
     <div class="rounded-2xl border border-base-300 bg-base-100 shadow-sm"><div class="border-b border-base-300 p-4 sm:p-5"><h2 class="font-black">Perbandingan harian</h2><p class="mt-1 text-xs text-base-content/50">Pilih toko pada ranking untuk melihat snapshot harian.</p></div><div class="overflow-x-auto"><table class="table table-sm min-w-[640px]"><thead><tr class="text-[11px] uppercase tracking-wide text-base-content/50"><th>Tanggal</th><th>Penjualan</th><th>Pesanan</th><th>UV</th><th>Klik produk</th></tr></thead><tbody id="detail-rows"><tr><td colspan="5" class="py-8 text-center text-sm text-base-content/50">Pilih toko untuk melihat detail.</td></tr></tbody></table></div></div>
   </div>
 </section>
@@ -54,6 +59,7 @@ $shops = $data['shops'] ?? [];
   const state = document.getElementById('report-refreshed');
   const alertBox = document.getElementById('report-alert');
   let latestRows = [];
+  let latestSeries = [];
   function showAlert(message) { alertBox.textContent = message; alertBox.classList.remove('hidden'); }
   function clearAlert() { alertBox.textContent = ''; alertBox.classList.add('hidden'); }
   function render(payload) {
@@ -61,6 +67,7 @@ $shops = $data['shops'] ?? [];
     const totals = payload.totals || {};
     const rows = payload.rows || [];
     latestRows = rows;
+    loadCompare();
     document.getElementById('current-range').textContent = `${payload.ranges.current.start} – ${payload.ranges.current.end}`;
     document.getElementById('previous-range').textContent = `${payload.ranges.previous.start} – ${payload.ranges.previous.end}`;
     document.getElementById('total-gmv').textContent = money(totals.confirmed_gmv);
@@ -76,6 +83,25 @@ $shops = $data['shops'] ?? [];
     document.getElementById('report-loading').classList.add('hidden'); document.getElementById('report-content').classList.remove('hidden');
     state.innerHTML = '<span class="h-2 w-2 rounded-full bg-success"></span>Snapshot siap';
   }
+  const palette = ['#2f80ed','#f26b45','#60769b','#18a779','#a855f7','#d69e2e','#db2777','#0891b2','#65a30d','#7c3aed'];
+  const chartNumber = value => document.getElementById('compare-metric').value === 'confirmed_gmv' ? money(value) : number(value);
+  function drawCompare(series) {
+    latestSeries = series || [];
+    const svg = document.getElementById('compare-chart'); const empty = document.getElementById('compare-empty'); const legend = document.getElementById('compare-legend');
+    if (!latestSeries.length) { svg.innerHTML = ''; legend.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    const metric = document.getElementById('compare-metric').value; const dates = [...new Set(latestSeries.flatMap(item => item.points.map(point => point.date)))].sort();
+    const values = latestSeries.flatMap(item => item.points.map(point => Number(point[metric] || 0))); const max = Math.max(...values, 1); const left = 58, right = 18, top = 18, bottom = 38, width = 1000 - left - right, height = 320 - top - bottom;
+    const x = index => dates.length > 1 ? left + (index / (dates.length - 1)) * width : left + width / 2; const y = value => top + height - (Number(value || 0) / max) * height;
+    const grid = [0, .25, .5, .75, 1].map(step => { const yy = y(max * step); return `<line x1="${left}" x2="${left + width}" y1="${yy}" y2="${yy}" stroke="currentColor" stroke-opacity=".12"/><text x="${left - 10}" y="${yy + 4}" text-anchor="end" font-size="10" fill="currentColor" fill-opacity=".55">${metric === 'confirmed_gmv' ? new Intl.NumberFormat('id-ID',{notation:'compact',maximumFractionDigits:1}).format(max * step) : number(max * step)}</text>`; }).join('');
+    const xLabels = dates.filter((date, index) => index === 0 || index === dates.length - 1 || index % Math.max(1, Math.floor(dates.length / 5)) === 0).map(date => { const idx = dates.indexOf(date); return `<text x="${x(idx)}" y="${top + height + 25}" text-anchor="middle" font-size="10" fill="currentColor" fill-opacity=".55">${esc(date.slice(5))}</text>`; }).join('');
+    const paths = latestSeries.map((item, seriesIndex) => { const points = item.points.map(point => [x(dates.indexOf(point.date)), y(point[metric])]); const path = points.map((point, index) => `${index ? 'L' : 'M'}${point[0].toFixed(1)},${point[1].toFixed(1)}`).join(' '); const circles = points.map((point, index) => `<circle cx="${point[0]}" cy="${point[1]}" r="3" fill="${palette[seriesIndex % palette.length]}" stroke="var(--color-base-100)" stroke-width="1.5"><title>${esc(item.shop_name)} · ${esc(dates[index])}: ${esc(chartNumber(item.points[index][metric]))}</title></circle>`).join(''); return `<path d="${path}" fill="none" stroke="${palette[seriesIndex % palette.length]}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>${circles}`; }).join('');
+    svg.innerHTML = `<g>${grid}${xLabels}<line x1="${left}" x2="${left}" y1="${top}" y2="${top + height}" stroke="currentColor" stroke-opacity=".16"/><line x1="${left}" x2="${left + width}" y1="${top + height}" y2="${top + height}" stroke="currentColor" stroke-opacity=".16"/>${paths}</g>`;
+    legend.innerHTML = latestSeries.map((item, index) => `<span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full" style="background:${palette[index % palette.length]}"></span>${esc(item.shop_name)}</span>`).join('');
+  }
+  async function loadCompare() {
+    try { const response = await fetch(`${base}/procreports/compare?end_date=${encodeURIComponent(dateInput.value)}&shop_ids=${encodeURIComponent(document.getElementById('report-shop').value || '')}`, {headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}, cache:'no-store'}); const payload = await response.json(); if (response.ok && payload.status === 'success') drawCompare(payload.series); } catch (error) { drawCompare([]); }
+  }
   async function load() {
     const button = document.getElementById('report-refresh'); button.disabled = true; state.innerHTML = '<span class="loading loading-spinner loading-xs"></span>Mengambil snapshot…';
     const params = new URLSearchParams({end_date: dateInput.value, sort: document.getElementById('report-sort').value, shop_id: document.getElementById('report-shop').value});
@@ -86,6 +112,7 @@ $shops = $data['shops'] ?? [];
     try { const response = await fetch(`${base}/procreports/detail?shop_id=${encodeURIComponent(shopId)}&end_date=${encodeURIComponent(dateInput.value)}`, {headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}, cache:'no-store'}); const payload = await response.json(); if (!response.ok || payload.status !== 'success') throw new Error(payload.message || 'Detail gagal dimuat.'); body.innerHTML = payload.rows.length ? payload.rows.map(row => `<tr><td>${esc(row.metric_date)}</td><td>${money(row.confirmed_gmv)}</td><td>${number(row.confirmed_orders)}</td><td>${number(row.shop_uv)}</td><td>${number(row.product_clicks)}</td></tr>`).join('') : '<tr><td colspan="5" class="py-8 text-center text-sm text-base-content/50">Belum ada data harian untuk toko ini.</td></tr>'; } catch (error) { body.innerHTML = `<tr><td colspan="5" class="py-8 text-center text-sm text-error">${esc(error.message)}</td></tr>`; }
   }
   document.getElementById('report-refresh').addEventListener('click', load); document.getElementById('report-sort').addEventListener('change', load); document.getElementById('report-shop').addEventListener('change', load);
+  document.getElementById('compare-metric').addEventListener('change', () => drawCompare(latestSeries));
   document.getElementById('report-rows').addEventListener('click', event => { const button = event.target.closest('.report-shop-detail'); if (button) detail(button.dataset.shopId); });
   load();
 })();
