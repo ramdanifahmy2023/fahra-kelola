@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
   <title id="title">Shopdash</title>
   <desc id="desc">Shopdash lightning bolt icon</desc>
-  <rect width="64" height="64" rx="16" fill="#a3a3a3"/>
-  <path d="M37 6 14 36h15l-4 22 25-33H36z" fill="#fff"/>
+  <rect width="64" height="64" rx="16" fill="#e98425"/>
+  <path d="M37 6 14 36h15l-4 22 25-33H36z" fill="#1a1714"/>
 </svg>
