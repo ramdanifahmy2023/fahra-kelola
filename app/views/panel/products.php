@@ -13,20 +13,20 @@ foreach (($data['shops'] ?? []) as $s) {
 if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 ?>
-<div class="mb-5 flex items-center justify-between">
-  <div>
+<div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <div class="min-w-0">
     <div class="flex flex-wrap items-center gap-2">
       <h2 class="text-2xl font-bold mb-1 text-base-content"><?= $isCriticalFilter ? 'Stok Kritis' : 'Daftar Produk'; ?></h2>
       <?php if ($isCriticalFilter): ?><span class="badge badge-error badge-sm gap-1"><span class="material-symbols-outlined text-[14px]">warning</span>Di bawah 15</span><?php endif; ?>
     </div>
     <p class="opacity-70 text-sm"><?= $isCriticalFilter ? 'Produk aktif dengan stok 0–14 yang perlu ditangani.' : 'Kelola semua produk dari seluruh toko cabang Anda di satu tempat.'; ?></p>
   </div>
-  <div class="flex w-full max-w-sm items-center gap-2">
-  <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm gap-1" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>
-  <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
+  <div class="flex w-full max-w-none flex-col gap-2 sm:max-w-sm sm:flex-row sm:items-center">
+  <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>
+  <button type="button" class="btn btn-primary btn-sm w-full gap-1 sm:w-auto" onclick="queueBackgroundSync('products')" id="product-sync-button">
     <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
   </button>
-  <div class="form-control min-w-0 flex-1 relative">
+  <div class="form-control relative min-w-0 flex-1">
     <div class="dropdown dropdown-bottom dropdown-end w-full">
       <div tabindex="0" role="button" class="tooltip tooltip-bottom btn w-full justify-start gap-3 font-normal shadow-sm" data-tip="<?= htmlspecialchars($activeShop['name'] ?? 'Pilih toko'); ?>" id="selectedShopDisplay">
         <?php if (!empty($data['shops'])): ?>
@@ -60,6 +60,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
+  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
   <div class="overflow-x-auto">
     <table class="table w-full">
       <!-- head -->

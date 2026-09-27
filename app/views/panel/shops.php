@@ -1,11 +1,11 @@
 <!-- Page Header -->
-<div class="mb-5 flex items-center justify-between">
-  <div>
+<div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  <div class="min-w-0">
     <h2 class="text-2xl font-bold mb-1 text-base-content">Daftar Toko</h2>
     <p class="opacity-70 text-sm">Kelola semua toko dan pengaturan masing-masing cabang di sini.</p>
   </div>
-  <div>
-    <button class="btn btn-primary shadow-sm gap-2" onclick="add_shop_modal.showModal()">
+  <div class="w-full sm:w-auto">
+    <button class="btn btn-primary w-full gap-2 shadow-sm sm:w-auto" onclick="add_shop_modal.showModal()">
       <span class="material-symbols-outlined">add</span>
       Tambah Toko
     </button>
@@ -14,6 +14,7 @@
 
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
+  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
   <div class="overflow-x-auto">
     <table class="table w-full">
       <!-- head -->

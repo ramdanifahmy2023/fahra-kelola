@@ -243,7 +243,7 @@ $statusClass = static function ($status) {
   <?php if (!$recentOrders): ?>
     <div class="p-8 text-center text-sm text-base-content/50">Belum ada order detail untuk ditampilkan.</div>
   <?php else: ?>
-    <div class="overflow-x-auto"><table class="table w-full"><thead><tr><th>Order</th><th>Toko</th><th>Status</th><th>Tanggal</th><th class="text-right">Total</th></tr></thead><tbody>
+    <div class="flex items-center gap-2 border-b border-base-content/10 px-5 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div><div class="overflow-x-auto"><table class="table w-full"><thead><tr><th>Order</th><th>Toko</th><th>Status</th><th>Tanggal</th><th class="text-right">Total</th></tr></thead><tbody>
       <?php foreach ($recentOrders as $order): ?>
         <tr class="hover"><td><div class="font-mono text-xs font-bold"><?= htmlspecialchars($order['order_sn'] ?: $order['id']); ?></div></td><td class="text-xs"><?= htmlspecialchars($order['shop_name'] ?: '-'); ?></td><td><span class="badge <?= $statusClass($order['display_status']); ?> badge-sm"><?= htmlspecialchars($order['display_status']); ?></span></td><td class="whitespace-nowrap text-xs text-base-content/60"><?= htmlspecialchars($formatDate($order['created_at'])); ?></td><td class="whitespace-nowrap text-right text-xs font-bold"><?= htmlspecialchars($formatMoney($order['total_price'] ?? 0)); ?></td></tr>
       <?php endforeach; ?>

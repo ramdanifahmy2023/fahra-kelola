@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
+  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
   <div class="overflow-x-auto">
     <table class="table w-full">
       <thead>
