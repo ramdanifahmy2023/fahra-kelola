@@ -1,6 +1,151 @@
 <?php
 
 class ProcProducts extends Controller {
+
+    private function json($payload, $code = 200) {
+        http_response_code($code);
+        header('Content-Type: application/json');
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    private function requireAjax() {
+        $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+        if (!$isAjax) $this->json(['status' => 'error', 'message' => 'Invalid request.'], 400);
+    }
+
+    private function boostProducts($shopId, $search, $page, $limit) {
+        $productModel = $this->m('Product');
+        $offset = ($page - 1) * $limit;
+        $products = $productModel->findForBoost($shopId, $search, $limit, $offset);
+        foreach ($products as &$product) {
+            $raw = json_decode($product['raw_data'] ?? '', true);
+            $info = is_array($raw['boost_info'] ?? null) ? $raw['boost_info'] : [];
+            $product['show_boost_button'] = !array_key_exists('show_boost_button', $info) || !empty($info['show_boost_button']);
+            $product['disabled_boost_button'] = !empty($info['disabled_boost_button']);
+            $product['boost_entry_status'] = (int)($info['boost_entry_status'] ?? 0);
+            unset($product['raw_data']);
+        }
+        return [$products, $productModel->countForBoost($shopId, $search)];
+    }
+
+    public function boost_products() {
+        $this->requireAjax();
+        $shopId = (int)($_GET['shop_id'] ?? 0);
+        if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
+        $shop = $this->m('Shop')->findBy('id', $shopId);
+        if (!$shop) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $limit = min(20, max(5, (int)($_GET['limit'] ?? 12)));
+        $search = trim((string)($_GET['search'] ?? ''));
+        [$products, $total] = $this->boostProducts($shopId, $search, $page, $limit);
+        $monitor = $this->m('ProductBoostMonitor');
+        $this->json([
+            'status' => 'success',
+            'shop' => ['id' => (int)$shop['id'], 'name' => $shop['name'] ?? '', 'session_status' => $shop['sync_status'] ?? 'unknown'],
+            'products' => $products,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'summary' => $monitor->summary($shopId),
+            'history' => $monitor->history($shopId, 5)
+        ]);
+    }
+
+    public function boost() {
+        $this->requireAjax();
+        $shopId = (int)($_POST['shop_id'] ?? 0);
+        $rawIds = $_POST['product_ids'] ?? [];
+        if (is_string($rawIds)) $rawIds = json_decode($rawIds, true);
+        $productIds = is_array($rawIds) ? array_values(array_unique(array_filter(array_map('intval', $rawIds)))) : [];
+        if ($shopId < 1 || !$productIds) $this->json(['status' => 'error', 'message' => 'Toko dan produk wajib dipilih.'], 422);
+        if (count($productIds) > 5) $this->json(['status' => 'error', 'message' => 'Maksimal 5 produk per eksekusi.'], 422);
+
+        $shop = $this->m('Shop')->findBy('id', $shopId);
+        if (!$shop || empty($shop['cookie'])) $this->json(['status' => 'error', 'message' => 'Cookie toko kosong atau toko tidak ditemukan.'], 404);
+        $monitor = $this->m('ProductBoostMonitor');
+        $summary = $monitor->summary($shopId);
+        if (!empty($summary['cooldown_active'])) {
+            $this->json(['status' => 'error', 'message' => 'Cooldown toko masih aktif sampai ' . $summary['next_allowed_at'] . ' UTC.', 'summary' => $summary], 409);
+        }
+        if (count($productIds) > (int)$summary['remaining_count']) {
+            $this->json(['status' => 'error', 'message' => 'Pilihan melebihi sisa kuota lokal toko.', 'summary' => $summary], 422);
+        }
+
+        $products = $this->m('Product')->findByIdsForBoost($shopId, $productIds);
+        if (count($products) !== count($productIds)) $this->json(['status' => 'error', 'message' => 'Ada produk yang tidak aktif atau bukan milik toko ini.'], 422);
+        $shopee = $this->m('ShopeeCurl');
+        $session = $shopee->check($shop['cookie']);
+        if (!isset($session['shop']['id'])) {
+            $this->m('Shop')->update($shopId, ['sync_status' => 'expired']);
+            $this->json(['status' => 'error', 'message' => 'Sesi Shopee toko habis atau tidak valid. Perbarui cookie toko.'], 401);
+        }
+        if (($shop['sync_status'] ?? '') !== 'connected') $this->m('Shop')->update($shopId, ['sync_status' => 'connected']);
+        if ((string)$session['shop']['id'] !== (string)($shop['shop_id'] ?? '')) {
+            $this->json(['status' => 'error', 'message' => 'Cookie aktif milik toko lain. Periksa mapping toko dan cookie.'], 409);
+        }
+
+        $reservation = $monitor->reserveRun($shopId, $products);
+        if (!empty($reservation['error'])) $this->json(['status' => 'error', 'message' => $reservation['error'], 'summary' => $monitor->summary($shopId)], 409);
+        $runId = (int)$reservation['run_id'];
+        $boostInfo = $shopee->getBoostInfo($shop['cookie'], $productIds);
+        if ($boostInfo === false) {
+            foreach ($products as $product) $monitor->recordItem($runId, $product['id'], 'unknown', null, 'Status boost tidak dapat diverifikasi.');
+            $result = $monitor->finishRun($runId, 'Status boost tidak dapat diverifikasi.');
+            $this->json(['status' => 'error', 'message' => 'Status produk tidak dapat diverifikasi dari Shopee.', 'run_id' => $runId, 'result' => $result], 502);
+        }
+
+        $items = [];
+        foreach ($products as $product) {
+            $id = (int)$product['id'];
+            $hasInfo = array_key_exists((string)$id, $boostInfo) || array_key_exists($id, $boostInfo);
+            $info = $boostInfo[(string)$id] ?? $boostInfo[$id] ?? [];
+            if (!$hasInfo && is_array($boostInfo)) {
+                foreach ($boostInfo as $candidate) {
+                    if (is_array($candidate) && (string)($candidate['product_id'] ?? $candidate['id'] ?? '') === (string)$id) {
+                        $info = $candidate;
+                        $hasInfo = true;
+                        break;
+                    }
+                }
+            }
+            if (!$hasInfo) {
+                $message = 'Status produk tidak dikembalikan Shopee, sehingga aksi tidak dikirim.';
+                $monitor->recordItem($runId, $id, 'failed', null, $message);
+                $items[] = ['product_id' => $id, 'product_name' => $product['name'], 'status' => 'failed', 'message' => $message];
+                continue;
+            }
+            if (!empty($info['disabled_boost_button']) || (array_key_exists('show_boost_button', $info) && empty($info['show_boost_button']))) {
+                $message = 'Produk belum dapat dinaikkan menurut status Shopee.';
+                $monitor->recordItem($runId, $id, 'failed', $info, $message);
+                $items[] = ['product_id' => $id, 'product_name' => $product['name'], 'status' => 'failed', 'message' => $message];
+                continue;
+            }
+            $response = $shopee->boostProduct($shop['cookie'], $id);
+            if (is_array($response) && (int)($response['code'] ?? -1) === 0) {
+                $monitor->recordItem($runId, $id, 'success', $response);
+                $items[] = ['product_id' => $id, 'product_name' => $product['name'], 'status' => 'success'];
+            } elseif (is_array($response) && array_key_exists('success', $response) && $response['success'] === false) {
+                $monitor->recordItem($runId, $id, 'unknown', $response, $response['message'] ?? 'Respons tidak dapat dipastikan.');
+                $items[] = ['product_id' => $id, 'product_name' => $product['name'], 'status' => 'unknown', 'message' => $response['message'] ?? 'Respons tidak dapat dipastikan.'];
+            } else {
+                $message = is_array($response) ? ($response['message'] ?? 'Shopee menolak permintaan.') : 'Respons Shopee tidak valid.';
+                $monitor->recordItem($runId, $id, 'failed', $response, $message);
+                $items[] = ['product_id' => $id, 'product_name' => $product['name'], 'status' => 'failed', 'message' => $message];
+            }
+            usleep(250000);
+        }
+        $result = $monitor->finishRun($runId);
+        $this->json(['status' => 'success', 'message' => 'Proses naikkan produk selesai.', 'run_id' => $runId, 'items' => $items, 'result' => $result]);
+    }
+
+    public function boost_history() {
+        $this->requireAjax();
+        $shopId = (int)($_GET['shop_id'] ?? 0);
+        if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
+        $monitor = $this->m('ProductBoostMonitor');
+        $this->json(['status' => 'success', 'summary' => $monitor->summary($shopId), 'history' => $monitor->history($shopId, 20)]);
+    }
     
     // AJAX method untuk fetch dan save products
     public function add() {

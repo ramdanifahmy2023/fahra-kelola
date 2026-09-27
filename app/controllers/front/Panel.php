@@ -93,6 +93,15 @@ class Panel extends Controller {
     $this->v('panel/templates/footer', $data);
   }
 
+  public function boost() {
+    $data['judul'] = 'Naikkan Produk - ' . app_name;
+    $data['active_menu'] = 'boost';
+    $data['shops'] = $this->m('Shop')->findAll();
+    $this->v('panel/templates/header', $data);
+    $this->v('panel/boost', $data);
+    $this->v('panel/templates/footer', $data);
+  }
+
   // Orders
   public function orders() {
     $data['judul'] = 'Daftar Pesanan - ' . app_name;

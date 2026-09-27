@@ -436,6 +436,32 @@ class ShopeeCurl {
         ];
     }
 
+    public function getBoostInfo($cookie, array $productIds) {
+        $productIds = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+        if (!$productIds) return [];
+        $endpoint = $this->sellerMarketingEndpoint('/api/v3/opt/mpsku/list/get_boost_info', $cookie, [
+            'product_id_list' => implode(',', $productIds)
+        ]);
+        $response = $this->request('GET', $endpoint, $cookie, [], [
+            'Origin: https://seller.shopee.co.id',
+            'Referer: https://seller.shopee.co.id/portal/product/list/live/all'
+        ]);
+        if (!is_array($response) || (int)($response['code'] ?? -1) !== 0) return false;
+        return is_array($response['data']['boost_infos'] ?? null) ? $response['data']['boost_infos'] : [];
+    }
+
+    public function boostProduct($cookie, $productId) {
+        $productId = (int)$productId;
+        if ($productId < 1) return false;
+        $endpoint = $this->sellerMarketingEndpoint('/api/v3/opt/product/boost_product/', $cookie, [
+            'version' => '3.1.0'
+        ]);
+        return $this->request('POST', $endpoint, $cookie, ['id' => $productId], [
+            'Origin: https://seller.shopee.co.id',
+            'Referer: https://seller.shopee.co.id/portal/product/list/live/all'
+        ]);
+    }
+
     /**
      * Method untuk mengambil data user pemilik akun toko
      * Menggunakan endpoint seller.shopee.co.id/api/selleraccount/user_info/

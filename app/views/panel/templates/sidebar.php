@@ -20,6 +20,7 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
     <div class="space-y-1">
       <a href="<?= burl; ?>/panel" class="<?= $navItemClass; ?> <?= ($active == 'dashboard') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">grid_view</span><span>Dashboard</span></a>
       <a href="<?= burl; ?>/panel/products?sync=1" class="<?= $navItemClass; ?> <?= ($active == 'products') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">inventory_2</span><span>Produk</span></a>
+      <a href="<?= burl; ?>/panel/boost" class="<?= $navItemClass; ?> <?= ($active == 'boost') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">north</span><span>Naikkan Produk</span></a>
       <a href="<?= burl; ?>/panel/orders?sync=1" class="<?= $navItemClass; ?> <?= ($active == 'orders') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">receipt_long</span><span>Pesanan</span></a>
       <a href="<?= burl; ?>/panel/customers?sync=1" class="<?= $navItemClass; ?> <?= ($active == 'customers') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">group</span><span>Pelanggan</span></a>
       <a href="<?= burl; ?>/panel/ads" class="<?= $navItemClass; ?> <?= ($active == 'ads') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">campaign</span><span>Iklan</span></a>
