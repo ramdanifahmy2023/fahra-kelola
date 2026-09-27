@@ -208,7 +208,7 @@ class ShopeeCurl {
      * Endpoint ini tidak membutuhkan campaign_id sehingga aman dipakai untuk
      * ringkasan multi-toko sebelum daftar campaign tersedia.
      */
-    public function getAdsSummary($cookie) {
+    public function getAdsSummary($cookie, array $period = []) {
         preg_match('/SPC_CDS=([^;]+)/', $cookie, $matches);
         $spcCds = $matches[1] ?? '';
         if ($spcCds === '') {
@@ -241,12 +241,13 @@ class ShopeeCurl {
         }
 
         $toMoney = static function ($value) {
-            return (int)round(((float)$value) / 100000);
+            return round(((float)$value) / 100000, 2);
         };
 
         $credit = is_array($data['ads_credit'] ?? null) ? $data['ads_credit'] : [];
         $expense = is_array($data['ads_expense'] ?? null) ? $data['ads_expense'] : [];
-        $performance = $this->getAdsPerformanceSummary($cookie);
+        $window = $this->adsPeriod($period);
+        $performance = $this->getAdsPerformanceSummary($cookie, $window);
         return [
             'ads_credit' => [
                 'total' => $toMoney($credit['total'] ?? 0),
@@ -265,54 +266,155 @@ class ShopeeCurl {
     }
 
     /**
-     * Mengambil aggregate performa iklan harian dari report_time_graph.
+     * Mengambil performa tujuh hari terakhir per tipe campaign dari report_time_graph.
      */
-    private function getAdsPerformanceSummary($cookie) {
+    private function getAdsPerformanceSummary($cookie, array $window) {
         preg_match('/SPC_CDS=([^;]+)/', $cookie, $matches);
         $spcCds = $matches[1] ?? '';
         if ($spcCds === '') {
-            return null;
+            return [
+                'available' => false,
+                'partial' => true,
+                'period' => $window,
+                'timezone' => 'Asia/Jakarta',
+                'totals' => $this->emptyAdsMetrics(),
+                'channels' => [],
+                'errors' => ['Session Shopee tidak memiliki SPC_CDS.']
+            ];
         }
 
-        $day = new DateTimeImmutable('today', new DateTimeZone('Asia/Jakarta'));
         $endpoint = 'https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=' . urlencode($spcCds) . '&SPC_CDS_VER=2';
-        $response = $this->request('POST', $endpoint, $cookie, [
-            'agg_interval' => 1,
-            'campaign_type' => 'product_homepage_v2',
-            'start_time' => $day->getTimestamp(),
-            'end_time' => $day->modify('+1 day')->getTimestamp() - 1,
-            'need_roi_target_setting' => false,
-            'filter_params' => ['campaign_type' => 'new_cpc_homepage']
-        ], [
-            'Origin: https://seller.shopee.co.id',
-            'Referer: https://seller.shopee.co.id/portal/marketing/pas/index'
-        ]);
-
-        $aggregate = $response['data']['report_aggregate'] ?? null;
-        if (!is_array($aggregate)) {
-            return null;
+        $channels = [];
+        $errors = [];
+        foreach ($this->adsCampaignTypes() as $key => $campaign) {
+            $response = $this->request('POST', $endpoint, $cookie, [
+                'agg_interval' => 12,
+                'campaign_type' => $campaign['type'],
+                'start_time' => $window['start_timestamp'],
+                'end_time' => $window['end_timestamp'],
+                'need_roi_target_setting' => false,
+                'filter_params' => ['campaign_type' => $campaign['filter']]
+            ], [
+                'Origin: https://seller.shopee.co.id',
+                'Referer: https://seller.shopee.co.id/portal/marketing/pas/index'
+            ]);
+            $aggregate = $response['data']['report_aggregate'] ?? null;
+            if (!is_array($aggregate)) {
+                $errors[$key] = 'Response performa ' . $campaign['label'] . ' tidak tersedia.';
+                continue;
+            }
+            $channels[$key] = $this->normalizeAdsMetrics($aggregate, $campaign['label']);
         }
 
-        $money = static function ($value) {
-            return (int)round(((float)$value) / 100000);
-        };
-        $orders = (int)($aggregate['direct_order'] ?? $aggregate['broad_order'] ?? 0);
-        $items = (int)($aggregate['direct_order_amount'] ?? $aggregate['broad_order_amount'] ?? 0);
-        $salesRaw = $aggregate['direct_gmv'] ?? $aggregate['broad_gmv'] ?? 0;
-        $roas = $aggregate['direct_roi'] ?? $aggregate['broad_roi'] ?? null;
-
+        $totals = $this->aggregateAdsMetrics($channels);
         return [
-            'available' => true,
-            'period' => $day->format('Y-m-d'),
-            'impressions' => (int)($aggregate['impression'] ?? 0),
-            'clicks' => (int)($aggregate['click'] ?? 0),
-            'ctr' => round(((float)($aggregate['ctr'] ?? 0)) * 100, 2),
-            'orders' => $orders,
-            'items_sold' => $items,
-            'sales' => $money($salesRaw),
-            'ad_cost' => $money($aggregate['cost'] ?? 0),
-            'roas' => $roas === null ? null : round((float)$roas, 2)
+            'available' => !empty($channels),
+            'partial' => !empty($errors),
+            'period' => [
+                'from' => $window['from'],
+                'to' => $window['to'],
+                'label' => '7 hari terakhir'
+            ],
+            'timezone' => 'Asia/Jakarta',
+            'totals' => $totals,
+            'channels' => $channels,
+            'errors' => $errors
         ];
+    }
+
+    private function adsPeriod(array $period) {
+        $timezone = new DateTimeZone('Asia/Jakarta');
+        $today = new DateTimeImmutable('today', $timezone);
+        $start = !empty($period['from']) ? new DateTimeImmutable((string)$period['from'], $timezone) : $today->modify('-6 days');
+        $end = !empty($period['to']) ? new DateTimeImmutable((string)$period['to'], $timezone) : $today;
+        $start = $start->setTime(0, 0, 0);
+        $end = $end->setTime(23, 59, 59);
+        return [
+            'from' => $start->format('Y-m-d'),
+            'to' => $end->format('Y-m-d'),
+            'start_timestamp' => $start->getTimestamp(),
+            'end_timestamp' => $end->getTimestamp()
+        ];
+    }
+
+    private function adsCampaignTypes() {
+        return [
+            'product_homepage_v2' => ['label' => 'Produk', 'type' => 'product_homepage_v2', 'filter' => 'new_cpc_homepage'],
+            'shop_homepage' => ['label' => 'Shop', 'type' => 'shop_homepage', 'filter' => 'shop_homepage'],
+            'live_stream_homepage' => ['label' => 'Live stream', 'type' => 'live_stream_homepage', 'filter' => 'live_stream_homepage']
+        ];
+    }
+
+    private function emptyAdsMetrics() {
+        return [
+            'impressions' => 0,
+            'clicks' => 0,
+            'ctr' => 0,
+            'orders' => 0,
+            'items_sold' => 0,
+            'sales' => 0,
+            'ad_cost' => 0,
+            'roas' => null,
+            'broad_sales' => 0,
+            'broad_orders' => 0,
+            'broad_items_sold' => 0,
+            'broad_roas' => null,
+            'atc' => 0,
+            'checkout' => 0
+        ];
+    }
+
+    private function normalizeAdsMetrics(array $aggregate, $label) {
+        $money = static function ($value) {
+            return round(((float)$value) / 100000, 2);
+        };
+        $cost = $money($aggregate['cost'] ?? 0);
+        $sales = $money($aggregate['direct_gmv'] ?? $aggregate['broad_gmv'] ?? 0);
+        $impressions = (int)($aggregate['impression'] ?? 0);
+        $clicks = (int)($aggregate['click'] ?? 0);
+        return [
+            'label' => $label,
+            'available' => true,
+            'impressions' => $impressions,
+            'clicks' => $clicks,
+            'ctr' => $impressions > 0 ? round(($clicks / $impressions) * 100, 2) : 0,
+            'orders' => (int)($aggregate['direct_order'] ?? $aggregate['broad_order'] ?? 0),
+            'items_sold' => (int)($aggregate['direct_order_amount'] ?? $aggregate['broad_order_amount'] ?? 0),
+            'sales' => $sales,
+            'ad_cost' => $cost,
+            'roas' => $cost > 0 ? round($sales / $cost, 2) : null,
+            'atc' => (int)($aggregate['atc'] ?? 0),
+            'checkout' => (int)($aggregate['checkout'] ?? 0),
+            'broad_sales' => $money($aggregate['broad_gmv'] ?? 0),
+            'broad_orders' => (int)($aggregate['broad_order'] ?? 0),
+            'broad_items_sold' => (int)($aggregate['broad_order_amount'] ?? 0),
+            'broad_roas' => isset($aggregate['broad_roi']) ? round((float)$aggregate['broad_roi'], 2) : null,
+            'raw_metrics' => $aggregate
+        ];
+    }
+
+    private function aggregateAdsMetrics(array $channels) {
+        $totals = $this->emptyAdsMetrics();
+        foreach ($channels as $metrics) {
+            foreach (['impressions', 'clicks', 'orders', 'items_sold', 'sales', 'ad_cost', 'broad_sales', 'broad_orders', 'broad_items_sold', 'atc', 'checkout'] as $field) {
+                $totals[$field] += (float)($metrics[$field] ?? 0);
+            }
+        }
+        $totals['impressions'] = (int)$totals['impressions'];
+        $totals['clicks'] = (int)$totals['clicks'];
+        $totals['orders'] = (int)$totals['orders'];
+        $totals['items_sold'] = (int)$totals['items_sold'];
+        $totals['broad_orders'] = (int)$totals['broad_orders'];
+        $totals['broad_items_sold'] = (int)$totals['broad_items_sold'];
+        $totals['atc'] = (int)$totals['atc'];
+        $totals['checkout'] = (int)$totals['checkout'];
+        $totals['sales'] = round($totals['sales'], 2);
+        $totals['ad_cost'] = round($totals['ad_cost'], 2);
+        $totals['broad_sales'] = round($totals['broad_sales'], 2);
+        $totals['ctr'] = $totals['impressions'] > 0 ? round(($totals['clicks'] / $totals['impressions']) * 100, 2) : 0;
+        $totals['roas'] = $totals['ad_cost'] > 0 ? round($totals['sales'] / $totals['ad_cost'], 2) : null;
+        $totals['broad_roas'] = $totals['ad_cost'] > 0 ? round($totals['broad_sales'] / $totals['ad_cost'], 2) : null;
+        return $totals;
     }
 
     /**

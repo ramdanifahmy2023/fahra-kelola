@@ -4,6 +4,7 @@ class ProcAds extends Controller {
   private function json($payload, $code = 200) {
     http_response_code($code);
     header('Content-Type: application/json');
+    header('Cache-Control: no-store');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;
   }
@@ -19,6 +20,19 @@ class ProcAds extends Controller {
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
     $shops = $this->m('AdsMonitor')->summary($shopId > 0 ? $shopId : null, false);
-    $this->json(['status' => 'success', 'shops' => $shops, 'refreshed_at' => date('c')]);
+    $period = null;
+    foreach ($shops as $shop) {
+      $candidate = $shop['metrics']['performance']['period'] ?? null;
+      if (is_array($candidate)) {
+        $period = $candidate;
+        break;
+      }
+    }
+    $this->json([
+      'status' => 'success',
+      'period' => $period ?: ['label' => '7 hari terakhir', 'timezone' => 'Asia/Jakarta'],
+      'shops' => $shops,
+      'refreshed_at' => date('c')
+    ]);
   }
 }

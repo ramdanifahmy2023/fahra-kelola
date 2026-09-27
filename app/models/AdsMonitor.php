@@ -16,6 +16,36 @@ class AdsMonitor extends BaseModel {
       KEY ad_shop_snapshots_synced (synced_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $this->db->exe();
+    $this->db->query("CREATE TABLE IF NOT EXISTS ad_performance_snapshots (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      shop_id INT NOT NULL,
+      period_start DATETIME NOT NULL,
+      period_end DATETIME NOT NULL,
+      timezone VARCHAR(64) NOT NULL DEFAULT 'Asia/Jakarta',
+      campaign_type VARCHAR(64) NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'ok',
+      impressions BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      clicks BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      ctr DECIMAL(12,4) NOT NULL DEFAULT 0,
+      orders BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      items_sold BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      sales DECIMAL(20,2) NOT NULL DEFAULT 0,
+      ad_cost DECIMAL(20,2) NOT NULL DEFAULT 0,
+      roas DECIMAL(12,4) NULL,
+      broad_sales DECIMAL(20,2) NOT NULL DEFAULT 0,
+      broad_orders BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      broad_items_sold BIGINT UNSIGNED NOT NULL DEFAULT 0,
+      broad_roas DECIMAL(12,4) NULL,
+      raw_payload LONGTEXT NULL,
+      fetched_at DATETIME NOT NULL,
+      error_message TEXT NULL,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY ad_performance_window (shop_id, period_start, period_end, campaign_type),
+      KEY ad_performance_shop_period (shop_id, period_start),
+      KEY ad_performance_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $this->db->exe();
   }
 
   private function shops($shopId = null) {
@@ -55,14 +85,76 @@ class AdsMonitor extends BaseModel {
       return false;
     }
 
+    $performance = is_array($payload['performance'] ?? null) ? $payload['performance'] : [];
+    $performanceStatus = !empty($performance['available'])
+      ? (!empty($performance['partial']) ? 'partial' : 'ok')
+      : 'error';
+    $performanceErrors = array_values((array)($performance['errors'] ?? []));
+    $this->persistPerformanceSnapshots((int)$shop['id'], $performance);
+    $publicPayload = $payload;
+    foreach ((array)($publicPayload['performance']['channels'] ?? []) as $key => $channel) {
+      unset($publicPayload['performance']['channels'][$key]['raw_metrics']);
+    }
+
     $this->db->query("UPDATE shops SET sync_status = 'connected' WHERE id = :shop_id");
     $this->db->bind('shop_id', (int)$shop['id']);
     $this->db->exe();
-    $this->db->query("INSERT INTO {$this->table} (shop_id, status, payload, error_message, synced_at) VALUES (:shop_id, 'ok', :payload, NULL, NOW()) ON DUPLICATE KEY UPDATE status = 'ok', payload = VALUES(payload), error_message = NULL, synced_at = NOW()");
+    $this->db->query("INSERT INTO {$this->table} (shop_id, status, payload, error_message, synced_at) VALUES (:shop_id, :status, :payload, :error_message, NOW()) ON DUPLICATE KEY UPDATE status = VALUES(status), payload = VALUES(payload), error_message = VALUES(error_message), synced_at = NOW()");
     $this->db->bind('shop_id', (int)$shop['id']);
-    $this->db->bind('payload', json_encode($payload, JSON_UNESCAPED_UNICODE));
+    $this->db->bind('status', $performanceStatus);
+    $this->db->bind('payload', json_encode($publicPayload, JSON_UNESCAPED_UNICODE));
+    $this->db->bind('error_message', $performanceErrors ? implode(' ', $performanceErrors) : null);
     $this->db->exe();
-    return true;
+    return $performanceStatus !== 'error';
+  }
+
+  private function persistPerformanceSnapshots($shopId, array $performance) {
+    $period = is_array($performance['period'] ?? null) ? $performance['period'] : [];
+    $from = (string)($period['from'] ?? '');
+    $to = (string)($period['to'] ?? '');
+    if ($from === '' || $to === '') return;
+    $periodStart = $from . ' 00:00:00';
+    $periodEnd = $to . ' 23:59:59';
+    $fetchedAt = gmdate('Y-m-d H:i:s');
+    foreach ((array)($performance['channels'] ?? []) as $campaignType => $metrics) {
+      $this->db->query("INSERT INTO ad_performance_snapshots (
+        shop_id, period_start, period_end, timezone, campaign_type, status,
+        impressions, clicks, ctr, orders, items_sold, sales, ad_cost, roas,
+        broad_sales, broad_orders, broad_items_sold, broad_roas,
+        raw_payload, fetched_at, error_message
+      ) VALUES (
+        :shop_id, :period_start, :period_end, :timezone, :campaign_type, 'ok',
+        :impressions, :clicks, :ctr, :orders, :items_sold, :sales, :ad_cost, :roas,
+        :broad_sales, :broad_orders, :broad_items_sold, :broad_roas,
+        :raw_payload, :fetched_at, NULL
+      ) ON DUPLICATE KEY UPDATE
+        status = 'ok', impressions = VALUES(impressions), clicks = VALUES(clicks),
+        ctr = VALUES(ctr), orders = VALUES(orders), items_sold = VALUES(items_sold),
+        sales = VALUES(sales), ad_cost = VALUES(ad_cost), roas = VALUES(roas),
+        broad_sales = VALUES(broad_sales), broad_orders = VALUES(broad_orders),
+        broad_items_sold = VALUES(broad_items_sold), broad_roas = VALUES(broad_roas),
+        raw_payload = VALUES(raw_payload), fetched_at = VALUES(fetched_at), error_message = NULL");
+      $this->db->bind('shop_id', (int)$shopId);
+      $this->db->bind('period_start', $periodStart);
+      $this->db->bind('period_end', $periodEnd);
+      $this->db->bind('timezone', (string)($performance['timezone'] ?? 'Asia/Jakarta'));
+      $this->db->bind('campaign_type', (string)$campaignType);
+      $this->db->bind('impressions', (int)($metrics['impressions'] ?? 0));
+      $this->db->bind('clicks', (int)($metrics['clicks'] ?? 0));
+      $this->db->bind('ctr', (float)($metrics['ctr'] ?? 0));
+      $this->db->bind('orders', (int)($metrics['orders'] ?? 0));
+      $this->db->bind('items_sold', (int)($metrics['items_sold'] ?? 0));
+      $this->db->bind('sales', (float)($metrics['sales'] ?? 0));
+      $this->db->bind('ad_cost', (float)($metrics['ad_cost'] ?? 0));
+      $this->db->bind('roas', isset($metrics['roas']) ? (float)$metrics['roas'] : null);
+      $this->db->bind('broad_sales', (float)($metrics['broad_sales'] ?? 0));
+      $this->db->bind('broad_orders', (int)($metrics['broad_orders'] ?? 0));
+      $this->db->bind('broad_items_sold', (int)($metrics['broad_items_sold'] ?? 0));
+      $this->db->bind('broad_roas', isset($metrics['broad_roas']) ? (float)$metrics['broad_roas'] : null);
+      $this->db->bind('raw_payload', json_encode($metrics['raw_metrics'] ?? [], JSON_UNESCAPED_UNICODE));
+      $this->db->bind('fetched_at', $fetchedAt);
+      $this->db->exe();
+    }
   }
 
   private function saveError(array $shop, $status, $message) {
