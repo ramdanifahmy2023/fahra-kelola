@@ -76,6 +76,32 @@ class ProductBoostMonitor extends BaseModel {
     ];
   }
 
+  public function productCooldowns($shopId, array $productIds, $cooldownMinutes = 255) {
+    $this->ensureSchema();
+    $ids = array_values(array_unique(array_filter(array_map('intval', $productIds))));
+    if (!$ids) return [];
+    $placeholders = [];
+    foreach ($ids as $index => $id) $placeholders[] = ':product_id_' . $index;
+    $this->db->query("SELECT product_id, MAX(CASE WHEN status IN ('success', 'unknown') THEN attempted_at END) AS last_boost_at FROM product_boost_items WHERE shop_id = :shop_id AND product_id IN (" . implode(', ', $placeholders) . ") GROUP BY product_id");
+    $this->db->bind('shop_id', (int)$shopId);
+    foreach ($ids as $index => $id) $this->db->bind('product_id_' . $index, $id);
+    $rows = $this->db->getAll();
+    $result = [];
+    foreach ($rows as $row) {
+      $last = $row['last_boost_at'] ?? null;
+      $next = $last ? gmdate('Y-m-d H:i:s', strtotime($last . ' UTC') + ((int)$cooldownMinutes * 60)) : null;
+      $nextTimestamp = $next ? strtotime($next . ' UTC') : 0;
+      $result[(string)$row['product_id']] = [
+        'last_boost_at' => $last,
+        'next_boost_at' => $next,
+        'cooldown_active' => $nextTimestamp > time(),
+        'cooldown_seconds' => max(0, $nextTimestamp - time()),
+        'cooldown_minutes' => (int)$cooldownMinutes
+      ];
+    }
+    return $result;
+  }
+
   public function createRun($shopId, array $products) {
     $this->db->query("INSERT INTO {$this->table} (shop_id, mode, status, selected_count, started_at) VALUES (:shop_id, 'manual', 'running', :selected_count, UTC_TIMESTAMP())");
     $this->db->bind('shop_id', (int)$shopId);

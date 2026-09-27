@@ -40,6 +40,17 @@ class ProcProducts extends Controller {
         $search = trim((string)($_GET['search'] ?? ''));
         [$products, $total] = $this->boostProducts($shopId, $search, $page, $limit);
         $monitor = $this->m('ProductBoostMonitor');
+        $cooldowns = $monitor->productCooldowns($shopId, array_column($products, 'id'));
+        foreach ($products as &$product) {
+            $product['boost_cooldown'] = $cooldowns[(string)$product['id']] ?? [
+                'last_boost_at' => null,
+                'next_boost_at' => null,
+                'cooldown_active' => false,
+                'cooldown_seconds' => 0,
+                'cooldown_minutes' => 255
+            ];
+        }
+        unset($product);
         $this->json([
             'status' => 'success',
             'shop' => ['id' => (int)$shop['id'], 'name' => $shop['name'] ?? '', 'session_status' => $shop['sync_status'] ?? 'unknown'],
@@ -74,6 +85,15 @@ class ProcProducts extends Controller {
 
         $products = $this->m('Product')->findByIdsForBoost($shopId, $productIds);
         if (count($products) !== count($productIds)) $this->json(['status' => 'error', 'message' => 'Ada produk yang tidak aktif atau bukan milik toko ini.'], 422);
+        $cooldowns = $monitor->productCooldowns($shopId, $productIds);
+        $blocked = [];
+        foreach ($products as $product) {
+            $cooldown = $cooldowns[(string)$product['id']] ?? null;
+            if (!empty($cooldown['cooldown_active'])) $blocked[] = $product['name'] . ' (tersedia ' . $cooldown['next_boost_at'] . ' UTC)';
+        }
+        if ($blocked) {
+            $this->json(['status' => 'error', 'message' => 'Produk masih dalam cooldown: ' . implode(', ', $blocked), 'cooldown_products' => $blocked, 'summary' => $summary], 409);
+        }
         $shopee = $this->m('ShopeeCurl');
         $session = $shopee->check($shop['cookie']);
         if (!isset($session['shop']['id'])) {

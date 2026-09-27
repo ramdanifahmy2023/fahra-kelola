@@ -42,6 +42,8 @@
   const money = value => 'Rp ' + number(value);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const localDate = value => value ? new Date(String(value).replace(' ', 'T') + 'Z').toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'}) : '-';
+  const utcTimestamp = value => value ? new Date(String(value).replace(' ', 'T') + 'Z').getTime() : 0;
+  const countdown = seconds => { const total = Math.max(0, Math.floor(seconds)); const hours = Math.floor(total / 3600); const minutes = Math.floor((total % 3600) / 60); const secs = total % 60; return (hours ? hours + 'j ' : '') + String(minutes).padStart(2, '0') + 'm ' + String(secs).padStart(2, '0') + 'd'; };
   const stateByShop = new Map();
 
   function createCard(shop) {
@@ -84,14 +86,49 @@
     if (!append) container.innerHTML = '';
     if (!products.length && !append) { container.innerHTML = '<div class="rounded-lg bg-base-200/60 p-3 text-xs text-base-content/50">Belum ada produk lokal. Jalankan sinkronisasi produk terlebih dahulu.</div>'; return; }
     products.forEach(product => {
-      const disabled = product.disabled_boost_button ? ' disabled' : '';
-      const note = product.disabled_boost_button ? 'Tidak tersedia' : (product.show_boost_button ? 'Siap dicek saat eksekusi' : 'Belum tersedia');
+      const boostCooldown = product.boost_cooldown || {};
+      const localCooldown = !!boostCooldown.cooldown_active;
+      const shopeeDisabled = !!product.disabled_boost_button;
+      const disabled = localCooldown || shopeeDisabled ? ' disabled' : '';
+      const note = localCooldown ? 'Cooldown' : (shopeeDisabled ? 'Tidak tersedia' : (product.show_boost_button ? 'Siap dinaikkan' : 'Belum tersedia'));
+      const statusClass = localCooldown ? 'badge-warning text-warning-content' : (shopeeDisabled ? 'badge-ghost' : 'badge-success text-white');
+      const statusText = localCooldown ? 'Cooldown ' + countdown(boostCooldown.cooldown_seconds || 0) : (shopeeDisabled ? 'Belum tersedia' : (boostCooldown.last_boost_at ? 'Siap dinaikkan lagi' : 'Siap dinaikkan'));
+      const nextText = localCooldown ? 'Naik lagi ' + localDate(boostCooldown.next_boost_at) : (boostCooldown.last_boost_at ? 'Terakhir ' + localDate(boostCooldown.last_boost_at) : '');
       const row = document.createElement('label');
-      row.className = 'flex cursor-pointer items-center gap-3 rounded-lg border border-base-content/10 p-3 hover:bg-base-200/60' + (disabled ? ' cursor-not-allowed opacity-60' : '');
-      row.innerHTML = '<input type="checkbox" class="checkbox checkbox-primary checkbox-sm" data-product-id="' + esc(product.id) + '"' + disabled + ' /><span class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-base-200">' + (product.cover_image ? '<img src="https://cf.shopee.co.id/file/' + esc(product.cover_image) + '" class="h-full w-full object-cover" alt="" />' : '<span class="material-symbols-outlined text-base-content/40">inventory_2</span>') + '</span><span class="min-w-0 flex-1"><span class="block truncate text-xs font-bold" title="' + esc(product.name) + '">' + esc(product.name) + '</span><span class="mt-1 block text-[10px] text-base-content/50">' + money(product.selling_price_min || product.price_min) + ' · stok ' + number(product.total_stock) + ' · terjual ' + number(product.sold_count) + '</span></span><span class="badge badge-ghost badge-xs shrink-0">' + esc(note) + '</span>';
+      row.className = 'flex cursor-pointer items-center gap-3 rounded-xl border border-base-content/10 p-3 transition hover:border-primary/30 hover:bg-base-200/60' + (disabled ? ' cursor-not-allowed opacity-70' : '');
+      row.innerHTML = '<input type="checkbox" class="checkbox checkbox-primary checkbox-sm" data-product-id="' + esc(product.id) + '" data-local-cooldown="' + (localCooldown ? '1' : '0') + '" data-shopee-disabled="' + (shopeeDisabled ? '1' : '0') + '"' + disabled + ' /><span class="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-base-200">' + (product.cover_image ? '<img src="https://cf.shopee.co.id/file/' + esc(product.cover_image) + '" class="h-full w-full object-cover" alt="" />' : '<span class="material-symbols-outlined text-base-content/40">inventory_2</span>') + '</span><span class="min-w-0 flex-1"><span class="block truncate text-xs font-bold" title="' + esc(product.name) + '">' + esc(product.name) + '</span><span class="mt-1 block text-[10px] text-base-content/50">' + money(product.selling_price_min || product.price_min) + ' · stok ' + number(product.total_stock) + ' · terjual ' + number(product.sold_count) + '</span></span><span class="flex shrink-0 flex-col items-end gap-1 text-right"><span data-product-status class="badge ' + statusClass + ' badge-xs whitespace-nowrap">' + esc(statusText) + '</span><span data-product-next class="text-[9px] font-semibold text-base-content/50">' + esc(nextText) + '</span></span>';
+      row.dataset.nextBoost = boostCooldown.next_boost_at || '';
       container.appendChild(row);
     });
     container.querySelectorAll('input[data-product-id]').forEach(input => input.addEventListener('change', () => enforceSelection(card)));
+    updateProductCooldowns(card);
+  }
+
+  function updateProductCooldowns(card) {
+    card.querySelectorAll('[data-next-boost], label[data-next-boost], [data-product-status]').forEach(status => {
+      const row = status.closest('label');
+      if (!row || !row.dataset.nextBoost) return;
+      const nextTimestamp = utcTimestamp(row.dataset.nextBoost);
+      const remaining = Math.max(0, Math.ceil((nextTimestamp - Date.now()) / 1000));
+      const badge = row.querySelector('[data-product-status]');
+      const next = row.querySelector('[data-product-next]');
+      const input = row.querySelector('input[data-product-id]');
+      if (remaining > 0) {
+        badge.textContent = 'Cooldown ' + countdown(remaining);
+        badge.className = 'badge badge-warning text-warning-content badge-xs whitespace-nowrap';
+        if (next) next.textContent = 'Naik lagi ' + localDate(row.dataset.nextBoost);
+        if (input) input.disabled = true;
+        row.classList.add('cursor-not-allowed', 'opacity-70');
+      } else if (input && input.dataset.localCooldown === '1') {
+        badge.textContent = 'Siap dinaikkan lagi';
+        badge.className = 'badge badge-success text-white badge-xs whitespace-nowrap';
+        if (next) next.textContent = 'Cooldown selesai';
+        input.dataset.localCooldown = '0';
+        input.disabled = input.dataset.shopeeDisabled === '1';
+        row.classList.toggle('cursor-not-allowed', input.disabled);
+        row.classList.toggle('opacity-70', input.disabled);
+      }
+    });
   }
 
   function enforceSelection(card) {
@@ -139,6 +176,7 @@
 
   shops.forEach(createCard);
   if (!shops.length) { state.textContent = 'Belum ada toko terhubung.'; return; }
+  setInterval(() => grid.querySelectorAll('[data-card]').forEach(updateProductCooldowns), 1000);
   Promise.all(shops.map(shop => loadShop(shop.id))).then(() => { state.textContent = 'Status naikkan produk setiap toko siap digunakan.'; }).catch(error => { state.className = 'mb-5 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-error'; state.textContent = error.message || 'Data naikkan produk gagal dimuat.'; });
 })();
 </script>
