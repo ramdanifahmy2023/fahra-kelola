@@ -179,7 +179,7 @@ class SyncJob extends BaseModel {
 
   public function enqueue($shopId, $mode = 'diff') {
     $this->ensureSchema();
-    $this->db->query("SELECT id, status FROM sync_jobs WHERE shop_id = :shop_id AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");
+    $this->db->query("SELECT id, status FROM sync_jobs WHERE shop_id = :shop_id AND sync_type = 'orders' AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");
     $this->db->bind('shop_id', $shopId);
     $existing = $this->db->single();
     if ($existing) {
@@ -215,6 +215,64 @@ class SyncJob extends BaseModel {
     return $jobId;
   }
 
+  /**
+   * Enqueue a non-order sync unit. One active job is allowed per shop/type;
+   * the stable idempotency key prevents duplicate scheduler ticks.
+   */
+  public function enqueueType($shopId, $syncType, $mode = 'diff') {
+    $this->ensureSchema();
+    $shopId = (int)$shopId;
+    $syncType = strtolower(trim((string)$syncType));
+    $allowed = ['products', 'ads', 'promotions', 'chat', 'customers', 'shops', 'packages'];
+    if ($shopId < 1 || !in_array($syncType, $allowed, true)) return 0;
+
+    $this->db->query("SELECT id FROM sync_jobs WHERE shop_id = :shop_id AND sync_type = :sync_type AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");
+    $this->db->bind('shop_id', $shopId);
+    $this->db->bind('sync_type', $syncType);
+    $existing = $this->db->single();
+    if ($existing) return (int)$existing['id'];
+
+    $this->db->query("SELECT channel_id FROM shops WHERE id = :shop_id LIMIT 1");
+    $this->db->bind('shop_id', $shopId);
+    $shop = $this->db->single();
+    if (!$shop) return 0;
+    $channelId = (int)($shop['channel_id'] ?? 1);
+    $bucket = (int)floor(time() / 60);
+    $idempotency = $syncType . ':' . $shopId . ':' . $mode . ':' . $bucket;
+    $this->db->query("INSERT INTO sync_jobs (shop_id, channel_id, sync_type, idempotency_key, mode, status) VALUES (:shop_id, :channel_id, :sync_type, :idempotency_key, :mode, 'queued') ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)");
+    $this->db->bind('shop_id', $shopId);
+    $this->db->bind('channel_id', $channelId);
+    $this->db->bind('sync_type', $syncType);
+    $this->db->bind('idempotency_key', $idempotency);
+    $this->db->bind('mode', $mode === 'full' ? 'full' : 'diff');
+    $this->db->exe();
+    $jobId = (int)$this->db->lastId();
+    if ($jobId < 1) return 0;
+    $this->db->query("INSERT INTO sync_runs (sync_job_id, shop_id, channel_id, sync_type, job_id, phase, status, started_at) VALUES (:sync_job_id, :shop_id, :channel_id, :sync_type, :job_id, 'sync', 'queued', NOW())");
+    $this->db->bind('sync_job_id', $jobId);
+    $this->db->bind('shop_id', $shopId);
+    $this->db->bind('channel_id', $channelId);
+    $this->db->bind('sync_type', $syncType);
+    $this->db->bind('job_id', $jobId);
+    $this->db->exe();
+    $runId = (int)$this->db->lastId();
+    $this->db->query("UPDATE sync_jobs SET sync_run_id = :run_id WHERE id = :job_id");
+    $this->db->bind('run_id', $runId);
+    $this->db->bind('job_id', $jobId);
+    $this->db->exe();
+    return $jobId;
+  }
+
+  public function statusByType($shopId, $syncType = null) {
+    $this->ensureSchema();
+    $where = 'j.shop_id = :shop_id';
+    if ($syncType) $where .= ' AND j.sync_type = :sync_type';
+    $this->db->query("SELECT j.* FROM sync_jobs j WHERE {$where} ORDER BY j.id DESC LIMIT 1");
+    $this->db->bind('shop_id', (int)$shopId);
+    if ($syncType) $this->db->bind('sync_type', (string)$syncType);
+    return $this->db->single() ?: null;
+  }
+
   public function status($shopId, $jobId = null) {
     $this->ensureSchema();
     $where = $jobId ? 'j.id = :job_id' : 'j.shop_id = :shop_id';
@@ -240,7 +298,7 @@ class SyncJob extends BaseModel {
       $this->db->query("SELECT * FROM sync_jobs WHERE id = :job_id AND status IN ('queued','running') AND (lease_until IS NULL OR lease_until < NOW()) LIMIT 1");
       $this->db->bind('job_id', (int)$jobId);
     } else {
-      $this->db->query("SELECT * FROM sync_jobs WHERE status IN ('queued','running') AND (next_retry_at IS NULL OR next_retry_at <= NOW()) AND (lease_until IS NULL OR lease_until < NOW()) ORDER BY id ASC LIMIT 1");
+      $this->db->query("SELECT * FROM sync_jobs WHERE status IN ('queued','running') AND (next_retry_at IS NULL OR next_retry_at <= NOW()) AND (lease_until IS NULL OR lease_until < NOW()) ORDER BY CASE WHEN status = 'queued' THEN 0 ELSE 1 END, id ASC LIMIT 1");
     }
     $job = $this->db->single();
     if (!$job) {

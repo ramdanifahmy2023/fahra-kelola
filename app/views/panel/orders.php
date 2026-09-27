@@ -13,6 +13,11 @@ $selectedYear = (int)$selectedDate->format('Y');
 $currentMonth = (int)$currentDate->format('n');
 $currentYear = (int)$currentDate->format('Y');
 $monthNames = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+$activeShop = null;
+foreach (($data['shops'] ?? []) as $s) {
+  if ((int)$s['id'] === (int)($data['active_shop_id'] ?? 0)) { $activeShop = $s; break; }
+}
+if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 ?>
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
   <div>
@@ -20,6 +25,9 @@ $monthNames = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep
     <p class="opacity-70 text-sm">Kelola semua pesanan dari seluruh toko cabang Anda di satu tempat.</p>
   </div>
   <div class="flex flex-wrap items-center gap-3">
+    <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueOrderBackgroundSync()" id="order-sync-button">
+      <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
+    </button>
     <div class="join h-9" aria-label="Filter bulan pesanan">
       <button type="button" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(-1)" title="Bulan sebelumnya" <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'disabled' : ''; ?>>‹</button>
       <select id="orderMonth" class="join-item select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200 focus:outline-none" onchange="applyOrderMonth()" aria-label="Bulan">
@@ -39,16 +47,6 @@ $monthNames = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep
     <div class="dropdown dropdown-bottom dropdown-end w-full">
       <div tabindex="0" role="button" class="tooltip tooltip-bottom btn h-9 min-h-9 w-full justify-start gap-3 font-normal shadow-sm" data-tip="<?= htmlspecialchars($activeShop['name'] ?? 'Pilih toko'); ?>" id="selectedShopDisplay">
         <?php if (!empty($data['shops'])): ?>
-          <?php 
-          $activeShop = null;
-          foreach ($data['shops'] as $s) {
-              if ($s['id'] == $data['active_shop_id']) {
-                  $activeShop = $s;
-                  break;
-              }
-          }
-          if (!$activeShop) $activeShop = $data['shops'][0];
-          ?>
           <img src="<?= htmlspecialchars($activeShop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
           <span class="truncate flex-1 text-left"><?= htmlspecialchars($activeShop['name'] ?: 'Toko Tanpa Nama'); ?></span>
           <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
@@ -75,6 +73,7 @@ $monthNames = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep
   </div>
 </div>
 </div>
+<div id="order-background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi pesanan berjalan di belakang. Halaman ini membaca data lokal.</div>
 
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
@@ -200,6 +199,35 @@ function formatOrderDate(date) {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function queueOrderBackgroundSync() {
+    const shopId = '<?= $data['active_shop_id'] ?? '' ?>';
+    const button = document.getElementById('order-sync-button');
+    if (!shopId) return;
+    if (button) { button.disabled = true; button.innerText = 'Mengantrikan...'; }
+    const fd = new FormData();
+    fd.append('shop_id', shopId);
+    fd.append('sync_type', 'orders');
+    fd.append('sync_mode', 'diff');
+    fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
+      .then(r => r.json()).then(data => {
+        if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat');
+        const status = document.getElementById('order-background-sync-status');
+        if (status) status.innerText = 'Sinkronisasi pesanan sudah masuk antrean background (job #' + data.job_id + ').';
+      }).catch(error => { const status = document.getElementById('order-background-sync-status'); if (status) status.innerText = error.message; })
+      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+}
+
+function refreshOrderBackgroundStatus(shopId) {
+    fetch('<?= burl; ?>/procsync/status?shop_id=' + encodeURIComponent(shopId), { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+      .then(r => r.json()).then(data => {
+        const row = (data.schedules || []).find(item => item.sync_type === 'orders');
+        const status = document.getElementById('order-background-sync-status');
+        if (!status || !row) return;
+        const when = row.last_success_at ? new Date(row.last_success_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'belum pernah';
+        status.innerText = 'Update terakhir: ' + when + '. Sinkronisasi berikutnya dijalankan otomatis di background.';
+      }).catch(() => {});
+}
+
 function getOrderSyncState(shopId) {
     try {
         return JSON.parse(localStorage.getItem('order_sync_state_' + shopId) || 'null');
@@ -258,7 +286,7 @@ function selectShop(element, id, name, logo) {
     currentUrl.searchParams.delete('page');
     window.history.replaceState({}, '', currentUrl);
     
-    syncOrders(id);
+    refreshOrderBackgroundStatus(id);
 }
 
 function syncOrders(id, sentinel = '', pageNumber = 1, syncMode = '') {
@@ -551,24 +579,9 @@ document.addEventListener('DOMContentLoaded', () => {
         window.history.replaceState({}, '', currentUrl);
     }
     
-    const savedState = activeShopId ? getOrderSyncState(activeShopId) : null;
-    const canResume = savedState && (savedState.status === 'paused' || savedState.status === 'running');
-    if (activeShopId && (canResume || !sessionStorage.getItem('synced_orders_' + activeShopId))) {
-        sessionStorage.setItem('synced_orders_' + activeShopId, '1');
-        syncOrders(activeShopId);
-    } else {
-        const loader = document.getElementById('page-loader');
-        if (loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => {
-                loader.style.display = 'none';
-                
-                if (activeShopId && !sessionStorage.getItem('synced_order_details_' + activeShopId)) {
-                    startDetailSync(activeShopId);
-                }
-            }, 300);
-        }
-    }
+    const loader = document.getElementById('page-loader');
+    if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 300); }
+    if (activeShopId) refreshOrderBackgroundStatus(activeShopId);
 });
 </script>
 <script>

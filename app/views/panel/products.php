@@ -5,25 +5,26 @@
 </div>
 
 <!-- Page Header -->
+<?php
+$activeShop = null;
+foreach (($data['shops'] ?? []) as $s) {
+  if ((int)$s['id'] === (int)($data['active_shop_id'] ?? 0)) { $activeShop = $s; break; }
+}
+if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
+?>
 <div class="mb-5 flex items-center justify-between">
   <div>
     <h2 class="text-2xl font-bold mb-1 text-base-content">Daftar Produk</h2>
     <p class="opacity-70 text-sm">Kelola semua produk dari seluruh toko cabang Anda di satu tempat.</p>
   </div>
-  <div class="form-control w-full max-w-xs relative">
+  <div class="flex w-full max-w-sm items-center gap-2">
+  <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
+    <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
+  </button>
+  <div class="form-control min-w-0 flex-1 relative">
     <div class="dropdown dropdown-bottom dropdown-end w-full">
       <div tabindex="0" role="button" class="tooltip tooltip-bottom btn w-full justify-start gap-3 font-normal shadow-sm" data-tip="<?= htmlspecialchars($activeShop['name'] ?? 'Pilih toko'); ?>" id="selectedShopDisplay">
         <?php if (!empty($data['shops'])): ?>
-          <?php 
-          $activeShop = null;
-          foreach ($data['shops'] as $s) {
-              if ($s['id'] == $data['active_shop_id']) {
-                  $activeShop = $s;
-                  break;
-              }
-          }
-          if (!$activeShop) $activeShop = $data['shops'][0];
-          ?>
           <img src="<?= htmlspecialchars($activeShop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
           <span class="truncate flex-1 text-left"><?= htmlspecialchars($activeShop['name'] ?: 'Toko Tanpa Nama'); ?></span>
           <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
@@ -48,7 +49,9 @@
     <!-- Hidden input untuk menyimpan ID toko yang dipilih -->
     <input type="hidden" id="selectedShopId" value="<?= $data['active_shop_id'] ?? ''; ?>" />
   </div>
+  </div>
 </div>
+<div id="background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi berjalan di belakang. Halaman ini membaca data lokal.</div>
 
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
@@ -239,8 +242,39 @@ function selectShop(element, id, name, logo) {
     // 4. Tutup dropdown
     document.activeElement.blur();
     
-    // 5. Jalankan sinkronisasi
-    syncProducts(id);
+    // Data tetap lokal; sinkronisasi remote berjalan di worker background.
+    refreshBackgroundStatus(id);
+}
+
+function queueBackgroundSync(type) {
+    const shopId = document.getElementById('selectedShopId')?.value;
+    const button = document.getElementById('product-sync-button');
+    if (!shopId) return;
+    if (button) { button.disabled = true; button.innerText = 'Mengantrikan...'; }
+    const fd = new FormData();
+    fd.append('shop_id', shopId);
+    fd.append('sync_type', type);
+    fd.append('sync_mode', 'diff');
+    fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
+      .then(r => r.json())
+      .then(data => {
+        if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat');
+        const status = document.getElementById('background-sync-status');
+        if (status) status.innerText = 'Sinkronisasi produk sudah masuk antrean background (job #' + data.job_id + ').';
+      })
+      .catch(error => { const status = document.getElementById('background-sync-status'); if (status) status.innerText = error.message; })
+      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+}
+
+function refreshBackgroundStatus(shopId) {
+    fetch('<?= burl; ?>/procsync/status?shop_id=' + encodeURIComponent(shopId), { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+      .then(r => r.json()).then(data => {
+        const row = (data.schedules || []).find(item => item.sync_type === 'products');
+        const status = document.getElementById('background-sync-status');
+        if (!status || !row) return;
+        const when = row.last_success_at ? new Date(row.last_success_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'belum pernah';
+        status.innerText = 'Update terakhir: ' + when + '. Sinkronisasi berikutnya dijalankan otomatis di background.';
+      }).catch(() => {});
 }
 
 function updateSyncIndicator(label, detail, percentage) {
@@ -409,21 +443,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.history.replaceState({}, '', currentUrl);
     }
     
-    // Jika ada shop aktif dan belum pernah disinkron otomatis di sesi browser ini
-    const savedState = activeShopId ? getProductSyncState(activeShopId) : null;
-    const canResume = savedState && (savedState.status === 'paused' || savedState.status === 'running');
-    if (activeShopId && (canResume || !sessionStorage.getItem('synced_' + activeShopId))) {
-        sessionStorage.setItem('synced_' + activeShopId, '1');
-        syncProducts(activeShopId);
-    } else {
-        // Jika sudah disinkron, langsung hilangkan loader tanpa delay buatan
-        const loader = document.getElementById('page-loader');
-        if (loader) {
-            loader.style.opacity = '0';
-            setTimeout(() => {
-                loader.style.display = 'none';
-            }, 300); // Wait for transition (300ms is enough for smooth fade)
-        }
-    }
+    const loader = document.getElementById('page-loader');
+    if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.style.display = 'none', 300); }
+    if (activeShopId) refreshBackgroundStatus(activeShopId);
 });
 </script>

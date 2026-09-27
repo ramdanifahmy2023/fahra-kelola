@@ -22,7 +22,7 @@ class ProcChat extends Controller {
   public function overview() {
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? 0);
-    $refresh = !isset($_GET['refresh']) || $_GET['refresh'] !== '0';
+    $refresh = isset($_GET['refresh']) && $_GET['refresh'] === '1';
     $result = $this->monitor()->overview($shopId > 0 ? $shopId : null, $refresh);
     $this->json(['status' => 'success'] + $result);
   }
@@ -35,7 +35,7 @@ class ProcChat extends Controller {
       trim((string)($_GET['search'] ?? '')),
       trim((string)($_GET['status'] ?? '')),
       !empty($_GET['unread_only']),
-      !isset($_GET['refresh']) || $_GET['refresh'] !== '0'
+      isset($_GET['refresh']) && $_GET['refresh'] === '1'
     );
     $this->json(['status' => 'success', 'conversations' => $rows, 'refreshed_at' => date('c')]);
   }
@@ -45,7 +45,7 @@ class ProcChat extends Controller {
     $shopId = (int)($_GET['shop_id'] ?? 0);
     $conversationId = trim((string)($_GET['conversation_id'] ?? ''));
     if ($shopId < 1 || $conversationId === '') $this->json(['status' => 'error', 'message' => 'Toko dan percakapan wajib dipilih.'], 422);
-    $result = $this->monitor()->messages($shopId, $conversationId, true);
+    $result = $this->monitor()->messages($shopId, $conversationId, false);
     if (empty($result['ok'])) $this->json(['status' => 'error', 'message' => $result['message'] ?? 'Pesan gagal dimuat.'], 404);
     $this->json(['status' => 'success'] + $result);
   }

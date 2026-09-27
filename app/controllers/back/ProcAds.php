@@ -18,7 +18,7 @@ class ProcAds extends Controller {
   public function summary() {
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
-    $shops = $this->m('AdsMonitor')->summary($shopId > 0 ? $shopId : null, true);
+    $shops = $this->m('AdsMonitor')->summary($shopId > 0 ? $shopId : null, false);
     $this->json(['status' => 'success', 'shops' => $shops, 'refreshed_at' => date('c')]);
   }
 }

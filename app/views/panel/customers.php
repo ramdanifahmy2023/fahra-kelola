@@ -9,7 +9,10 @@
     <h2 class="text-xl font-black tracking-tight text-base-content">Daftar Pelanggan</h2>
     <p class="mt-1 text-xs text-base-content/60">Data pelanggan yang tersimpan pada workspace Anda.</p>
   </div>
-  <div class="badge badge-outline h-9 gap-2 px-3 text-xs font-bold"><span class="material-symbols-outlined text-sm text-primary">database</span><?= number_format($data['total_customers']) ?> pelanggan</div>
+  <div class="flex items-center gap-2">
+    <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueCustomerBackgroundSync()" id="customer-sync-button"><span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang</button>
+    <div class="badge badge-outline h-9 gap-2 px-3 text-xs font-bold"><span class="material-symbols-outlined text-sm text-primary">database</span><?= number_format($data['total_customers']) ?> pelanggan</div>
+  </div>
 </div>
 
 <script>
@@ -60,6 +63,15 @@ function syncCustomers(force = false) {
   });
 }
 
+function queueCustomerBackgroundSync() {
+  const button = document.getElementById('customer-sync-button');
+  if (button) { button.disabled = true; button.innerText = 'Mengantrikan...'; }
+  const fd = new FormData(); fd.append('shop_id', '<?= (int)($data['shops'][0]['id'] ?? 1) ?>'); fd.append('sync_type', 'customers');
+  fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
+    .then(r => r.json()).then(data => { if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat'); alert('Sinkronisasi pelanggan masuk antrean background.'); })
+    .catch(error => alert(error.message)).finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+}
+
 document.addEventListener('DOMContentLoaded', () => {
   const url = new URL(window.location.href);
   const syncFromSidebar = url.searchParams.get('sync') === '1';
@@ -68,7 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
     url.searchParams.delete('sync');
     window.history.replaceState({}, '', url);
   }
-  if (syncFromSidebar || !sessionStorage.getItem('synced_customers')) syncCustomers();
+  // Halaman hanya membaca database lokal; scheduler background memperbarui pelanggan.
 });
 </script>
 

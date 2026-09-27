@@ -7,6 +7,12 @@ require_once '../app/init.php';
 require_once '../app/models/SyncJob.php';
 require_once '../app/models/ShopeeCurl.php';
 require_once '../app/models/OrderIncome.php';
+require_once '../app/models/BackgroundSync.php';
+require_once '../app/models/ProductSync.php';
+require_once '../app/models/AdsMonitor.php';
+require_once '../app/models/PromotionMonitor.php';
+require_once '../app/models/ChatMonitor.php';
+require_once '../app/models/Customer.php';
 
 $options = getopt('', ['job::', 'shop::', 'once', 'batch::', 'rate-ms::', 'packages', 'limit::']);
 $requestedJob = isset($options['job']) ? (int)$options['job'] : null;
@@ -283,6 +289,45 @@ function enrichPackage(Database $db, ShopeeCurl $shopee, int $orderId, string $c
   $db->exe();
 }
 
+function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $shopee, int $rateMs, int $packageLimit): array {
+  $type = (string)($job['sync_type'] ?? '');
+  $shopId = (int)$job['shop_id'];
+  if ($type === 'products') {
+    $result = (new ProductSync())->run($shop, (string)($job['mode'] ?? 'diff'), 100, $rateMs);
+    return [!empty($result['ok']), $result['message'] ?? null];
+  }
+  if ($type === 'ads') return [(new AdsMonitor())->syncShop($shop), null];
+  if ($type === 'promotions') return [(new PromotionMonitor())->syncShop($shop), null];
+  if ($type === 'chat') {
+    $result = (new ChatMonitor())->syncShop($shopId);
+    return [!empty($result['ok']), $result['message'] ?? null];
+  }
+  if ($type === 'customers') {
+    $result = (new Customer())->syncFromOrders();
+    return [is_array($result), null];
+  }
+  if ($type === 'shops') {
+    $session = $shopee->check((string)$shop['cookie']);
+    $ok = isset($session['shop']['id']);
+    $db->query("UPDATE shops SET sync_status = :sync_status WHERE id = :shop_id");
+    $db->bind('sync_status', $ok ? 'connected' : 'expired');
+    $db->bind('shop_id', $shopId);
+    $db->exe();
+    return [$ok, $ok ? null : 'Sesi Shopee toko tidak valid.'];
+  }
+  if ($type === 'packages') {
+    $db->query("SELECT id FROM orders WHERE shop_id = :shop_id AND deleted_at IS NULL AND detail_synced_at IS NOT NULL AND (package_synced_at IS NULL OR shipping_cargo IS NULL OR shipping_cargo = '' OR tracking_number IS NULL OR tracking_number = '') ORDER BY id ASC LIMIT {$packageLimit}");
+    $db->bind('shop_id', $shopId);
+    $rows = $db->getAll();
+    foreach ($rows as $row) {
+      enrichPackage($db, $shopee, (int)$row['id'], (string)$shop['cookie']);
+      usleep($rateMs * 1000);
+    }
+    return [true, null];
+  }
+  return [false, 'Tipe sinkronisasi tidak dikenali.'];
+}
+
 $loops = 0;
 if ($packageMode) {
   $shopId = $requestedShop ?: 0;
@@ -320,6 +365,14 @@ do {
     break;
   }
   $jobId = (int)$job['id'];
+  if (($job['sync_type'] ?? 'orders') !== 'orders') {
+    [$genericOk, $genericError] = processGenericJob($db, $job, $shop, $shopee, $rateMs, $packageLimit);
+    $background = new BackgroundSync();
+    $background->markResult((int)$job['shop_id'], (string)$job['sync_type'], $genericOk, $genericError);
+    $sync->releaseJob($jobId, $genericOk ? 'completed' : 'failed', $genericError);
+    $loops++;
+    continue;
+  }
   if ((int)$job['page_number'] > 0) {
     processIndex($db, $sync, $shopee, $job, $shop);
   }
