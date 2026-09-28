@@ -17,6 +17,12 @@ class ProcRealtime extends Controller {
 
   public function metrics() {
     $this->requireAjax();
+    $user = authUser();
+    $accountId = (int)($user['id'] ?? 0);
+    if ($accountId < 1) {
+      $this->json(['status' => 'error', 'message' => 'Sesi login tidak valid.'], 401);
+    }
+
     $requestedShopIds = $_GET['shop_ids'] ?? $_POST['shop_ids'] ?? null;
     if ($requestedShopIds === null) {
       $legacyShopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
@@ -26,11 +32,19 @@ class ProcRealtime extends Controller {
     $requestedShopIds = array_values(array_unique(array_filter(array_map('intval', $requestedShopIds))));
 
     $shopModel = $this->m('Shop');
-    $shops = $requestedShopIds ? array_filter(array_map(function ($shopId) use ($shopModel) {
-      return $shopModel->findBy('id', $shopId);
-    }, $requestedShopIds)) : $shopModel->findAll();
+    $allShops = $shopModel->findWhere(['account_id' => $accountId]);
+    usort($allShops, static function ($left, $right) {
+      return (int)($left['id'] ?? 0) <=> (int)($right['id'] ?? 0);
+    });
+    $shopsById = [];
+    foreach ($allShops as $shop) $shopsById[(int)$shop['id']] = $shop;
+    $shops = $requestedShopIds
+      ? array_values(array_filter(array_map(static function ($shopId) use ($shopsById) {
+          return $shopsById[$shopId] ?? null;
+        }, $requestedShopIds)))
+      : $allShops;
     if (!$shops) {
-      $this->json(['status' => 'error', 'message' => 'Data toko tidak ditemukan.'], 404);
+      $this->json(['status' => 'error', 'message' => 'Data toko tidak ditemukan untuk akun ini.'], 404);
     }
 
     $shopee = $this->m('ShopeeCurl');
@@ -59,7 +73,7 @@ class ProcRealtime extends Controller {
     foreach ($successful as $item) {
       $metrics = $item['metrics'];
       foreach ($keyMetrics as $key => $value) $keyMetrics[$key] += (float)($metrics['key_metrics'][$key] ?? 0);
-      foreach (($metrics['sales_hourly'] ?? []) as $index => $value) $hourly[$index] = ($hourly[$index] ?? 0) + (float)$value;
+      foreach (array_values((array)($metrics['sales_hourly'] ?? [])) as $index => $value) $hourly[$index] = ($hourly[$index] ?? 0) + (float)$value;
       foreach (($metrics['top_sales_items'] ?? []) as $product) {
         $name = trim((string)($product['item_name'] ?? 'Produk')) ?: 'Produk';
         $products[$name] = ($products[$name] ?? 0) + (float)($product['sales'] ?? 0);
@@ -69,11 +83,17 @@ class ProcRealtime extends Controller {
     arsort($products);
     $topProducts = [];
     foreach (array_slice($products, 0, 5, true) as $name => $sales) $topProducts[] = ['item_name' => $name, 'sales' => $sales];
-    ksort($hourly);
+    if ($hourly) {
+      $lastHour = max(array_keys($hourly));
+      for ($index = 0; $index <= $lastHour; $index++) $hourly[$index] = $hourly[$index] ?? 0;
+      ksort($hourly);
+    }
 
     $this->json([
       'status' => 'success',
       'shop_count' => count($successful),
+      'selected_shop_count' => count($shops),
+      'failure_count' => count($failures),
       'stores' => array_map(function ($item) { return ['shop_id' => $item['shop_id'], 'shop_name' => $item['shop_name']]; }, $successful),
       'failures' => $failures,
       'metrics' => ['key_metrics' => $keyMetrics, 'top_sales_items' => $topProducts, 'sales_hourly' => array_values($hourly), 'time' => $updatedAt]

@@ -129,7 +129,7 @@ $statusClass = static function ($status) {
       const hasFailures = (payload.failures || []).length > 0;
       badge.textContent = hasFailures ? 'Live sebagian' : 'Live'; badge.className = hasFailures ? 'badge badge-warning badge-sm' : 'badge badge-success badge-sm text-white';
       if (hasFailures) {
-        error.textContent = 'Tidak tersedia: ' + payload.failures.map(item => item.shop_name || ('Toko #' + item.shop_id)).join(', ') + '.';
+        error.textContent = 'Tidak tersedia: ' + payload.failures.map(item => (item.shop_name || ('Toko #' + item.shop_id)) + ' (' + (item.message || 'gagal mengambil data') + ')').join('; ') + '.';
         error.classList.remove('hidden');
       } else error.classList.add('hidden');
 
@@ -139,7 +139,8 @@ $statusClass = static function ($status) {
       const hourly = document.getElementById('realtime-hourly');
       const values = metrics.sales_hourly || [];
       const max = Math.max(...values.map(Number), 1);
-      hourly.innerHTML = values.slice(-22).map((value, index) => '<div class="group flex h-24 flex-col justify-end gap-1"><div class="rounded-t bg-primary/70" style="height:' + Math.max(3, (Number(value || 0) / max) * 78) + 'px" title="' + money(value) + '"></div><span class="text-center text-[9px] text-base-content/40">' + index + '</span></div>').join('');
+      const startHour = Math.max(0, values.length - 22);
+      hourly.innerHTML = values.slice(startHour).map((value, index) => '<div class="group flex h-24 flex-col justify-end gap-1"><div class="rounded-t bg-primary/70" style="height:' + Math.max(3, (Number(value || 0) / max) * 78) + 'px" title="' + money(value) + '"></div><span class="text-center text-[9px] text-base-content/40">' + (startHour + index) + '</span></div>').join('');
     } catch (err) {
       badge.textContent = 'Offline'; badge.className = 'badge badge-error badge-sm text-white';
       error.textContent = err.message || 'Metrik realtime gagal dimuat.';
