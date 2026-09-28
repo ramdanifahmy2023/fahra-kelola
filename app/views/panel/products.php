@@ -95,6 +95,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
         </tr>
         <?php else: ?>
         <?php foreach ($data['products'] as $p): ?>
+        <?php $productName = trim(str_replace(['<', '>'], '', (string)$p['name'])); ?>
         <tr id="product-<?= (int)$p['id']; ?>" class="hover">
           <td>
             <div class="flex items-center gap-3">
@@ -108,8 +109,8 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
                 </div>
               </div>
               <div>
-                <div class="js-floating-tooltip w-full max-w-[30rem] truncate font-bold text-sm" data-tip="<?= htmlspecialchars($p['name']); ?>">
-                  <?= htmlspecialchars($p['name']); ?>
+                <div class="js-floating-tooltip w-full max-w-[30rem] truncate font-bold text-sm" data-tip="<?= htmlspecialchars($productName); ?>">
+                  <?= htmlspecialchars($productName); ?>
                 </div>
                 <div class="text-[11px] opacity-60 font-medium">SKU: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
               </div>
