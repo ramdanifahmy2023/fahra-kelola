@@ -258,8 +258,8 @@ $statusClass = static function ($status) {
         <?php foreach ($lowStockProducts as $product): ?>
           <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$product['shop_id']; ?>&stock=critical&highlight=<?= urlencode($product['id']); ?>" class="flex min-w-0 items-start justify-between gap-3 rounded-xl border border-base-content/10 px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-base-200">
             <span class="min-w-0 flex-1">
-              <span class="block overflow-hidden text-xs font-semibold leading-5 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]" title="<?= htmlspecialchars($product['name']); ?>"><?= htmlspecialchars($product['name']); ?></span>
-              <span class="mt-1 block truncate text-[11px] text-base-content/50"><?= htmlspecialchars($product['shop_name'] ?: 'Toko tanpa nama'); ?></span>
+              <span class="block truncate text-xs font-black leading-5 text-base-content"><?= htmlspecialchars($product['shop_name'] ?: 'Toko tanpa nama'); ?></span>
+              <span class="mt-0.5 block overflow-hidden text-[11px] font-medium leading-5 text-base-content/65 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]" title="<?= htmlspecialchars($product['name']); ?>"><?= htmlspecialchars($product['name']); ?></span>
             </span>
             <span class="badge <?= (int)$product['total_stock'] === 0 ? 'badge-error' : 'badge-warning'; ?> badge-sm shrink-0"><?= (int)$product['total_stock'] === 0 ? 'Habis' : number_format((int)$product['total_stock']); ?></span>
           </a>
