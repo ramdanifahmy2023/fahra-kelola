@@ -43,20 +43,35 @@ $statusClass = static function ($status) {
 </div>
 
 <?php if (!empty($realtimeShop['id'])): ?>
-<section id="realtime-dashboard" class="mt-6 rounded-2xl border border-primary/20 bg-base-100 shadow-sm" data-shop-id="<?= (int)$realtimeShop['id']; ?>">
+<section id="realtime-dashboard" class="mt-6 rounded-2xl border border-primary/20 bg-base-100 shadow-sm">
   <div class="flex flex-col gap-3 border-b border-base-content/10 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
     <div>
       <div class="flex items-center gap-2"><h3 class="font-black text-base-content">Monitoring realtime</h3><span id="realtime-live-badge" class="badge badge-ghost badge-sm">Memuat</span></div>
-      <p class="mt-1 text-xs text-base-content/55">Data live dari Shopee untuk <span id="realtime-shop-name"><?= htmlspecialchars($realtimeShop['name'] ?: 'toko aktif'); ?></span>.</p>
+      <p class="mt-1 text-xs text-base-content/55">Data live dari Shopee untuk <span id="realtime-shop-name">Semua toko</span>.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2 sm:justify-end">
       <?php if (count($shopHealth) > 1): ?>
-        <label class="sr-only" for="realtime-shop-select">Toko monitoring realtime</label>
-        <select id="realtime-shop-select" class="select select-bordered select-sm min-h-11 w-full max-w-full sm:w-52">
-          <?php foreach ($shopHealth as $shop): ?>
-            <option value="<?= (int)$shop['id']; ?>" data-name="<?= htmlspecialchars($shop['name'] ?: 'Toko tanpa nama', ENT_QUOTES); ?>" <?= (int)$shop['id'] === (int)$realtimeShop['id'] ? 'selected' : ''; ?>><?= htmlspecialchars($shop['name'] ?: 'Toko tanpa nama'); ?></option>
-          <?php endforeach; ?>
-        </select>
+        <details id="realtime-shop-filter" class="dropdown w-full sm:w-64">
+          <summary class="btn min-h-11 w-full justify-between rounded-lg border-base-content/15 bg-base-100 px-3 font-medium normal-case" aria-label="Pilih toko monitoring realtime">
+            <span id="realtime-shop-filter-label" class="truncate">Semua toko</span>
+            <span class="material-symbols-outlined text-lg">expand_more</span>
+          </summary>
+          <div class="dropdown-content z-20 mt-2 w-full rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
+            <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 hover:bg-base-200">
+              <input id="realtime-shop-all" type="checkbox" class="checkbox checkbox-primary checkbox-sm" checked>
+              <span class="text-sm font-bold">Semua toko</span>
+            </label>
+            <div class="my-1 border-t border-base-content/10"></div>
+            <div class="max-h-60 overflow-y-auto">
+              <?php foreach ($shopHealth as $shop): ?>
+                <label class="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-3 hover:bg-base-200">
+                  <input type="checkbox" class="realtime-shop-option checkbox checkbox-primary checkbox-sm" value="<?= (int)$shop['id']; ?>" data-name="<?= htmlspecialchars($shop['name'] ?: 'Toko tanpa nama', ENT_QUOTES); ?>">
+                  <span class="min-w-0 truncate text-sm"><?= htmlspecialchars($shop['name'] ?: 'Toko tanpa nama'); ?></span>
+                </label>
+              <?php endforeach; ?>
+            </div>
+          </div>
+        </details>
       <?php endif; ?>
       <span id="realtime-updated-at" class="text-xs text-base-content/50">Belum diperbarui</span>
     </div>
@@ -84,9 +99,12 @@ $statusClass = static function ($status) {
   const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
   const badge = document.getElementById('realtime-live-badge');
   const error = document.getElementById('realtime-error');
-  const shopSelect = document.getElementById('realtime-shop-select');
+  const shopFilter = document.getElementById('realtime-shop-filter');
+  const shopAll = document.getElementById('realtime-shop-all');
+  const shopOptions = Array.from(document.querySelectorAll('.realtime-shop-option'));
+  const shopFilterLabel = document.getElementById('realtime-shop-filter-label');
   const shopName = document.getElementById('realtime-shop-name');
-  let activeShopId = shopSelect ? shopSelect.value : root.dataset.shopId;
+  let activeShopIds = [];
   let inFlight = false;
 
   async function loadRealtime() {
@@ -94,7 +112,8 @@ $statusClass = static function ($status) {
     inFlight = true;
     try {
       badge.textContent = 'Memuat'; badge.className = 'badge badge-ghost badge-sm';
-      const response = await fetch('<?= burl; ?>/procrealtime/metrics?shop_id=' + encodeURIComponent(activeShopId), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, cache: 'no-store' });
+      const query = activeShopIds.map(id => 'shop_ids[]=' + encodeURIComponent(id)).join('&');
+      const response = await fetch('<?= burl; ?>/procrealtime/metrics' + (query ? '?' + query : ''), { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, cache: 'no-store' });
       const payload = await response.json();
       if (!response.ok || payload.status !== 'success') throw new Error(payload.message || 'Metrik realtime gagal dimuat.');
       const metrics = payload.metrics || {};
@@ -107,8 +126,12 @@ $statusClass = static function ($status) {
       setText('rt-sales', money(key.sales));
       const time = Number(metrics.time || 0) * 1000;
       setText('realtime-updated-at', time ? 'Diperbarui ' + new Date(time).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : 'Baru saja');
-      badge.textContent = 'Live'; badge.className = 'badge badge-success badge-sm text-white';
-      error.classList.add('hidden');
+      const hasFailures = (payload.failures || []).length > 0;
+      badge.textContent = hasFailures ? 'Live sebagian' : 'Live'; badge.className = hasFailures ? 'badge badge-warning badge-sm' : 'badge badge-success badge-sm text-white';
+      if (hasFailures) {
+        error.textContent = 'Tidak tersedia: ' + payload.failures.map(item => item.shop_name || ('Toko #' + item.shop_id)).join(', ') + '.';
+        error.classList.remove('hidden');
+      } else error.classList.add('hidden');
 
       const products = document.getElementById('realtime-top-products');
       products.innerHTML = (metrics.top_sales_items || []).slice(0, 5).map(item => '<div class="flex items-center justify-between gap-3 border-b border-base-content/10 pb-2 last:border-0"><span class="min-w-0 truncate" title="' + String(item.item_name || '').replace(/"/g, '&quot;') + '">' + String(item.item_name || 'Produk').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])) + '</span><strong class="shrink-0 text-xs">' + money(item.sales) + '</strong></div>').join('') || '<div class="text-xs text-base-content/45">Belum ada produk terjual.</div>';
@@ -125,12 +148,30 @@ $statusClass = static function ($status) {
       inFlight = false;
     }
   }
-  if (shopSelect) {
-    shopSelect.addEventListener('change', () => {
-      activeShopId = shopSelect.value;
-      const option = shopSelect.options[shopSelect.selectedIndex];
-      if (shopName) shopName.textContent = option?.dataset.name || option?.textContent || 'toko aktif';
+  function updateShopFilter() {
+    const selected = shopOptions.filter(option => option.checked);
+    const allSelected = !selected.length || selected.length === shopOptions.length;
+    activeShopIds = allSelected ? [] : selected.map(option => option.value);
+    shopAll.checked = allSelected;
+    shopOptions.forEach(option => { if (allSelected) option.checked = false; });
+    const labels = allSelected ? ['Semua toko'] : selected.map(option => option.dataset.name);
+    const label = labels.length > 2 ? labels.length + ' toko dipilih' : labels.join(', ');
+    if (shopName) shopName.textContent = label;
+    if (shopFilterLabel) shopFilterLabel.textContent = label;
+  }
+  if (shopFilter) {
+    shopAll.addEventListener('change', () => {
+      if (shopAll.checked) shopOptions.forEach(option => { option.checked = false; });
+      updateShopFilter();
       loadRealtime();
+    });
+    shopOptions.forEach(option => option.addEventListener('change', () => {
+      shopAll.checked = false;
+      updateShopFilter();
+      loadRealtime();
+    }));
+    document.addEventListener('click', event => {
+      if (shopFilter.open && !shopFilter.contains(event.target)) shopFilter.removeAttribute('open');
     });
   }
   loadRealtime();
