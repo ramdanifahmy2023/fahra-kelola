@@ -249,7 +249,23 @@ $statusClass = static function ($status) {
     </div>
   <?php endif; ?>
   <?php if ($lowStockProducts): ?>
-    <div class="border-t border-base-content/10 px-5 py-4"><div class="mb-2 text-[10px] font-bold uppercase tracking-wide text-base-content/45">Produk yang perlu ditangani</div><div class="grid gap-2 sm:grid-cols-2"><?php foreach ($lowStockProducts as $product): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$product['shop_id']; ?>&stock=critical&highlight=<?= urlencode($product['id']); ?>" class="flex min-w-0 items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-base-200"><span class="min-w-0 truncate text-xs" title="<?= htmlspecialchars($product['name']); ?>"><?= htmlspecialchars($product['name']); ?></span><span class="badge <?= (int)$product['total_stock'] === 0 ? 'badge-error' : 'badge-warning'; ?> badge-sm shrink-0"><?= (int)$product['total_stock'] === 0 ? 'Habis' : (int)$product['total_stock']; ?></span></a><?php endforeach; ?></div></div>
+    <div class="border-t border-base-content/10 px-5 py-4">
+      <div class="mb-3 flex items-end justify-between gap-3">
+        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Produk yang perlu ditangani</div><p class="mt-1 text-xs text-base-content/50">Stok paling rendah, urut dari yang habis.</p></div>
+        <a href="<?= burl; ?>/panel/products?stock=critical" class="shrink-0 text-xs font-bold text-primary hover:underline">Lihat semua</a>
+      </div>
+      <div class="grid min-w-0 gap-2 sm:grid-cols-2">
+        <?php foreach ($lowStockProducts as $product): ?>
+          <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$product['shop_id']; ?>&stock=critical&highlight=<?= urlencode($product['id']); ?>" class="flex min-w-0 items-start justify-between gap-3 rounded-xl border border-base-content/10 px-3 py-2.5 transition-colors hover:border-primary/30 hover:bg-base-200">
+            <span class="min-w-0 flex-1">
+              <span class="block overflow-hidden text-xs font-semibold leading-5 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]" title="<?= htmlspecialchars($product['name']); ?>"><?= htmlspecialchars($product['name']); ?></span>
+              <span class="mt-1 block truncate text-[11px] text-base-content/50"><?= htmlspecialchars($product['shop_name'] ?: 'Toko tanpa nama'); ?></span>
+            </span>
+            <span class="badge <?= (int)$product['total_stock'] === 0 ? 'badge-error' : 'badge-warning'; ?> badge-sm shrink-0"><?= (int)$product['total_stock'] === 0 ? 'Habis' : number_format((int)$product['total_stock']); ?></span>
+          </a>
+        <?php endforeach; ?>
+      </div>
+    </div>
   <?php endif; ?>
 </section>
 
