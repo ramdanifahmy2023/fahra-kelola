@@ -126,10 +126,14 @@ $statusClass = static function ($status) {
       setText('rt-sales', money(key.sales));
       const time = Number(metrics.time || 0) * 1000;
       setText('realtime-updated-at', time ? 'Diperbarui ' + new Date(time).toLocaleTimeString('id-ID', {hour:'2-digit', minute:'2-digit', second:'2-digit'}) : 'Baru saja');
-      const hasFailures = (payload.failures || []).length > 0;
-      badge.textContent = hasFailures ? 'Live sebagian' : 'Live'; badge.className = hasFailures ? 'badge badge-warning badge-sm' : 'badge badge-success badge-sm text-white';
+      const failures = payload.failures || [];
+      const selectedShopCount = Number(payload.selected_shop_count || payload.shop_count || 0);
+      const liveShopCount = Number(payload.shop_count || 0);
+      const hasFailures = failures.length > 0;
+      badge.textContent = hasFailures ? 'Live ' + liveShopCount + '/' + selectedShopCount + ' toko' : 'Live';
+      badge.className = hasFailures ? 'badge badge-warning badge-sm' : 'badge badge-success badge-sm text-white';
       if (hasFailures) {
-        error.textContent = 'Tidak tersedia: ' + payload.failures.map(item => (item.shop_name || ('Toko #' + item.shop_id)) + ' (' + (item.message || 'gagal mengambil data') + ')').join('; ') + '.';
+        error.textContent = 'Tidak tersedia: ' + failures.map(item => (item.shop_name || ('Toko #' + item.shop_id)) + ' (' + (item.message || 'gagal mengambil data') + ')').join('; ') + '.';
         error.classList.remove('hidden');
       } else error.classList.add('hidden');
 
