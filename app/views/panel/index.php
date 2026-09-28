@@ -313,3 +313,24 @@ $statusClass = static function ($status) {
     </tbody></table></div>
   <?php endif; ?>
 </section>
+
+<script>
+(() => {
+  const key = 'shopdash-sync-pulse';
+  const now = Date.now();
+  const lastPulse = Number(sessionStorage.getItem(key) || 0);
+  if (now - lastPulse < 30000) return;
+  sessionStorage.setItem(key, String(now));
+  fetch('<?= burl; ?>/procsync/pulse', { headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }, cache: 'no-store' })
+    .then(response => response.json())
+    .then(payload => {
+      if (payload.status !== 'accepted') return;
+      const reloadKey = 'shopdash-sync-reload';
+      const reloadCount = Number(sessionStorage.getItem(reloadKey) || 0);
+      if (reloadCount >= 2) return;
+      sessionStorage.setItem(reloadKey, String(reloadCount + 1));
+      window.setTimeout(() => window.location.reload(), 10000);
+    })
+    .catch(() => {});
+})();
+</script>

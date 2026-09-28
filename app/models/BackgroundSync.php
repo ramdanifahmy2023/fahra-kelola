@@ -95,6 +95,13 @@ class BackgroundSync extends BaseModel {
     return $enqueued;
   }
 
+  public function requestShopHealth($minAgeSeconds = 300) {
+    $this->ensureSchedules();
+    $minAgeSeconds = max(60, min(86400, (int)$minAgeSeconds));
+    $this->db->query("UPDATE sync_schedules SET next_run_at = NOW() WHERE sync_type = 'shops' AND enabled = 1 AND (last_enqueued_at IS NULL OR last_enqueued_at <= DATE_SUB(NOW(), INTERVAL {$minAgeSeconds} SECOND))");
+    $this->db->exe();
+  }
+
   public function markResult($shopId, $syncType, $ok, $error = null, $mode = 'diff') {
     $this->ensureSchema();
     $this->db->query("UPDATE sync_schedules SET last_success_at = CASE WHEN :ok = 1 THEN NOW() ELSE last_success_at END, last_full_at = CASE WHEN :ok2 = 1 AND :mode = 'full' THEN NOW() ELSE last_full_at END, last_error = CASE WHEN :ok3 = 1 THEN NULL ELSE :error END WHERE shop_id = :shop_id AND sync_type = :sync_type");

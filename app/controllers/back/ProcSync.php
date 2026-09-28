@@ -45,6 +45,12 @@ class ProcSync extends Controller {
     $this->json(['status' => 'success', 'schedules' => $rows, 'refreshed_at' => date('c')]);
   }
 
+  public function pulse() {
+    $this->requireAjax();
+    $this->m('BackgroundSync')->requestShopHealth();
+    $this->json(['status' => 'accepted', 'message' => 'Health-check toko masuk antrean background.']);
+  }
+
   public function configure() {
     $this->requireAjax();
     $shopId = (int)($_POST['shop_id'] ?? 0);
