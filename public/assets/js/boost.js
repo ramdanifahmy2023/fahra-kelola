@@ -26,6 +26,19 @@
   const notice = (node, message) => { node.textContent = message || ''; node.hidden = !message; };
   const idsEqual = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const dirty = () => draft && !idsEqual([...draft.selected.keys()], draft.original);
+  const icon = name => '<svg class="boost-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#boost-icon-'+name+'"></use></svg>';
+  const visualLabel = (node, name, text) => { node.innerHTML=icon(name)+'<span>'+esc(text)+'</span>'; };
+  const slots = (node, count) => { node.innerHTML=Array.from({length:5},(_,i)=>'<i data-filled="'+(i<count)+'"></i>').join(''); };
+  function updateSummary() {
+    const loaded=[...states.values()].filter(local=>local.payload), complete=loaded.length===shops.length;
+    $('[data-total-active]').textContent=complete ? loaded.filter(local=>local.payload.profile.enabled).length+' toko' : 'Belum dimuat';
+    $('[data-total-products]').textContent=complete ? number(loaded.reduce((n,local)=>n+local.payload.profile.product_ids.length,0))+' produk' : 'Belum dimuat';
+    $('[data-total-attention]').textContent=complete ? loaded.filter(local=>local.payload.summary.unresolved_count>0 || local.readError || local.payload.shop.session_status!=='connected' || (local.payload.profile.enabled && (!local.payload.sender_enabled || !Number(local.payload.worker?.alive)))).length+' toko' : 'Belum dimuat';
+    const worker=$('[data-worker-state]');
+    const failed=loaded.some(local=>local.readError), ready=loaded.length>0 && complete && loaded.every(local=>Number(local.payload.worker?.alive)), sending=loaded.length>0 && complete && loaded.every(local=>local.payload.sender_enabled);
+    worker.dataset.tone=failed || (shops.length>0 && complete && !ready) ? 'warning' : ready && sending ? 'success' : 'neutral';
+    visualLabel(worker,failed?'alert':'worker',!shops.length?'Belum ada toko':failed?'Status belum diperbarui':!complete?'Memuat '+loaded.length+' / '+shops.length+' toko':!sending?'Pengiriman server nonaktif':ready?'Worker terpantau':'Worker belum terpantau');
+  }
   function buttonState(local) {
     const p = local.payload, busy = local.busy || local.loading, saved = p?.profile.product_ids.length || 0;
     $('[data-edit]',local.card).disabled = busy || !p;
@@ -35,31 +48,37 @@
     $('[data-manual]',local.card).disabled = busy || !p?.sender_enabled || p.summary.batch_active || p.summary.unresolved_count > 0 || p.summary.remaining_count === 0;
     local.card.setAttribute('aria-busy', String(!!busy));
   }
-  function image(p) { return '<span class="boost-product-image" aria-hidden="true">' + (p.cover_image ? '<img width="48" height="48" loading="lazy" alt="" src="https://cf.shopee.co.id/file/' + encodeURIComponent(p.cover_image) + '">' : '') + '</span>'; }
+  function image(p) { return '<span class="boost-product-image" aria-hidden="true">'+icon('box') + (p.cover_image ? '<img width="48" height="48" loading="lazy" alt="" src="https://cf.shopee.co.id/file/' + encodeURIComponent(p.cover_image) + '">' : '') + '</span>'; }
   function bindImages(parent) { parent.querySelectorAll('img').forEach(img => img.addEventListener('error', () => img.remove(), {once:true})); }
   function render(local) {
     const p = local.payload, card = local.card, profile = p.profile;
-    $('[data-mode]',card).textContent = p.summary.unresolved_count ? 'Hasil perlu diperiksa' : p.summary.batch_active ? 'Memproses' : profile.enabled ? 'Pengulangan aktif' : profile.version ? 'Pengulangan dijeda' : 'Belum diatur';
+    const blocked=profile.enabled && (!p.sender_enabled || !Number(p.worker?.alive));
+    const state=p.summary.unresolved_count?'attention':p.summary.batch_active?'processing':blocked?'attention':profile.enabled?'active':profile.version?'paused':'empty';
+    card.dataset.state=state;
+    $('[data-mode]',card).dataset.tone=state==='attention'?'warning':state==='active'?'success':state==='processing'?'processing':'neutral';
+    visualLabel($('[data-mode]',card),state==='attention'?'alert':state==='processing'?'refresh':state==='active'?'repeat':state==='paused'?'pause':'box',p.summary.unresolved_count ? 'Hasil perlu diperiksa' : p.summary.batch_active ? 'Memproses' : blocked ? 'Pengulangan tertahan' : profile.enabled ? 'Pengulangan aktif' : profile.version ? 'Pengulangan dijeda' : 'Belum diatur');
     $('[data-mode]',card).dataset.active = String(profile.enabled && !p.summary.unresolved_count);
-    $('[data-session-status]',card).textContent = p.shop.session_status === 'connected' ? 'Koneksi toko tersimpan' : 'Periksa koneksi toko';
+    visualLabel($('[data-session-status]',card),p.shop.session_status==='connected'?'check':'alert',p.shop.session_status === 'connected' ? 'Koneksi toko tersimpan' : 'Periksa koneksi toko');
     $('[data-saved-count]',card).textContent = profile.product_ids.length + ' / 5 produk';
     $('[data-next-check]',card).textContent = profile.enabled ? date(profile.next_check_at) : 'Pengulangan nonaktif';
     $('[data-remaining]',card).textContent = p.summary.unresolved_count ? 'Menunggu kepastian hasil' : p.summary.remaining_count + ' / 5';
-    $('[data-toggle]',card).textContent = profile.enabled ? 'Jeda pengulangan' : 'Aktifkan pengulangan';
+    slots($('[data-saved-slots]',card),profile.product_ids.length);slots($('[data-capacity-slots]',card),p.summary.unresolved_count?0:p.summary.remaining_count);
+    visualLabel($('[data-toggle]',card),profile.enabled?'pause':'play',profile.enabled ? 'Jeda pengulangan' : 'Aktifkan pengulangan');
     $('[data-toggle]',card).classList.toggle('btn-primary', !profile.enabled);
     $('[data-toggle]',card).classList.toggle('boost-secondary', profile.enabled);
-    $('[data-edit]',card).textContent = profile.product_ids.length ? 'Ubah pilihan' : 'Pilih produk';
-    let message = profile.last_message || 'Pilih produk yang ingin dinaikkan berulang untuk toko ini.';
+    visualLabel($('[data-edit]',card),'edit',profile.product_ids.length ? 'Ubah pilihan' : 'Pilih produk');
+    let message = profile.last_message || (profile.enabled ? 'Produk pilihan diproses saat jeda dan slot tersedia.' : profile.product_ids.length ? 'Pilihan tersimpan. Aktifkan pengulangan saat siap.' : 'Pilih produk yang ingin dinaikkan berulang untuk toko ini.');
     if (!p.sender_enabled) message = 'Pilihan dapat disimpan. Pengiriman belum diaktifkan oleh pengelola server.';
     else if (profile.enabled && !Number(p.worker?.alive)) message = 'Pengulangan aktif, tetapi worker belum terpantau. Hubungi pengelola untuk memeriksa layanan.';
     if (p.summary.unresolved_count) message = 'Ada hasil yang belum pasti. Pengiriman toko ini ditahan sampai hasilnya diperiksa.';
-    $('[data-operation-note]',card).textContent = message;
+    const note=$('[data-operation-note]',card);note.dataset.tone=p.summary.unresolved_count || (profile.enabled && !Number(p.worker?.alive))?'warning':'neutral';
+    visualLabel(note,note.dataset.tone==='warning'?'alert':profile.enabled?'clock':'info',message);
     $('[data-freshness]',card).textContent = 'Pemeriksaan worker: ' + date(profile.last_checked_at) + '. Slot lokal berupa perkiraan; status Shopee diperiksa sebelum setiap pengiriman.';
     const reconnect = $('[data-reconnect]',card); reconnect.href = root.dataset.shopsUrl; reconnect.hidden = p.shop.session_status === 'connected';
     const savedKey = JSON.stringify(p.products);
     if (local.savedKey !== savedKey) {
       local.savedKey = savedKey;
-      $('[data-saved-products]',card).innerHTML = p.products.length ? p.products.map(product => '<li class="boost-saved-row">' + image(product) + '<div><strong>' + esc(product.name) + '</strong><span>' + esc(product.reason || 'Akan diperiksa sebelum dinaikkan') + (product.reason === 'Menunggu jeda produk' && product.next_boost_at ? ' · ' + date(product.next_boost_at) : '') + '</span></div></li>').join('') : '<li class="boost-empty">Belum ada produk pilihan. Mulai dengan memilih produk dari katalog toko.</li>';
+      $('[data-saved-products]',card).innerHTML = p.products.length ? p.products.map(product => '<li class="boost-saved-row">' + image(product) + '<div><strong>' + esc(product.name) + '</strong><span class="boost-product-state" data-tone="'+(product.reason?'warning':'success')+'">'+icon(product.reason==='Menunggu jeda produk'?'clock':product.reason?'alert':'check') + esc(product.reason || 'Siap diperiksa') + '</span>'+(product.reason === 'Menunggu jeda produk' && product.next_boost_at ? '<small class="boost-product-time">'+date(product.next_boost_at)+'</small>' : '')+'</div></li>').join('') : '<li class="boost-empty">'+icon('box')+'<span>Belum ada produk pilihan. Mulai dengan memilih produk dari katalog toko.</span></li>';
       bindImages(card);
     }
     const historyKey = JSON.stringify([p.history,p.unresolved]);
@@ -74,7 +93,7 @@
         button.addEventListener('click', () => openResolution(local,item)); row.append(text,button); unknown.append(row);
       });
     }
-    buttonState(local);
+    buttonState(local);updateSummary();
   }
   async function load(local, quiet = false) {
     if (local.busy && quiet) return;
@@ -83,8 +102,8 @@
     try {
       const p = await api('status?shop_id=' + local.id);
       if (seq !== local.seq) return;
-      local.payload = p; render(local); notice($('[data-load-state]',local.card),'');
-    } catch(error) { if(seq === local.seq) notice($('[data-load-state]',local.card),error.message + ' Gunakan Muat ulang status.'); }
+      local.payload = p; local.readError=false;render(local); notice($('[data-load-state]',local.card),'');
+    } catch(error) { if(seq === local.seq) {local.readError=true;updateSummary();notice($('[data-load-state]',local.card),error.message + ' Gunakan Muat ulang status.');} }
     finally { if(seq === local.seq) { local.loading = false; buttonState(local); } }
   }
   async function action(local, path, data) {
@@ -97,8 +116,9 @@
     $('#boost-editor-title').textContent = mode === 'manual' ? 'Pilih produk untuk sekali pengiriman' : 'Pilih produk untuk diulang';
     $('[data-editor-intro]',editor).textContent = mode === 'manual' ? 'Pilih hingga 5 produk dari katalog untuk dinaikkan sekarang. Kelayakan diperiksa lagi sebelum pengiriman.' : 'Pilih hingga 5 produk. Produk yang belum tersedia akan menunggu tanpa diganti produk lain.';
     $('[data-editor-note]',editor).textContent = mode === 'manual' ? 'Aksi sekali jalan tidak mengubah pilihan atau jadwal pengulangan.' : 'Menyimpan pilihan tidak mengaktifkan pengulangan baru.';
-    $('[data-save]',editor).textContent = mode === 'manual' ? 'Tinjau pengiriman' : 'Simpan pilihan';
+    visualLabel($('[data-save]',editor),mode==='manual'?'up':'check',mode === 'manual' ? 'Tinjau pengiriman' : 'Simpan pilihan');
     $('[data-editor-shop]',editor).textContent = local.name;
+    window.renderShopLogo($('[data-editor-logo]',editor),local.id);
     $('#boost-search').value = ''; notice($('[data-editor-error]',editor),''); notice($('[data-recommendation-status]',editor),''); $('[data-reload-version]',editor).hidden = true;
     renderDraft(); editor.showModal(); $('[data-recommend]',editor).focus({preventScroll:true}); $('.boost-editor-content',editor).scrollTop=0; loadCatalog();
   }
@@ -112,11 +132,12 @@
       name.textContent = p.name;
       if(p.sold_count != null){const sales=document.createElement('small');sales.textContent='Terjual '+number(p.sold_count);name.append(sales);}
       remove.type = 'button'; remove.className = 'boost-text-button'; remove.textContent = 'Hapus'; remove.setAttribute('aria-label','Hapus '+p.name); remove.disabled = draft.busy;
-      remove.addEventListener('click',()=>{ const index=[...draft.selected.keys()].indexOf(String(p.id));draft.selected.delete(String(p.id));clearRecommendationUndo();renderDraft();const buttons=$('[data-chosen]',editor).querySelectorAll('button');(buttons[Math.min(index,buttons.length-1)] || $('#boost-search')).focus(); }); li.append(name,remove); list.append(li);
+      remove.addEventListener('click',()=>{ const index=[...draft.selected.keys()].indexOf(String(p.id));draft.selected.delete(String(p.id));clearRecommendationUndo();renderDraft();const buttons=$('[data-chosen]',editor).querySelectorAll('button');(buttons[Math.min(index,buttons.length-1)] || $('#boost-search')).focus(); });li.innerHTML=image(p); li.append(name,remove); list.append(li);
     });
     $('[data-save]',editor).disabled = draft.busy || draft.conflict || (draft.mode === 'manual' ? !draft.selected.size : !dirty());
     $('[data-recommend]',editor).disabled = draft.busy;
-    $('[data-recommend]',editor).textContent = draft.recommending ? 'Memuat rekomendasi…' : 'Pilih rekomendasi';
+    bindImages(list);
+    visualLabel($('[data-recommend]',editor),draft.recommending?'refresh':'trend',draft.recommending ? 'Memuat rekomendasi…' : 'Pilih rekomendasi');
     $('[data-recommendation]',editor).setAttribute('aria-busy',String(!!draft.recommending));
     $('[data-undo-recommendation]',editor).hidden = !draft.beforeRecommendation;
     $('[data-undo-recommendation]',editor).disabled = draft.busy;
@@ -223,6 +244,7 @@
     $('#boost-grid').append(fragment);load(local);
   });
   notice($('#boost-state'),shops.length?'':'Belum ada toko. Tambahkan toko melalui halaman Toko.');
+  if(!shops.length)updateSummary();
   window.addEventListener('beforeunload',event=>{if(dirty()){event.preventDefault();event.returnValue='';}});
   setInterval(()=>{if(!document.hidden)states.forEach(local=>load(local,true));},30000);
 })();

@@ -2,7 +2,7 @@
 
 29–30 September 2026. Worktree `fahra-kelola-chat-audit`, branch `audit/shopee-live-chat`. Lanjutan [audit](live-chat-audit-20260929.md) dan [rekaman browser](live-chat-browser-capture-20260929.md).
 
-**Status: perbaikan jalur baca dan pengamanan kirim sudah diimplementasikan serta diuji. Pengiriman PHP ke Shopee belum berhasil: satu probe kirim ditolak dengan kode `90309999`, tanpa ID pesan. Ini bukan penyelesaian penuh bug balasan live. Branch belum digabung/deploy ke checkout layanan.**
+**Status: perbaikan jalur baca dan pengamanan kirim sudah diimplementasikan, diuji, dan dideploy ke live pada 30 September 2026. Pengiriman PHP ke Shopee belum berhasil: satu probe kirim ditolak dengan kode `90309999`, tanpa ID pesan. Ini bukan penyelesaian penuh bug balasan live.**
 
 ## Perubahan
 
@@ -45,6 +45,8 @@ Review antislop dan UI UX Pro Max mengikuti identitas Shopdash, fokus pada recov
 
 ## Batas dan pekerjaan tersisa
 
+Audit lanjutan dan rencana transport tersedia di [audit send 30 September](live-chat-send-plan-20260930.md): send browser baru sukses, send PHP tetap HTTP 403 `90309999` termasuk setelah kontrol CTOKEN/User-Agent. Audit juga membuktikan header MCP bersumber dari ringkasan endpoint terkini, bukan snapshot immutable setiap payload; gunakan batas provenance tersebut saat membaca rekaman lama.
+
 - **Blocker transport send:** cookie + bootstrap + kontrak body/query yang sudah dikoreksi belum cukup untuk sesi yang diuji. Browser Shopee berhasil mengirim pada rekaman sebelumnya, sedangkan PHP ditolak. Header keamanan dinamis dan `re_policy` berbeda; penyebab tepat per header belum diisolasi, sehingga tidak disebut sebagai kepastian. Menyalin nilai signature dari capture ke konfigurasi permanen bukan perbaikan yang terverifikasi.
 - Jalur lanjutan yang dapat diuji adalah transport melalui konteks browser Shopee yang masih terautentikasi, atau integrasi resmi dengan akses chat. Ini rencana, bukan klaim bahwa sebuah bridge sudah terbukti bekerja. Komponen yang tersedia sekarang tidak menyediakan transport tersebut untuk aplikasi: XYZ Sniper yang dipakai adalah pembaca capture, Sellerio 2.1.0 adalah penyalin cookie. Belum ada penghubung browser/extension baru yang diterapkan atau diinstal.
 - `user_is_forbidden` pada sebagian toko dalam audit awal tidak diperbaiki dengan menganggapnya cookie expired. Probe implementasi ini bukan pengujian ulang seluruh tujuh toko. Refresh menampilkan penolakan apa adanya.
@@ -53,6 +55,16 @@ Review antislop dan UI UX Pro Max mengikuti identitas Shopdash, fokus pada recov
 - Row lama tanpa bukti owner tidak dipindahkan otomatis. Backfill mengisi row milik toko yang sah dan history mengambil ulang detail pada scope yang benar.
 
 ## Integrasi / operasi
+
+### Deploy live 30 September 2026, sekitar 00.12–00.15 WIB
+
+- Perubahan main dari agent lain sampai `7aaa3b2` digabung dan CSS dibangun di worktree terpisah. Hasil integrasi `4ceebad` dipasang dengan fast-forward ke checkout layanan `shopdash`. Tidak ada reset/force atau penimpaan perubahan kerja agent lain.
+- Tes chat, 27 pemeriksaan sync recovery, 38 pemeriksaan notifikasi, dan UI chat empat lebar × dua tema lulus pada hasil integrasi. Perubahan main terakhir setelah tes hanya dokumentasi.
+- Service `com.fahra.shopdash.worker` dihentikan singkat untuk mengganti kelas PHP yang sudah dimuat. Setelah memastikan tidak ada worker umum lain, satu lease job yang ditinggalkan dilepas; status, progress, retry dan seluruh item dipertahankan. Snapshot lease disimpan privat di `/tmp/shopdash-chat-audit/deployment-leases.json`. Service yang sama dipasang kembali dari plist yang sudah ada dan berjalan dengan kode baru. Web, scheduler dan service Boost tidak diubah.
+- `ChatMonitor::ensureSchema()` berhasil menerapkan tabel tambahan. Query diagnostik jadwal pertama memakai nama tabel yang salah dan gagal setelah migrasi/pelepasan lease selesai; pemeriksaan ulang memakai tabel aktual `sync_schedules` membuktikan tujuh jadwal chat tetap `enabled=0`. Tidak ada import schema dasar.
+- Chrome computer use membuka `https://shopee.fahra.my.id/panel/chat`, memilih hiban.store, lalu menekan **Perbarui dari Shopee**. Job `17373` benar-benar diproses worker produksi. Pada 00.14.48 WIB, snapshot toko berstatus `ok`, 125 percakapan dengan owner yang cocok, 154 pesan tersimpan, serta delapan thread mempunyai timestamp history sukses. Job masih meneruskan backfill; angka ini bukan klaim seluruh arsip sudah selesai.
+- Detail percakapan uji di domain publik menampilkan riwayat dan pesan browser yang benar-benar dikirim pada 29 September 23.13. Ini bukti jalur baca produksi, bukan fixture UI. Asset JS/CSS yang dilayani origin port 8123 cocok byte-for-byte dengan checkout live. Pemeriksaan asset publik melalui urllib ditolak HTTP 403; verifikasi domain publik dilakukan lewat Chrome yang sudah login.
+- Tidak ada pesan uji tambahan pada deploy ini. Hasil send PHP terakhir tetap penolakan `90309999`; deploy tidak dianggap memperbaiki penolakan transport tersebut. Penolakan akses yang tersimpan pada empat toko lain belum diuji ulang dalam smoke test satu toko ini.
 
 Jangan menjalankan worker dari checkout ini bersamaan dengan worker produksi: keduanya memakai database yang sama dan lock proses berasal dari path checkout. Merge source secara terkoordinasi ke checkout web/worker yang sama, kemudian build CSS dari source hasil merge. Ini penting saat agent lain juga mengubah stylesheet.
 

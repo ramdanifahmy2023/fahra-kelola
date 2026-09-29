@@ -17,16 +17,25 @@ const sid = php("chdir('public'); require '../app/init.php'; session_id(bin2hex(
     products[0].name='Produk uji dengan nama panjang untuk perjalanan haji dan umroh, perlengkapan harian keluarga';
     products[1].name='NamaProdukTanpaSpasi'.repeat(8);products[0].cover_image='fixture-image';products[2].total_stock=0;
     const profiles=new Map(), saved=id=>profiles.get(id)||{version:1,enabled:false,product_ids:['1','2'],last_checked_at:null,next_check_at:null};
-    let sender=true, failRead=false, conflict=false, unknown=false, saves=0, sends=0, delayedSearch=false;
+    let sender=true, failRead=false, conflict=false, unknown=false, saves=0, sends=0, delayedSearch=false, emptyShops=false, workerAlive=1, batchActive=false;
     let recommendationMode='success', recommendationDelay=0;
     const recommended=products.filter(p=>p.total_stock>0 && p.sold_count>0).slice(0,5);
     await page.route('**/proc*/**',route=>route.fulfill({json:{status:'success',counts:{}}}));
     await page.route('https://cf.shopee.co.id/**',route=>route.fulfill({status:404,body:''}));
+    await page.route('https://boost-fixtures.invalid/**',route=>route.fulfill({contentType:'image/svg+xml',body:'<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" fill="#e98425"/><path d="M10 30V10h14v8H10" stroke="#1a1714" stroke-width="4" fill="none"/></svg>'}));
+    await page.route(base+'/panel/boost',async route=>{
+      const response=await route.fetch(), body=await response.text();
+      const match=body.match(/(<script id="shop-logo-data" type="application\/json">)([^<]+)(<\/script>)/);
+      const logos=JSON.parse(match[2]).map(shop=>({...shop,logo:'https://boost-fixtures.invalid/logo-'+shop.id+'.svg'}));
+      let html=body.replace(match[0],match[1]+JSON.stringify(emptyShops?[]:logos)+match[3]);
+      if(emptyShops)html=html.replace(/(<script id="boost-shops" type="application\/json">)[^<]+(<\/script>)/,'$1[]$2');
+      await route.fulfill({response,body:html});
+    });
     await page.route('**/procBoost/**',async route=>{
       const url=new URL(route.request().url()), action=url.pathname.split('/').pop();const data=route.request().method()==='POST'?route.request().postDataJSON():null;
       const id=data?.shop_id || Number(url.searchParams.get('shop_id')), profile=saved(id);
       if(data)assert.ok(route.request().headers()['x-csrf-token']);
-      if(action==='status')return route.fulfill(failRead?{status:503,json:{status:'error',message:'Koneksi uji gagal.'}}:{json:{status:'success',shop:{id,name:'Toko uji',session_status:'connected'},profile,products:profile.product_ids.map(id=>({...products.find(p=>p.id===id),reason:id==='3'?'Stok kosong':''})),summary:{remaining_count:unknown?0:5,unresolved_count:unknown?1:0,batch_active:false},worker:{alive:1},sender_enabled:sender,history:[],unresolved:unknown?[{run_id:1,product_id:'1',product_name:products[0].name,status:'unknown',attempted_at:'2026-09-29 08:00:00'}]:[]}});
+      if(action==='status')return route.fulfill(failRead?{status:503,json:{status:'error',message:'Koneksi uji gagal.'}}:{json:{status:'success',shop:{id,name:'Toko uji',session_status:'connected'},profile,products:profile.product_ids.map(id=>({...products.find(p=>p.id===id),reason:id==='3'?'Stok kosong':''})),summary:{remaining_count:unknown?0:5,unresolved_count:unknown?1:0,batch_active:batchActive},worker:{alive:workerAlive},sender_enabled:sender,history:[],unresolved:unknown?[{run_id:1,product_id:'1',product_name:products[0].name,status:'unknown',attempted_at:'2026-09-29 08:00:00'}]:[]}});
       if(action==='catalog'){
         const search=url.searchParams.get('search'), p=Number(url.searchParams.get('page'))||1;
         if(delayedSearch && search==='old')await new Promise(r=>setTimeout(r,400));
@@ -54,8 +63,12 @@ const sid = php("chdir('public'); require '../app/init.php'; session_id(bin2hex(
     const card=page.locator('[data-card]').first(), editor=page.locator('#boost-editor');
     await card.locator('[data-edit]').waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('[data-card]')].every(c=>c.getAttribute('aria-busy')==='false'));
     assert.match(await card.locator('[data-saved-count]').innerText(),/2 \/ 5/);
+    assert.equal(await card.getAttribute('data-state'),'paused');assert.equal(await card.locator('[data-mode]').getAttribute('data-tone'),'neutral');
+    assert.equal(await card.locator('[data-edit] svg').getAttribute('aria-hidden'),'true');
+    const firstShop=await card.getAttribute('data-shop-id');assert.ok((await card.locator('[data-shop-logo] img').getAttribute('src')).endsWith('/logo-'+firstShop+'.svg'));
     await card.locator('[data-edit]').click();await editor.waitFor({state:'visible'});await editor.locator('[data-product-id="1"]').waitFor();
     assert.equal(await editor.locator('[data-recommend]').evaluate(el=>el===document.activeElement),true);
+    assert.ok((await editor.locator('[data-editor-logo] img').getAttribute('src')).endsWith('/logo-'+firstShop+'.svg'),'Popup preserves shop logo identity');
     await editor.locator('[data-next]').click();await editor.locator('[data-product-id="11"]').waitFor();await editor.locator('[data-product-id="11"]').check();
     assert.equal(await editor.locator('[data-chosen] li').count(),3);
     await card.evaluate(el=>el.querySelector('[data-refresh]').click());await page.waitForTimeout(100);
@@ -67,6 +80,7 @@ const sid = php("chdir('public'); require '../app/init.php'; session_id(bin2hex(
     await page.reload();await page.waitForFunction(()=>document.querySelector('[data-saved-count]').textContent==='3 / 5 produk');
     await card.locator('[data-toggle]').click();await page.locator('#boost-confirm').waitFor({state:'visible'});assert.match(await page.locator('[data-confirm-products]').innerText(),/Produk uji 11/);
     await page.locator('[data-confirm-action]').click();await page.locator('#boost-confirm').waitFor({state:'hidden'});assert.equal(await card.locator('[data-toggle]').innerText(),'Jeda pengulangan');
+    assert.equal(await card.getAttribute('data-state'),'active');assert.equal(await card.locator('[data-mode]').getAttribute('data-tone'),'success');assert.equal(await page.locator('[data-total-active]').innerText(),'1 toko');
     await card.locator('[data-toggle]').click();await page.waitForFunction(()=>document.querySelector('[data-toggle]').textContent==='Aktifkan pengulangan');
     await card.locator('[data-manual]').click();await editor.locator('[data-product-id="1"]').waitFor();await editor.locator('[data-product-id="5"]').check();await editor.locator('[data-save]').click();await page.locator('[data-confirm-action]').click();await page.locator('#boost-confirm').waitFor({state:'hidden'});assert.equal(sends,1);assert.equal(saved(1).product_ids.includes('5'),false,'Manual leaves automation selections unchanged');assert.match(await card.locator('[data-action-result]').innerText(),/1 diterima/);
     await card.locator('[data-edit]').click();await editor.locator('[data-product-id="1"]').waitFor();
@@ -102,6 +116,8 @@ const sid = php("chdir('public'); require '../app/init.php'; session_id(bin2hex(
     await editor.locator('[data-product-id="4"]').check();await editor.locator('[data-save]').click();await editor.waitFor({state:'hidden'});
     assert.deepEqual([...saved(1).product_ids].sort(),recommended.map(p=>p.id).sort());assert.equal(sends,sendsBefore);
     await page.reload();await page.waitForFunction(()=>document.querySelector('[data-saved-count]').textContent==='5 / 5 produk');
+    const screenshotProfile={...saved(1)};profiles.set(1,{...screenshotProfile,enabled:true,next_check_at:'2026-09-30 01:30:00',last_checked_at:'2026-09-30 00:30:00'});
+    await card.locator('[data-refresh]').click();await page.waitForFunction(()=>document.querySelector('[data-mode]').textContent==='Pengulangan aktif');
     const output=path.join(root,'tmp/boost-ui');fs.mkdirSync(output,{recursive:true});
     for(const width of [320,500,999,1600])for(const theme of ['light','dark']){
       await page.setViewportSize({width,height:1000});await page.evaluate(t=>window.shopdashTheme.setMode(t),theme);
@@ -113,21 +129,24 @@ const sid = php("chdir('public'); require '../app/init.php'; session_id(bin2hex(
       assert.ok(await editor.evaluate(el=>el.scrollWidth<=el.clientWidth),'No editor overflow '+width);
       const rows=await editor.locator('.boost-product-row').evaluateAll(rows=>rows.map(row=>{const c=row.querySelector('input').getBoundingClientRect(),i=row.querySelector('.boost-product-image').getBoundingClientRect(),t=row.querySelector('.boost-product-title').getBoundingClientRect();return c.right<=i.left && i.right<=t.left && i.width===48;}));assert.ok(rows.every(Boolean),'Separate thumbnail/checkbox/title tracks');
       const targets=await editor.locator('button:visible').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().height));assert.ok(targets.every(h=>h>=44),'Touch targets');
+      const chosenRows=await editor.locator('[data-chosen] li').evaluateAll(rows=>rows.map(row=>{const image=row.querySelector('.boost-product-image').getBoundingClientRect(),text=row.querySelector('span:not(.boost-product-image)').getBoundingClientRect(),button=row.querySelector('button').getBoundingClientRect();return image.width===48 && image.right<=text.left && text.right<=button.left;}));assert.ok(chosenRows.every(Boolean),'Selected products reserve thumbnail/text/action columns');
+      assert.equal(await editor.locator('.boost-product-image svg').first().getAttribute('aria-hidden'),'true');
       await editor.evaluate(async el=>{await Promise.all(el.getAnimations({subtree:true}).map(animation=>animation.finished.catch(()=>{})));});
       const contrast=await page.evaluate(()=>{
         const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
         const luminance=rgb=>{const values=rgb.slice(0,3).map(v=>{v/=255;return v<=.04045?v/12.92:((v+.055)/1.055)**2.4;});return values[0]*.2126+values[1]*.7152+values[2]*.0722;};
-        return [...document.querySelectorAll('#boost-editor :is(p,h2,strong,label,.btn:not(:disabled))')].filter(el=>el.getBoundingClientRect().height && getComputedStyle(el).visibility!=='hidden').map(el=>{
+        return [...document.querySelectorAll('#boost-monitor :is(p,h1,h2,strong,small,label,.boost-mode,.boost-product-state,.boost-worker-state,.btn:not(:disabled))')].filter(el=>el.getBoundingClientRect().height && getComputedStyle(el).visibility!=='hidden').map(el=>{
           ctx.clearRect(0,0,1,1);ctx.fillStyle='#fff';ctx.fillRect(0,0,1,1);const parents=[];for(let p=el;p;p=p.parentElement)parents.push(p);
           parents.reverse().forEach(p=>{ctx.fillStyle=getComputedStyle(p).backgroundColor;ctx.fillRect(0,0,1,1);});const bg=luminance([...ctx.getImageData(0,0,1,1).data]);
           ctx.fillStyle=getComputedStyle(el).color;ctx.fillRect(0,0,1,1);const fg=luminance([...ctx.getImageData(0,0,1,1).data]);return {text:el.textContent.slice(0,60),ratio:(Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05),color:getComputedStyle(el).color,background:getComputedStyle(el).backgroundColor};
         });
-      });assert.ok(contrast.every(r=>r.ratio>=4.5),'Editor text contrast: '+JSON.stringify(contrast.filter(r=>r.ratio<4.5)));
+      });assert.ok(contrast.every(r=>r.ratio>=4.5),'Boost text contrast: '+JSON.stringify(contrast.filter(r=>r.ratio<4.5)));
       await page.keyboard.press('Tab');await editor.locator('[data-editor-close]').focus();assert.notEqual(await editor.locator('[data-editor-close]').evaluate(el=>getComputedStyle(el).outlineStyle),'none');
       await page.screenshot({path:path.join(output,`editor-${width}-${theme}.png`),animations:'disabled'});
       await editor.locator('[data-undo-recommendation]').click();
       await page.keyboard.press('Escape');await editor.waitFor({state:'hidden'});
     }
+    profiles.set(1,screenshotProfile);await card.locator('[data-refresh]').click();await page.waitForFunction(()=>document.querySelector('[data-mode]').textContent==='Pengulangan dijeda');
     await page.setViewportSize({width:640,height:1000});await page.evaluate(()=>document.documentElement.style.zoom='2');
     await card.locator('[data-edit]').click();await editor.locator('[data-product-id="1"]').waitFor();
     assert.ok(await editor.evaluate(el=>el.scrollWidth<=el.clientWidth),'Editor at 200% zoom');
@@ -136,6 +155,8 @@ const sid = php("chdir('public'); require '../app/init.php'; session_id(bin2hex(
     sender=false;await card.locator('[data-refresh]').click();await page.waitForFunction(()=>document.querySelector('[data-operation-note]').textContent.includes('belum diaktifkan'));
     assert.equal(await card.locator('[data-toggle]').isDisabled(),true);assert.equal(await card.locator('[data-edit]').isDisabled(),false);
     unknown=true;sender=true;await card.locator('[data-refresh]').click();await page.waitForFunction(()=>document.querySelector('[data-mode]').textContent==='Hasil perlu diperiksa');
+    assert.equal(await card.getAttribute('data-state'),'attention');assert.equal(await card.locator('[data-mode]').getAttribute('data-tone'),'warning');assert.equal(await page.locator('[data-total-attention]').innerText(),'1 toko');
+    await page.screenshot({path:path.join(output,'attention-dark.png'),animations:'disabled'});
     await card.locator('.boost-history > summary').click();await card.locator('[data-unresolved] button').click();await page.locator('#boost-resolution').waitFor({state:'visible'});
     assert.equal(await page.locator('[data-resolution-save]').isDisabled(),true);await page.locator('[data-resolution-confirm]').check();await page.selectOption('#boost-resolution-outcome','confirmed_not_sent');await page.locator('[data-resolution-save]').click();await page.locator('#boost-resolution').waitFor({state:'hidden'});
     failRead=true;await card.locator('[data-refresh]').click();await page.waitForFunction(()=>document.querySelector('[data-load-state]').textContent.includes('Koneksi uji gagal'));
@@ -151,6 +172,15 @@ const sid = php("chdir('public'); require '../app/init.php'; session_id(bin2hex(
     assert.ok(recommendationData.products.length<=5);assert.ok(recommendationData.products.every(p=>Number(p.shop_id)===1 && Number(p.total_stock)>0 && Number(p.sold_count)>0));
     const csrf=await page.locator('#boost-monitor').getAttribute('data-csrf');
     assert.equal((await context.request.post(base+'/procBoost/save',{headers:{'X-CSRF-Token':csrf},data:{shop_id:1,version:0,product_ids:['1000000000000000']}})).status(),422);
-    console.log('PASS: bestseller recommendations/checks/undo/empty/error/save, persistent selections, pagination/search races, save conflict, draft protection, activation/pause, mocked sends/reconciliation, disabled sender, API guards, eight responsive/theme states and keyboard');
+    profiles.set(1,{...saved(1),enabled:true});workerAlive=0;
+    await card.locator('[data-refresh]').click();await page.waitForFunction(()=>document.querySelector('[data-mode]').textContent==='Pengulangan tertahan');
+    assert.equal(await card.locator('[data-mode]').getAttribute('data-tone'),'warning');assert.equal(await page.locator('[data-worker-state]').innerText(),'Worker belum terpantau');
+    workerAlive=1;batchActive=true;await card.locator('[data-refresh]').click();await page.waitForFunction(()=>document.querySelector('[data-mode]').textContent==='Memproses');
+    assert.equal(await card.locator('[data-mode]').getAttribute('data-tone'),'processing');assert.equal(await card.locator('[data-manual]').isDisabled(),true);
+    batchActive=false;profiles.set(1,screenshotProfile);
+    emptyShops=true;await page.reload();await page.waitForFunction(()=>document.querySelector('[data-worker-state]').textContent==='Belum ada toko');
+    assert.equal(await page.locator('[data-total-active]').innerText(),'0 toko');assert.equal(await page.locator('[data-total-products]').innerText(),'0 produk');assert.equal(await page.locator('[data-worker-state]').getAttribute('data-tone'),'neutral');
+    assert.deepEqual(errors,[]);
+    console.log('PASS: visual status/icons/logos/thumbnail grids/empty shops, bestseller recommendations/checks/undo/empty/error/save, persistent selections, pagination/search races, save conflict, draft protection, activation/pause, mocked sends/reconciliation, disabled sender, API guards, eight responsive/theme states, contrast and keyboard');
   }finally{await browser?.close();php("session_id('"+sid+"');session_start();session_destroy();");}
 })().catch(error=>{console.error(error);process.exitCode=1;});

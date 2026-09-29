@@ -67,7 +67,7 @@ Untuk berhenti mengirim, set `BOOST_SEND_ENABLED=0` dan jeda profil yang diperlu
 
 ## UI dan verifikasi
 
-UI UX Pro Max dan antislop diterapkan sejak rancangan sampai review. Arah: panel operasional Shopdash, ENERGY 1 / RHYTHM 1 / MOTION 1. Identitas toko, ringkasan status, produk tersimpan, tindakan, dan riwayat memiliki urutan tetap agar mudah dibandingkan. Aksen utama menandai aktivasi; pilihan, jeda, dan pemeriksaan menggunakan kontrol sekunder. Tidak ada chart, klaim peningkatan penjualan atau data toko fiktif di produk.
+UI UX Pro Max dan antislop diterapkan sejak rancangan sampai review. Pada 2026-09-30 pengguna meminta warna, ikon dan logo yang lebih mudah dikenali; arah visual diperbarui menjadi panel operasional Shopdash dengan ENERGY 2 / RHYTHM 2 / MOTION 1. Lihat [keputusan dan bukti review visual](boost-visual-ui.md). Identitas toko, ringkasan status, produk tersimpan, tindakan, dan riwayat memiliki urutan tetap agar mudah dibandingkan. Warna status tetap disertai ikon/label. Tidak ada klaim peningkatan penjualan atau data toko fiktif di produk.
 
 Editor katalog memakai dialog dengan isi yang dapat digulir dan footer tindakan tetap terlihat. Checkbox, thumbnail 48px dan judul memakai kolom terpisah. Pilihan draft tidak tertimpa polling atau pencarian; respons pencarian lama diabaikan. Konflik versi mempertahankan draft dan meminta pemuatan versi baru sebelum simpan. Menutup draft yang berubah memberi kesempatan membatalkan penutupan. Semua waktu UI menggunakan WIB secara eksplisit.
 
