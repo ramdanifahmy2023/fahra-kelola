@@ -48,6 +48,35 @@
       <p class="text-xs text-base-content/60" data-topups-updated>Belum tersinkron</p>
     </div>
     <p class="mb-4 text-xs text-base-content/60">Draft tanpa arah desain · ENERGY 1 · RHYTHM 1 · MOTION 1</p>
+    <div class="mb-4 rounded-xl border border-base-content/15 bg-base-100 p-4">
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label for="ads-topup-shop" class="mb-2 block text-sm font-bold">Toko topup</label>
+          <select id="ads-topup-shop" class="select min-h-11 w-full"><option value="">Semua toko</option></select>
+        </div>
+        <div>
+          <label for="ads-topup-period" class="mb-2 block text-sm font-bold">Periode topup</label>
+          <select id="ads-topup-period" class="select min-h-11 w-full">
+            <option value="all">Semua sejak Agustus 2026</option>
+            <option value="this_month">Bulan ini</option>
+            <option value="last_month">Bulan lalu</option>
+            <option value="last_3_months">3 bulan terakhir</option>
+            <option value="custom">Pilih tanggal</option>
+          </select>
+        </div>
+        <div id="ads-topup-custom-range" class="grid grid-cols-1 gap-4 sm:col-span-2 sm:grid-cols-2" hidden>
+          <div>
+            <label for="ads-topup-start" class="mb-2 block text-sm font-bold">Dari tanggal</label>
+            <input id="ads-topup-start" class="input min-h-11 w-full" type="date" min="2026-08-01" max="<?= htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="2026-08-01">
+          </div>
+          <div>
+            <label for="ads-topup-end" class="mb-2 block text-sm font-bold">Sampai tanggal</label>
+            <input id="ads-topup-end" class="input min-h-11 w-full" type="date" min="2026-08-01" max="<?= htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>" value="<?= htmlspecialchars(date('Y-m-d'), ENT_QUOTES, 'UTF-8'); ?>">
+          </div>
+        </div>
+      </div>
+      <p id="ads-topups-period-note" class="mt-3 text-sm text-base-content" aria-live="polite">Total ditampilkan per bulan, termasuk PPN.</p>
+    </div>
     <div id="ads-topups-state" class="mb-4 rounded-lg border border-base-content/15 bg-base-100 p-3 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan topup…</div>
     <div class="overflow-x-auto rounded-xl border border-base-content/15 bg-base-100">
       <table class="w-full min-w-[22rem] text-left text-sm">

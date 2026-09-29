@@ -342,14 +342,57 @@ class AdsMonitor extends BaseModel {
     return [true, null, $backfillComplete];
   }
 
-  public function topupSummary($shopId = null) {
+  private function topupDate($value) {
+    if (!is_string($value) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) return null;
+    $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value, new DateTimeZone('Asia/Jakarta'));
+    $errors = DateTimeImmutable::getLastErrors();
+    if (!$date || ($errors && ($errors['warning_count'] || $errors['error_count'])) || $date->format('Y-m-d') !== $value) return null;
+    return $date;
+  }
+
+  private function topupPeriodRange($period, $startDate = null, $endDate = null) {
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $availableStart = new DateTimeImmutable('2026-08-01 00:00:00', $timezone);
+    $today = new DateTimeImmutable('today', $timezone);
+    $period = in_array($period, ['all', 'this_month', 'last_month', 'last_3_months', 'custom'], true) ? $period : 'all';
+
+    if ($period === 'custom') {
+      $start = $this->topupDate($startDate);
+      $end = $this->topupDate($endDate);
+      if (!$start || !$end || $start < $availableStart || $end < $start || $end > $today) {
+        throw new InvalidArgumentException('Pilih rentang tanggal yang valid, mulai 1 Agustus 2026 sampai hari ini.');
+      }
+    } else {
+      if ($period === 'this_month') {
+        $start = $today->modify('first day of this month');
+      } elseif ($period === 'last_month') {
+        $start = $today->modify('first day of previous month');
+        $today = $start->modify('last day of this month');
+        if ($today < $availableStart) {
+          throw new InvalidArgumentException('Data topup tersedia mulai Agustus 2026.');
+        }
+      } elseif ($period === 'last_3_months') {
+        $start = $today->modify('first day of this month')->modify('-2 months');
+      } else {
+        $start = $availableStart;
+      }
+      if ($start < $availableStart) $start = $availableStart;
+      $end = $today;
+    }
+
+    return [$period, $start->setTime(0, 0), $end->setTime(0, 0)];
+  }
+
+  public function topupSummary($shopId = null, $period = 'all', $startDate = null, $endDate = null) {
     $this->ensureTopupSchema();
     $timezone = new DateTimeZone('Asia/Jakarta');
     $now = new DateTimeImmutable('now', $timezone);
-    $firstMonth = new DateTimeImmutable('2026-08-01 00:00:00', $timezone);
-    $endMonth = $now->modify('first day of next month')->setTime(0, 0);
-    $startUtc = $firstMonth->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
-    $endUtc = $endMonth->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    [$period, $start, $end] = $this->topupPeriodRange($period, $startDate, $endDate);
+    $utc = new DateTimeZone('UTC');
+    $startUtc = $start->setTimezone($utc)->format('Y-m-d H:i:s');
+    $endUtc = $end->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s');
+    $firstMonth = $start->modify('first day of this month');
+    $endMonth = $end->modify('first day of next month');
     $monthMap = [];
     $monthNames = [1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
     for ($month = $firstMonth; $month < $endMonth; $month = $month->modify('+1 month')) {
@@ -357,11 +400,11 @@ class AdsMonitor extends BaseModel {
       $monthMap[$key] = ['month' => $key, 'label' => $monthNames[(int)$month->format('n')] . ' ' . $month->format('Y'), 'total' => 0, 'transactions' => 0];
     }
 
-    $where = '';
-    if ((int)$shopId > 0) $where = ' WHERE id = :shop_id';
-    $this->db->query("SELECT id, shop_id, name FROM shops{$where} ORDER BY name ASC");
-    if ($where) $this->db->bind('shop_id', (int)$shopId);
-    $shops = $this->db->getAll();
+    $this->db->query('SELECT id, shop_id, name FROM shops ORDER BY name ASC');
+    $shopOptions = $this->db->getAll();
+    $shops = (int)$shopId > 0
+      ? array_values(array_filter($shopOptions, static function ($shop) use ($shopId) { return (int)$shop['id'] === (int)$shopId; }))
+      : $shopOptions;
     $shopStates = [];
     foreach ($shops as $shop) {
       $this->db->query('SELECT next_page_number, backfill_complete, synced_at, last_error FROM ad_topup_sync_state WHERE shop_id = :shop_id AND source_shop_id = :source_shop_id LIMIT 1');
@@ -393,9 +436,15 @@ class AdsMonitor extends BaseModel {
     }
 
     return [
+      'period' => $period,
+      'start_date' => $start->format('Y-m-d'),
+      'end_date' => $end->format('Y-m-d'),
       'start_month' => $firstMonth->format('Y-m'),
-      'end_month' => $now->format('Y-m'),
+      'end_month' => $end->format('Y-m'),
       'months' => array_values($monthMap),
+      'shop_options' => array_map(static function ($shop) {
+        return ['shop_id' => (int)$shop['id'], 'shop_name' => $shop['name'] ?? ''];
+      }, $shopOptions),
       'shops' => $shopStates,
       'backfill_complete' => count($shopStates) > 0 && count(array_filter($shopStates, static function ($state) { return $state['backfill_complete']; })) === count($shopStates),
       'refreshed_at' => $now->format(DateTimeInterface::ATOM)

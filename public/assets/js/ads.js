@@ -10,6 +10,12 @@
   const topupState = root.querySelector('#ads-topups-state');
   const topupRows = root.querySelector('#ads-topups-rows');
   const topupUpdated = root.querySelector('[data-topups-updated]');
+  const topupShop = root.querySelector('#ads-topup-shop');
+  const topupPeriod = root.querySelector('#ads-topup-period');
+  const topupCustomRange = root.querySelector('#ads-topup-custom-range');
+  const topupStart = root.querySelector('#ads-topup-start');
+  const topupEnd = root.querySelector('#ads-topup-end');
+  const topupPeriodNote = root.querySelector('#ads-topups-period-note');
   const warning = root.querySelector('#ads-session-warning');
   const template = document.getElementById('ads-card-template');
   const periodLabels = {daily: 'Hari ini', weekly: 'Minggu berjalan', monthly: 'Bulan berjalan'};
@@ -124,15 +130,26 @@
     topupRows.replaceChildren();
     topupState.textContent = 'Memuat total topup bulanan…';
     const url = new URL(root.dataset.topupsEndpoint, window.location.href);
-    if (shopFilter.value) url.searchParams.set('shop_id', shopFilter.value);
+    if (topupShop.value) url.searchParams.set('shop_id', topupShop.value);
+    url.searchParams.set('period', topupPeriod.value);
+    if (topupPeriod.value === 'custom') {
+      url.searchParams.set('start_date', topupStart.value);
+      url.searchParams.set('end_date', topupEnd.value);
+    }
     try {
       const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, cache: 'no-store'});
       if (response.redirected) throw new Error('Sesi aplikasi berakhir. Muat ulang halaman untuk masuk kembali.');
-      if (!response.ok) throw new Error('Laporan topup gagal dimuat (HTTP ' + response.status + ').');
       const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message || 'Laporan topup gagal dimuat (HTTP ' + response.status + ').');
       if (payload.status !== 'success' || !payload.report || !Array.isArray(payload.report.months)) throw new Error(payload.message || 'Respons laporan topup tidak lengkap.');
       if (current !== topupRequestId) return;
       const report = payload.report;
+      const selectedShop = topupShop.value;
+      topupShop.replaceChildren(new Option('Semua toko', ''));
+      const shopOptions = Array.isArray(report.shop_options) ? report.shop_options : report.shops;
+      shopOptions.forEach(shop => topupShop.add(new Option(shop.shop_name || 'Toko #' + shop.shop_id, String(shop.shop_id))));
+      topupShop.value = shopOptions.some(shop => String(shop.shop_id) === selectedShop) ? selectedShop : '';
+      topupPeriodNote.textContent = 'Rentang ' + date(report.start_date) + ' sampai ' + date(report.end_date) + ' WIB. Total ditampilkan per bulan, termasuk PPN.';
       const pending = report.shops.filter(shop => !shop.backfill_complete);
       const errors = report.shops.filter(shop => shop.error_message);
       if (!report.shops.length) {
@@ -163,6 +180,11 @@
       topupState.textContent = error instanceof TypeError ? 'Koneksi ke aplikasi gagal. Periksa koneksi lalu muat ulang halaman.' : error.message;
       topupUpdated.textContent = 'Status sinkronisasi belum tersedia';
     }
+  }
+
+  function updateTopupRange() {
+    topupCustomRange.hidden = topupPeriod.value !== 'custom';
+    loadTopups();
   }
 
   async function loadAds() {
@@ -211,7 +233,11 @@
 
   period.addEventListener('change', loadAds);
   channel.addEventListener('change', loadAds);
-  shopFilter.addEventListener('change', () => { render(); loadTopups(); });
+  shopFilter.addEventListener('change', render);
+  topupShop.addEventListener('change', loadTopups);
+  topupPeriod.addEventListener('change', updateTopupRange);
+  topupStart.addEventListener('change', loadTopups);
+  topupEnd.addEventListener('change', loadTopups);
   refresh.addEventListener('click', loadAds);
   loadAds();
   window.setInterval(() => { if (!document.hidden && !refresh.disabled) loadAds(); }, 300000);

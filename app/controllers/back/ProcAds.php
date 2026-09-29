@@ -30,7 +30,20 @@ class ProcAds extends Controller {
   public function topups() {
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
-    $report = $this->m('AdsMonitor')->topupSummary($shopId > 0 ? $shopId : null);
+    $period = (string)($_GET['period'] ?? 'all');
+    if (!in_array($period, ['all', 'this_month', 'last_month', 'last_3_months', 'custom'], true)) {
+      $this->json(['status' => 'error', 'message' => 'Pilihan periode topup tidak valid.'], 422);
+    }
+    try {
+      $report = $this->m('AdsMonitor')->topupSummary(
+        $shopId > 0 ? $shopId : null,
+        $period,
+        (string)($_GET['start_date'] ?? ''),
+        (string)($_GET['end_date'] ?? '')
+      );
+    } catch (InvalidArgumentException $error) {
+      $this->json(['status' => 'error', 'message' => $error->getMessage()], 422);
+    }
     $this->json(['status' => 'success', 'report' => $report]);
   }
 }
