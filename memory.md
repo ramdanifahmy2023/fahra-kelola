@@ -44,9 +44,11 @@ Passing counts above are historical, not a promise about the current revision. R
 
 - On 2026-09-29 the user requested audit/planning only for a new Automation Engine page, initially for rating replies.
 - Confirmed preference: AI automatically replies under rules for all star ratings, with different rules per star. This is a future feature decision, not permission to send replies during the audit.
+- Provider selected by the user: 9Router, OpenAI-compatible. Base URL, model, credentials, capabilities, and budget still need verification/configuration. No provider connection or review submission has been performed.
+- Proposed sidebar grouping: **AI Agent > Automation**, separate from **Manajemen > Toko / Ekstensi**. Keep page title **Automation Engine** and rating replies as its first module. Planning only; do not create placeholder navigation before implementing the page.
 - See [API capture audit](ops/rating-api-audit-20260929.md) and [implementation proposal](ops/automation-engine-plan.md). The proposed worker, tables, UI, provider, and schedules are not implemented.
 - XYZ Sniper MCP was used read-only to inspect project 1. Never persist its authentication token or captured credentials. Pagination beyond page 1 and backend write transport remain unverified.
-- Next discussion: provider/budget, tone and support policies, backlog start date, operating limits, and content exceptions.
+- Next discussion: 9Router connection/model/budget, tone and support policies, backlog start date, operating limits, and content exceptions.
 
 ## Things that must be rechecked each session
 

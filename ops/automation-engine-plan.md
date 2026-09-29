@@ -5,6 +5,8 @@ Tanggal: 2026-09-29. Status: **rencana untuk diskusi; belum diimplementasikan at
 ## Kebutuhan yang sudah diputuskan
 
 - Halaman baru bernama **Automation Engine**, usulan route `/panel/automation`.
+- Provider AI dipilih pengguna: **9Router dengan antarmuka OpenAI-compatible**. Model, base URL, credential, dan batas biaya belum ditentukan.
+- Susunan sidebar yang diusulkan pengguna dan direkomendasikan: grup **AI Agent** dengan menu **Automation**. Grup ini terpisah dari **Manajemen** (Toko, Ekstensi); judul halaman tetap **Automation Engine**.
 - Modul pertama adalah membalas **rating/ulasan pesanan**, bukan chat atau pesan status pesanan.
 - Pengguna memilih **AI membalas otomatis berdasarkan aturan**, untuk **semua bintang dengan aturan berbeda**.
 - Tetap mendukung banyak toko dengan aturan dan identitas masing-masing.
@@ -58,7 +60,8 @@ Kasus konflik, data pribadi yang harus disunting, ancaman, atau permintaan keput
 
 ## Kontrak dan validasi AI
 
-- Provider/model belum dipilih. Buat adapter konfigurasi server-side agar tidak mengikat desain awal pada vendor yang belum disetujui.
+- Provider adalah **9Router (OpenAI-compatible)** dengan adapter server-side. Base URL, model ID, autentikasi, dukungan output terstruktur, timeout, dan metadata penggunaan harus diverifikasi terhadap instalasi yang akan dipakai. Jangan mengasumsikan seluruh fitur OpenAI tersedia hanya dari label compatible.
+- Credential provider tidak dikirim ke browser atau disimpan di Git. Pilihan provider belum berarti koneksi telah diuji atau review pembeli telah dikirim ke AI. Transport chat/generasi teks diperlukan; skill 9Router embeddings bukan jalur untuk membuat balasan.
 - Input minimum: bintang, teks review yang relevan, nama produk bila diperlukan, bahasa/tone toko, dan kebijakan balasan. Tidak perlu user ID, alamat, nomor pesanan, cookie, token, atau gambar pembeli.
 - Teks review adalah data tidak tepercaya: instruksi seperti “abaikan aturan” tidak boleh mengubah prompt sistem, memanggil tools, memilih toko, atau menentukan endpoint.
 - Output terstruktur yang diusulkan: `action` (`reply`/`review`), `reply_text`, `reason_code`, `language`. Worker menentukan ID dan target; AI hanya menyusun isi dan rekomendasi.
@@ -105,6 +108,19 @@ State task usulan: `discovered -> generating -> ready -> sending -> verifying ->
 
 Gunakan bahasa UI Indonesia dan shell panel yang ada. Riset UI UX Pro Max tentang status/feedback dipakai untuk kejelasan proses; rekomendasi landing page/tema baru yang tidak cocok diabaikan lewat antislop dan aturan proyek.
 
+Navigasi yang direkomendasikan:
+
+```text
+AI Agent
+  Automation       -> /panel/automation
+
+Manajemen
+  Toko             -> /panel/shops
+  Ekstensi         -> /panel/extensions
+```
+
+Label sidebar dibuat singkat, sementara judul konten tetap **Automation Engine**. Balas rating menjadi modul di dalam halaman Automation, bukan menu sidebar tersendiri. Pengaturan koneksi 9Router berada di dalam konfigurasi Automation untuk MVP; halaman provider/agent terpisah baru ditambahkan jika beberapa modul benar-benar membutuhkannya. Jangan menambahkan menu kosong untuk fitur mendatang.
+
 - Header: **Automation Engine**, pemilih toko berlogo dengan menu vertikal, status aktif/jeda, waktu scan terakhir, jadwal berikutnya.
 - Modul **Balas rating**: ringkasan aturan bintang 1–5, status provider, cakupan tanggal, dan mode. Jangan menampilkan modul automasi fiktif yang belum dibuat.
 - Tampilan **Aturan**, **Antrean**, dan **Riwayat**; pada layar kecil navigasi tetap dapat disentuh tanpa overflow.
@@ -136,7 +152,7 @@ Usulan source baru: `RatingMonitor`, `RatingReplyPolicy`, `AutomationEngine`, ad
 
 ## Keputusan yang masih terbuka
 
-1. Provider/model AI dan batas biaya harian/bulanan. Pilihan ini menentukan tujuan pengiriman teks review dan perlu disepakati sebelum integrasi.
+1. Base URL instalasi 9Router, model ID, metode penyimpanan credential, dan batas biaya harian/bulanan. Provider sudah dipilih; rincian koneksi dan tujuan deployment belum diverifikasi.
 2. Tone/sapaan tiap toko, batas panjang internal, dan kebijakan bantuan yang boleh disebut AI.
 3. Backlog: hanya rating baru atau mulai tanggal tertentu; urutan prioritas rating lama/baru.
 4. Jam operasi, batas reply per toko, serta pengecualian isi yang harus masuk tinjauan.
