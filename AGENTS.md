@@ -1,5 +1,14 @@
 # Project instructions
 
+## Start here
+
+- Read this file first, then [memory.md](memory.md) for durable decisions and [tools.md](tools.md) for commands and their effects.
+- Use [architecture](ops/agent-architecture.md) to locate code, [operations](ops/agent-operations.md) for runtime/sync troubleshooting, and [testing](ops/agent-testing.md) to select verification.
+- Start each task with `git status --short` and inspect relevant changes. Preserve unrelated or untracked user work. The repository root is this directory, not its parent workspace.
+- Source code and verified current runtime state outrank historical notes. Never present an old progress percentage, error, or enabled schedule as a current observation.
+- Update the relevant document when a task changes a durable decision, command, architecture, or operating procedure. Record date, evidence, limitations, and follow-up when needed. Do not copy secrets or customer records into documentation.
+- These linked files are project documentation, not automatically loaded global AI memory. Agents must explicitly read them. Keep this entrypoint concise and put detailed procedures in `ops/`.
+
 ## UI/UX workflow
 
 - Use UI UX Pro Max and antislop for UI design, implementation, and final review. The user has already chosen to apply antislop throughout; do not ask again.

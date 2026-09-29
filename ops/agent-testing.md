@@ -1,0 +1,44 @@
+# Testing and verification
+
+Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior; documentation-only edits need link/path review and `git diff --check`, not business operations or a full application test run.
+
+## Test selection
+
+| Changed area | Relevant checks |
+| --- | --- |
+| Shared shop selectors | `node tests/shop-picker-ui.cjs`, `node tests/products-ui.cjs`, `node tests/ads-ui.cjs` |
+| Logo headers / Report selector | `node tests/shop-branding-ui.cjs` |
+| Boost UI / selection | `node tests/boost-ui.cjs` |
+| Boost product eligibility | `php tests/boost-products.php` |
+| Customer shop scoping | `php tests/customer-shop-filter.php` |
+| Queue recovery | `php tests/sync-recovery.php` |
+| Order/product/package sync | `php tests/order-sync.php`, `php tests/product-sync.php`, `php tests/package-sync.php` |
+| Ads metric mapping | `php tests/ads-performance.php` |
+| Ads campaign traversal | `php tests/ads-campaign-reports.php` |
+| Browser report import | `php tests/ads-browser-import.php` |
+
+Also run syntax checks on changed PHP/JS files, `npm run build` for CSS/template class changes, and `git diff --check`. Do not assume an `npm test` command exists; package scripts currently provide CSS dev/build.
+
+## Prerequisites and effects
+
+- Most integration tests require an initialized local database with schema. Queue/domain fixture tests use connection-local temporary tables or stubs; inspect the test before running it against a sensitive environment, especially after modifying fixtures.
+- `ads-performance.php` and `ads-campaign-reports.php` use fixtures/stubs without requiring a live Shopee request for their normal checks.
+- Browser tests require a running local app, a local account, Playwright, and a compatible installed Chromium. Tests create a temporary PHP session from a local account and clean it up; this is authorized local test setup, not credentials to expose or transfer to another host.
+- Some browser tests use live local read endpoints; Boost mutation requests are mocked. Do not remove those mocks or click live business-action buttons during visual verification.
+- Some suites require at least two connected shops. Missing data/environment is not a product failure; report the exact limitation and use isolated fixtures where suitable.
+- `PLAYWRIGHT_MODULE` can point to an existing installed module. Per-suite URL overrides differ; inspect the file. Do not assume all suites support one shared URL variable.
+- Screenshots/artifacts belong under ignored `tmp/`. They may contain real shop/customer information; do not commit them.
+
+## UI verification
+
+1. Check loading, empty, failure, disabled, and selected states relevant to the change.
+2. Check 320px, 500px, 999px, and 1600px where layout changes apply, both themes, and long names. Open menus and scroll to the final option; a closed menu screenshot is insufficient.
+3. Verify downward placement, vertical-only option arrangement, viewport bounds, and reserved image dimensions. Test missing/broken images.
+4. Exercise keyboard focus/selection and Escape for custom dynamic selectors. Verify the backing select and visible trigger agree after reloads and option replacement.
+5. Assert actual data/requests change when a shop is selected. Check preservation of dates, period/channel, page-size, and reset of page index as appropriate. Ads and Topup must stay independent.
+6. Inspect screenshots, not just numeric assertions. Disable animations during screenshot capture to avoid mistaking transitional sidebar frames for settled layouts.
+7. Confirm no JavaScript page errors. Scope unrelated pre-existing issues accurately rather than claiming the entire app is flawless.
+
+## Honest results
+
+Report which commands passed and any test not run due to a concrete prerequisite. A source syntax pass is not a browser test; a local mock test is not Shopee reconciliation; a successful Git push is not a deployment test. Do not reuse historical passing totals as a current result.

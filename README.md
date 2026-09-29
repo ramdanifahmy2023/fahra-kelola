@@ -2,6 +2,13 @@
 
 Shopdash local dashboard for multi-store Shopee operations.
 
+## Panduan agent AI dan pemeliharaan
+
+Mulai dari [AGENTS.md](AGENTS.md), lalu baca [tools.md](tools.md) untuk perintah dan
+efeknya, serta [memory.md](memory.md) untuk keputusan proyek. Panduan detail tersedia
+di [arsitektur](ops/agent-architecture.md), [operasional](ops/agent-operations.md), dan
+[pengujian](ops/agent-testing.md). Catatan runtime lama bukan status sistem saat ini.
+
 ## Local setup
 
 On a new Mac, install PHP, Node.js, and MariaDB/MySQL first. Then clone the repository and run:
@@ -18,15 +25,17 @@ empty: customer, order, shop, Shopee cookie, session, and API credential data ne
 
 For manual setup, copy `config/.env.example` to `config/.env`, import `database/schema.sql`, run
 `npm ci && npm run build`, create an account with `php bin/create-admin.php`, then start the app
-with `php -S 127.0.0.1:8123 router.php` from this directory.
+with `php -S 127.0.0.1:8123 -t public router.php` from this directory.
+
+Fresh setup only: `database/schema.sql` contains `DROP TABLE`. Do not run the setup
+script or reimport the base schema over an existing database to troubleshoot it.
 
 Dashboard hanya meminta health-check toko. Scheduler dan worker berjalan sebagai satu-satunya
 proses background melalui LaunchAgent, jadi status toko tidak bergantung pada membuka
 `/panel/shops` dan tidak ada worker tambahan dari request halaman.
 
-```cron
-* * * * * cd /path/to/shopdash && /usr/bin/php bin/sync-daemon.php >/dev/null 2>&1
-```
+`bin/sync-daemon.php` is an alternative scheduler/worker runner. Do not install a
+second cron runner alongside the existing LaunchAgents.
 
 ## Git workflow
 
@@ -36,12 +45,13 @@ Ikuti struktur proyek yang sudah ada sebelum membuat file. Simpan dokumentasi te
 audit, dan catatan verifikasi di `ops/`, pengujian di `tests/`, serta hasil sementara
 dan screenshot pengujian di `tmp/` yang tidak masuk Git. Gunakan nama file deskriptif
 dengan huruf kecil dan tanda hubung. Perbarui dokumen yang relevan bila sudah ada;
-jangan membuat catatan lepas di root proyek atau folder induknya.
+jangan membuat catatan lepas di root proyek atau folder induknya. Pengecualian yang
+diminta pengguna adalah `AGENTS.md`, `tools.md`, dan `memory.md` sebagai pintu masuk agent.
 
 Commit each completed change with a clear message, then push the branch to the private GitHub repository:
 
 ```sh
-git add .
+git add path/to/task-file
 git commit -m "Describe the change"
 git push
 ```
