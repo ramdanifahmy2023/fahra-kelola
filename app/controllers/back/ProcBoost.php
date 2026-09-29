@@ -40,6 +40,15 @@ class ProcBoost extends Controller {
       return $s->catalog($id,mb_substr(trim((string)($_GET['search']??'')),0,100),max(1,(int)($_GET['page']??1)));
     });
   }
+  public function recommendations(): void {
+    $this->respond(function(){
+      if(($_SERVER['REQUEST_METHOD']??'')!=='GET')throw new BoostError('Gunakan GET.',405);
+      $id=filter_var($_GET['shop_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+      if(!$id)throw new BoostError('Toko tidak valid.',422);
+      $s=$this->store();$s->shop($id);
+      return ['products'=>$s->recommendations($id)];
+    });
+  }
   public function save(): void {
     $this->respond(function(){$d=$this->input();return ['profile'=>$this->store()->save($d['shop_id'],$this->version($d),BoostPolicy::ids($d['product_ids']??null,true),(int)authUser()['id'])];});
   }

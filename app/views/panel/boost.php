@@ -11,6 +11,12 @@
     <header class="boost-dialog-heading"><div><p data-editor-shop></p><h2 id="boost-editor-title">Pilih produk untuk diulang</h2></div><button type="button" class="btn boost-secondary" data-editor-close>Tutup</button></header>
     <div class="boost-editor-content">
     <p data-editor-intro>Pilih hingga 5 produk. Produk yang belum tersedia akan menunggu tanpa diganti produk lain.</p>
+    <div class="boost-recommendation" data-recommendation>
+      <strong>Rekomendasi terlaris</strong>
+      <p id="boost-recommendation-help">Hingga 5 produk aktif dan berstok dengan penjualan tertinggi dari seluruh katalog toko ini, berdasarkan data tersinkron. Mengganti pilihan di popup; tinjau sebelum menyimpan.</p>
+      <div class="boost-recommendation-actions"><button type="button" class="btn boost-secondary" data-recommend aria-describedby="boost-recommendation-help">Pilih rekomendasi</button><button type="button" class="boost-text-button" data-undo-recommendation hidden>Kembalikan pilihan</button></div>
+      <p data-recommendation-status role="status" hidden></p>
+    </div>
     <div class="boost-draft-heading"><strong data-draft-count role="status">0 / 5 dipilih</strong><span data-dirty></span></div>
     <ul class="boost-chosen" data-chosen aria-label="Pilihan pengulangan"></ul>
     <form data-search-form class="boost-search"><label for="boost-search">Cari produk di toko ini</label><div><input id="boost-search" type="search" class="input" autocomplete="off" maxlength="100" placeholder="Nama produk"><button type="submit" class="btn boost-secondary">Cari</button></div></form>
