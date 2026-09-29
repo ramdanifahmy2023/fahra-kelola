@@ -40,6 +40,14 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 
 Passing counts above are historical, not a promise about the current revision. Record new test results only after running them.
 
+## Planned work: Automation Engine
+
+- On 2026-09-29 the user requested audit/planning only for a new Automation Engine page, initially for rating replies.
+- Confirmed preference: AI automatically replies under rules for all star ratings, with different rules per star. This is a future feature decision, not permission to send replies during the audit.
+- See [API capture audit](ops/rating-api-audit-20260929.md) and [implementation proposal](ops/automation-engine-plan.md). The proposed worker, tables, UI, provider, and schedules are not implemented.
+- XYZ Sniper MCP was used read-only to inspect project 1. Never persist its authentication token or captured credentials. Pagination beyond page 1 and backend write transport remain unverified.
+- Next discussion: provider/budget, tone and support policies, backlog start date, operating limits, and content exceptions.
+
 ## Things that must be rechecked each session
 
 - Working tree changes, intended branch, remote, available browser connection, and local service availability.
