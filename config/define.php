@@ -37,7 +37,14 @@ define('web_icons', $appUrl . '/assets/web_icons');
 define('DEFAULT_CONTROLLER', $env['DEFAULT_CONTROLLER']);
 
 // Database Constants
-define('DB_HOST', $env['DB_HOST']);
+$databaseHost = (string)$env['DB_HOST'];
+$databasePort = (int)($env['DB_PORT'] ?? 0);
+if ($databasePort <= 0 && preg_match('/^(.+):(\d+)$/', $databaseHost, $databaseAddress)) {
+  $databaseHost = $databaseAddress[1];
+  $databasePort = (int)$databaseAddress[2];
+}
+define('DB_HOST', $databaseHost);
+define('DB_PORT', $databasePort > 0 ? $databasePort : 3306);
 define('DB_USER', $env['DB_USER']);
 define('DB_PASS', $env['DB_PASS']);
 define('DB_NAME', $env['DB_NAME']);
