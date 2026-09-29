@@ -60,6 +60,10 @@ Passing counts above are historical, not a promise about the current revision. R
 - XYZ Sniper MCP was used read-only to inspect project 1. Never persist its authentication token or captured credentials. Pagination beyond page 1 and backend write transport remain unverified.
 - Next phase: verify 9Router capabilities and rating pagination/transport, then implement discovery and AI drafts before an explicitly enabled sender. Users configure tone, support policies, target dates, and per-star handling in the foundation page.
 
+## Notification audit
+
+- The bell currently serves stock alerts only. The [notification priority audit](ops/notification-priority-audit.md) records lifecycle issues, candidate shipping/session/sync/chat/ads alerts, and source-readiness limits. These are recommendations, not implemented detectors or approved thresholds. Read and resolved must remain separate concepts.
+
 ## Things that must be rechecked each session
 
 - Working tree changes, intended branch, remote, available browser connection, and local service availability.
