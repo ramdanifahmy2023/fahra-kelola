@@ -53,7 +53,28 @@
   }
   function error(message) { $('error').hidden = !message; $('error').querySelector('p').textContent = message || ''; }
   const coverage = (days, total) => `${days}/${total} hari tersedia`;
-  const quality = (available,complete,count) => `<span class="finance-quality ${complete<count ? 'is-partial' : ''}">${icon(complete<count ? 'info' : 'check_circle')}${available===0 ? 'Data belum tersedia' : complete<count ? 'Total sementara · data belum lengkap' : 'Data semua toko tersedia'}</span>`;
+  const countedDays = (days,total) => `Baru ${days} dari ${total} hari terhitung`;
+  const affectedShops = (affected,count) => count>1 ? ` di ${affected} dari ${count} toko` : '';
+  const quality = (available,complete,count,missing='') => {
+    const partial=!count || complete<count;
+    const label=!count ? 'Belum ada toko' : !available ? 'Data belum tersedia'+(count>1 ? ` dari ${count} toko` : '')
+      : available<count ? `Baru ${available} dari ${count} toko terhitung`
+      : partial ? missing : count===1 ? 'Data toko tersedia' : 'Data semua toko tersedia';
+    return `<span class="finance-quality ${partial ? 'is-partial' : ''}">${icon(partial ? 'info' : 'check_circle')}<span>${esc(label)}</span></span>`;
+  };
+  const periodGap = (stores,daysOf,total) => stores.length===1 ? countedDays(daysOf(stores[0]),total)
+    : 'Ada tanggal belum masuk'+affectedShops(stores.filter(s=>daysOf(s)<total).length,stores.length);
+  const gmvGap = (stores,total) => {
+    const missing=stores.filter(s=>s.gmv_days<total);
+    if(missing.length && missing.every(s=>s.gmv_coverage?.missing_dates?.length===1)) {
+      const dates=new Set(missing.map(s=>s.gmv_coverage.missing_dates[0]));
+      if(dates.size===1) {
+        const date=[...dates][0];
+        return `Data ${date===today() ? 'hari ini' : day(date)} belum masuk`+affectedShops(missing.length,stores.length);
+      }
+    }
+    return periodGap(stores,s=>s.gmv_days,total);
+  };
   const states = [['preparing','Perlu dikirim','inventory_2'],['pickup','Pickup / verifikasi kurir','package_2'],['shipping','Dalam pengiriman','local_shipping'],['delivered','Tiba, menunggu dilepas','task_alt'],['return','Retur proses','assignment_return'],['mixed','Paket berbeda tahap','splitscreen'],['unknown','Status belum dipastikan','help']];
   const detailLink = (state,shop) => root.dataset.base+'/panel/finance?'+query({tab:'details',category:'1',state,...(shop ? {shops:shop} : {})});
   const stateList = (values,counts,partial=false,shop=null) => `<dl class="finance-state-list">${states.filter(([key])=>key!=='mixed' || counts?.mixed>0).map(([key,label,symbol])=>{
@@ -69,16 +90,31 @@
   }
   const interval = seconds => seconds%3600===0 ? seconds/3600+' jam' : seconds%60===0 ? seconds/60+' menit' : seconds+' detik';
   const topupNote = t => !t ? 'Belum pernah diperbarui.' : `${t.transactions} transaksi berhasil · termasuk PPN. ${t.error ? 'Pembaruan terakhir gagal. ' : ''}${t.stale ? 'Jadwal pembaruan terlewat. ' : ''}${!t.complete ? 'Riwayat belum lengkap untuk periode ini. ' : ''}Pembaruan terakhir: ${stamp(t.updated_at)}. ${t.enabled ? 'Jadwal setiap '+interval(t.interval_seconds)+'.' : 'Jadwal otomatis belum aktif.'}`;
+  const topupIssue = (t,range) => {
+    if(t?.error)return 'Pembaruan terakhir gagal';
+    if(!t?.updated_at)return 'Riwayat belum pernah diperbarui';
+    if(t.history_start && range.start<t.history_start)return 'Riwayat tersedia mulai '+day(t.history_start);
+    const through=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t.updated_at.replace(' ','T')+'Z'));
+    if(range.end>through)return 'Belum diperbarui sejak '+day(through);
+    if(!t.complete)return 'Sebagian riwayat belum masuk';
+    return t.stale ? 'Pembaruan terlewat' : '';
+  };
+  const topupGap = (stores,range) => {
+    const missing=stores.filter(s=>!s.topups?.complete);
+    const reasons=new Set(missing.map(s=>topupIssue(s.topups,range)));
+    return (reasons.size===1 ? [...reasons][0] : 'Riwayat top up belum lengkap')+affectedShops(missing.length,stores.length);
+  };
   const gmvNote = (s,range) => {
     const c=s.gmv_coverage;
     if(s.gmv===null)return 'Belum tersedia';
     if(c?.missing_dates?.length===1 && c.missing_dates[0]===today())return 'Hari ini belum masuk';
-    if(s.gmv_days<range.days)return `${s.gmv_days}/${range.days} hari tersedia`;
+    if(c?.missing_dates?.length===1)return 'Belum masuk: '+day(c.missing_dates[0]);
+    if(s.gmv_days<range.days)return countedDays(s.gmv_days,range.days);
     if(c?.today_failed)return 'Pembaruan hari ini gagal';
-    return c?.today_included ? 'Termasuk hari ini · sementara' : '';
+    return c?.today_included ? 'Hari ini masih berjalan' : '';
   };
   const issueNote = (text,warning=false) => text ? `<small class="finance-store-note${warning ? ' finance-incomplete' : ''}">${esc(text)}</small>` : '';
-  const adsNote = (s,days) => s.ads.amount===null ? 'Belum tersedia' : s.ads.days<days ? coverage(s.ads.days,days) : s.ads.stale ? 'Pembaruan tertunda' : '';
+  const adsNote = (s,days) => s.ads.amount===null ? 'Belum tersedia' : s.ads.days<days ? countedDays(s.ads.days,days) : s.ads.stale ? 'Pembaruan tertunda' : '';
   const gmvDetail = (s,range) => {
     const c=s.gmv_coverage;
     if(!c)return coverage(s.gmv_days,range.days);
@@ -91,18 +127,18 @@
       $(key).textContent = available.length ? money(available.reduce((sum,s) => sum + s[key],0)) : 'Belum tersedia';
       const times = available.map(s => s[key + '_updated']).filter(Boolean).sort();
       const complete=key==='pending' ? available.length : stores.filter(s=>s.released_days===days).length;
-      $(key+'-quality').innerHTML=quality(available.length,complete,count);
+      $(key+'-quality').innerHTML=quality(available.length,complete,count,key==='released' ? periodGap(stores,s=>s.released_days,days) : '');
       const source=key==='pending' ? 'Posisi terbaru, tanpa filter tanggal.' : available.length && available.every(s=>s.released_basis!=='detail') ? 'Ringkasan Shopee.' : 'Jumlah rincian berdasarkan tanggal pelepasan.';
-      $(key + '-note').textContent = `${available.length}/${count} toko${key==='released' ? ` · periode lengkap ${complete}/${count} toko` : ''}. ${source} Pembaruan paling lama: ${stamp(times[0])}.`;
+      $(key + '-note').textContent = `${source} Pembaruan paling lama: ${stamp(times[0])}.`;
     }
-    function metric(title, symbol, amount, available, complete, note) { return `<div><h2>${icon(symbol)}${esc(title)}</h2><strong>${esc(money(amount))}</strong>${quality(available,complete,count)}<p>${esc(note)}</p><p>${esc(day(data.range.start)+' sampai '+day(data.range.end))} WIB</p></div>`; }
+    function metric(title, symbol, amount, available, complete, missing, note) { return `<div><h2>${icon(symbol)}${esc(title)}</h2><strong>${esc(money(amount))}</strong>${quality(available,complete,count,missing)}<p>${esc(note)}</p><p>${esc(day(data.range.start)+' sampai '+day(data.range.end))} WIB</p></div>`; }
     const gmv = stores.filter(s => s.gmv !== null), ads = stores.filter(s => s.ads.amount !== null), topups=stores.filter(s=>s.topups?.amount!==null && s.topups?.amount!==undefined);
     const gmvComplete=gmv.filter(s=>s.gmv_days===days).length, adsComplete=ads.filter(s=>s.ads.days===days).length;
     const topupComplete=topups.filter(s=>s.topups.complete).length, topupTimes=topups.map(s=>s.topups.updated_at).filter(Boolean).sort();
     const todayStores=gmv.filter(s=>s.gmv_coverage?.today_included).length;
-    $('secondary').innerHTML = metric('Omset dibayar','receipt_long',gmv.length ? gmv.reduce((n,s)=>n+s.gmv,0) : null,gmv.length,gmvComplete,todayStores ? `Termasuk omset hari ini dari ${todayStores}/${count} toko. Angka hari ini masih sementara.` : gmv.length && gmv.every(s=>s.gmv_coverage?.missing_dates?.length===1 && s.gmv_coverage.missing_dates[0]===today()) ? 'Data hari ini belum masuk. Lihat tanggal tersedia pada rincian toko.' : `Pesanan sudah dibayar. Periode lengkap ${gmvComplete}/${count} toko.`)
-      + metric('Top up iklan berhasil','add_card',topups.length ? topups.reduce((n,s)=>n+s.topups.amount,0) : null,topups.length,topupComplete,`Uang untuk isi saldo, termasuk PPN. ${topups.reduce((n,s)=>n+s.topups.transactions,0)} transaksi. Pembaruan paling lama: ${stamp(topupTimes[0])}.`)
-      + metric('Biaya iklan terpakai','campaign',ads.length ? ads.reduce((n,s)=>n+s.ads.amount,0) : null,ads.length,adsComplete,`Biaya pemakaian, bukan top up. Periode lengkap ${adsComplete}/${count} toko.`);
+    $('secondary').innerHTML = metric('Omset dibayar','receipt_long',gmv.length ? gmv.reduce((n,s)=>n+s.gmv,0) : null,gmv.length,gmvComplete,gmvGap(stores,days),`Pesanan sudah dibayar.${todayStores ? ' Termasuk omset hari ini'+(count>1 ? ` dari ${todayStores} toko` : '')+'. Angka hari ini masih bisa berubah.' : ''}`)
+      + metric('Top up iklan berhasil','add_card',topups.length ? topups.reduce((n,s)=>n+s.topups.amount,0) : null,topups.length,topupComplete,topupGap(stores,data.range),`Uang untuk isi saldo, termasuk PPN. ${topups.reduce((n,s)=>n+s.topups.transactions,0)} transaksi. Pembaruan paling lama: ${stamp(topupTimes[0])}.`)
+      + metric('Biaya iklan terpakai','campaign',ads.length ? ads.reduce((n,s)=>n+s.ads.amount,0) : null,ads.length,adsComplete,periodGap(stores,s=>s.ads.days,days),'Biaya pemakaian iklan selama periode pilihan.');
     const pending=stores.filter(s=>s.pending_states!==null);
     const totals=pending.length ? Object.fromEntries(states.map(([key])=>[key,pending.reduce((n,s)=>n+(s.pending_states[key] || 0),0)])) : null;
     const stateCounts=pending.length ? Object.fromEntries(states.map(([key])=>[key,pending.reduce((n,s)=>n+(s.pending_state_counts?.[key] || 0),0)])) : null;
@@ -115,9 +151,9 @@
       <header><span class="shop-picker-logo" data-logo="${s.id}"></span><h3>${esc(s.name)}</h3></header>
       <dl class="finance-store-values">
         <div><dt>Pending</dt><dd>${esc(money(s.pending))}</dd></div>
-        <div><dt>Sudah dilepas</dt><dd>${esc(money(s.released))}</dd>${issueNote(s.released_days<days ? coverage(s.released_days,days) : '',true)}</div>
+        <div><dt>Sudah dilepas</dt><dd>${esc(money(s.released))}</dd>${issueNote(s.released_days<days ? countedDays(s.released_days,days) : '',true)}</div>
         <div><dt>Omset dibayar</dt><dd>${esc(money(s.gmv))}</dd>${issueNote(gmvNote(s,data.range),s.gmv_days<days || s.gmv_coverage?.today_failed)}</div>
-        <div data-topup-shop="${s.id}"><dt>Top up iklan</dt><dd>${esc(money(s.topups?.amount))}</dd>${issueNote(!s.topups?.complete ? 'Riwayat belum lengkap' : s.topups.stale ? 'Pembaruan terlewat' : '',true)}</div>
+        <div data-topup-shop="${s.id}"><dt>Top up iklan</dt><dd>${esc(money(s.topups?.amount))}</dd>${issueNote(topupIssue(s.topups,data.range),true)}</div>
         <div><dt>Biaya iklan</dt><dd>${esc(money(s.ads.amount))}</dd>${issueNote(adsNote(s,days),true)}</div>
       </dl>
       ${s.released_difference ? `<p class="finance-store-alert">${icon('info')}Rincian pelepasan berbeda ${esc(money(Math.abs(s.released_difference)))}. Angka utama mengikuti ringkasan Shopee.</p>` : ''}

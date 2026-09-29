@@ -21,7 +21,8 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database; $d
     await page.goto(base+'/panel/finance?shops=1&start=2026-09-01&end=2026-09-02'); await loaded();
     assert.equal(await page.locator('.finance-store').count(),1);
     assert.match(await page.locator('#finance-pending').innerText(),/Rp/);
-    assert.match(await page.locator('#finance-released-note').innerText(),/periode lengkap 1\/1 toko/);
+    assert.match(await page.locator('#finance-released-quality').innerText(),/Data toko tersedia/);
+    assert.equal(await page.locator('#finance-released-quality .is-partial').count(),0);
     const api=await context.request.get(base+'/procFinance/summary?shops=1&start=2026-09-01&end=2026-09-02');
     assert.equal(api.status(),200); assert.equal((await api.json()).stores.length,1);
     await page.locator('#finance-shops-trigger').click();

@@ -251,8 +251,9 @@
 #finance-page .finance-metric-heading p { font-size: .8125rem; }
 #finance-page .finance-metric-icon { display: grid; place-items: center; flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; background: var(--color-base-200); border-radius: 10px; font-size: 24px; }
 #finance-page .finance-meta { font-size: .8125rem; margin-top: 8px; }
-#finance-page .finance-quality { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: .8125rem; font-weight: 600; margin-block: 4px; }
-#finance-page .finance-quality .material-symbols-outlined { font-size: 18px; }
+#finance-page .finance-quality { display: inline-flex; align-items: flex-start; gap: 6px; font-size: .8125rem; font-weight: 600; margin-block: 4px; }
+#finance-page .finance-quality > span:last-child { min-width: 0; }
+#finance-page .finance-quality .material-symbols-outlined { font-size: 18px; flex: 0 0 auto; }
 #finance-page .is-partial { padding: 4px 8px; border-radius: 4px; background: var(--color-warning); color: var(--color-warning-content); }
 #finance-page .finance-incomplete { text-decoration: underline dotted; text-underline-offset: 3px; font-weight: 650; }
 #finance-page .finance-secondary h2 { display: flex; align-items: center; gap: 8px; }
