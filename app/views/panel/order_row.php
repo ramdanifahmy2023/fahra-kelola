@@ -190,7 +190,7 @@ $needsSync = empty($ord['order_sn'])
     <?php endif; ?>
   </td>
   <td class="text-center">
-    <button class="tooltip tooltip-top btn btn-sm btn-ghost btn-square" data-tip="Detail">
+    <button type="button" class="btn btn-ghost btn-square" data-order-details="<?= (int)$ord['id']; ?>" aria-label="Lihat rincian pesanan <?= htmlspecialchars($ord['order_sn'] ?: $ord['id'],ENT_QUOTES,'UTF-8'); ?>">
       <span class="material-symbols-outlined text-[18px]">visibility</span>
     </button>
   </td>

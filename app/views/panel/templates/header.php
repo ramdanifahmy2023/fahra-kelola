@@ -37,6 +37,19 @@
       update(read());
     })();
   </script>
+  <?php
+    $workspaceConfig=$GLOBALS['panel_workspace'] ?? ['scope'=>$data['active_menu'] ?? '', 'saved'=>[], 'available'=>false];
+    $workspaceConfig+=['base'=>burl,'csrf'=>authCsrfToken(),'user'=>(int)authUser()['id'],'timestamp'=>(int)floor(microtime(true)*1000)];
+    $workspaceConfig['keys']=WorkspacePolicy::FILTERS[$workspaceConfig['scope']] ?? [];
+    $workspaceConfig['singleShop']=WorkspacePolicy::SINGLE_SHOP;
+    $workspaceConfig['query']=WorkspacePolicy::clean($workspaceConfig['scope'],$_GET);
+    if (isset($data['active_shop_id'])) $workspaceConfig['query']['shop_id']=(int)$data['active_shop_id'];
+  ?>
+  <script>
+    window.shopdashWorkspace=<?= json_encode($workspaceConfig,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
+    (()=>{const config=window.shopdashWorkspace,url=new URL(location.href);for(const key of config.keys)if(config.query[key]!==undefined&&!url.searchParams.has(key))url.searchParams.set(key,config.query[key]);history.replaceState(null,'',url);})();
+  </script>
+  <script src="<?= assets; ?>/js/workspace.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/workspace.js'); ?>" defer></script>
   <link rel="stylesheet" href="<?= assets; ?>/css/style.css?v=<?= filemtime(__DIR__ . '/../../../../public/assets/css/style.css'); ?>">
   <link rel="stylesheet" href="<?= web_icons; ?>/material-symbols.css">
   <style>
@@ -45,6 +58,8 @@
 </head>
 <body>
   <?php Alert::show(); ?>
+  <div id="workspace-save-error" role="alert" hidden>Pilihan terakhir belum tersimpan.<button type="button" id="workspace-save-retry" class="btn">Coba simpan lagi</button></div>
+
   <div id="floating-tooltip" class="pointer-events-none fixed z-[100] hidden max-w-xs rounded-md bg-neutral px-2.5 py-1.5 text-[11px] font-medium text-neutral-content shadow-xl"></div>
   <script>
     (() => {

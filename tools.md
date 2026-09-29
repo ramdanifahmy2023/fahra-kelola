@@ -139,3 +139,10 @@ Current intended remote/branch: `origin` / `main`; verify each session. User aut
 - `php tests/notifications.php`: policy/lifecycle/per-account receipts and detector checks using temporary tables.
 - `node tests/notifications-ui.cjs`: mocked notification writes, responsive bell and scoped order links; defaults to isolated server port 8131. Use `PLAYWRIGHT_MODULE` for an external Playwright install and `NOTIFICATION_TEST_URL` to change origin.
 - Read [notification operations](ops/notifications.md) before extending detectors; schema initialization is additive, operational evaluation reads local sources, and read receipts must preserve revision checks.
+
+## Workspace comfort verification
+
+- `php tests/workspace-comfort.php`: isolated temporary-table checks for preference timestamps, scoped search and sync presentation.
+- `node tests/workspace-comfort-ui.cjs`: responsive themes, keyboard, preference persistence and recovery; defaults to port 8131. Set `PLAYWRIGHT_MODULE` to an available installed module.
+- Existing picker/products/ads/notifications browser suites now use `tests/panel-test-session.cjs` and mock preference writes. Preserve fixture cleanup and mocked upstream mutations.
+- See [workspace comfort](ops/workspace-comfort.md) for additive schema and behavioral constraints.

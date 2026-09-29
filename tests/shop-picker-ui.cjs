@@ -4,15 +4,16 @@ const path = require('node:path');
 const fs = require('node:fs');
 const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = path.resolve(__dirname, '..');
-const base = 'http://127.0.0.1:8123';
+const base = process.env.PANEL_TEST_URL || 'http://127.0.0.1:8123';
 const php = code => execFileSync('php', ['-r', code], {cwd: root, encoding: 'utf8'}).trim();
-const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); $d->query('SELECT id,name,email FROM accounts LIMIT 1'); $a=$d->single(); session_id(bin2hex(random_bytes(24))); session_start(); $_SESSION['auth_user']=$a; echo session_id(); session_write_close();");
+const testSession=require('./panel-test-session.cjs')(root);const sid=testSession.sid;
 
 (async () => {
   let browser;
   try {
     browser = await chromium.launch({headless: true});
     const context = await browser.newContext();
+    await context.route('**/procWorkspace/**',r=>r.fulfill({json:{status:'success'}}));
     await context.addCookies([{name: 'PHPSESSID', value: sid, url: base}]);
     const page = await context.newPage();
     const errors = [];
@@ -42,7 +43,7 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); 
           await list.locator('a').last().scrollIntoViewIfNeeded();
           await list.locator('a').first().scrollIntoViewIfNeeded();
           await page.screenshot({path: path.join(output, `${section}-${width}-${theme}.png`)});
-          await page.locator('h2').first().click();
+          await page.locator('main h2:visible').first().click();
         }
       }
       await page.locator('#selectedShopDisplay').click();
@@ -68,6 +69,6 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); 
     console.log('PASS: three shop pickers, vertical scrolling, responsive light/dark, keyboard navigation, selected shop data, and filter preservation');
   } finally {
     await browser?.close();
-    php("session_id('" + sid + "'); session_start(); $_SESSION=[]; session_destroy();");
+    testSession.cleanup();
   }
 })().catch(error => {console.error(error); process.exitCode = 1;});

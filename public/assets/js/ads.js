@@ -18,6 +18,10 @@
   const topupStart = root.querySelector('#ads-topup-start');
   const topupEnd = root.querySelector('#ads-topup-end');
   const topupPeriodNote = root.querySelector('#ads-topups-period-note');
+  const saved=new URLSearchParams(location.search);
+  for(const [key,control] of Object.entries({period,channel,topup_period:topupPeriod,topup_start:topupStart,topup_end:topupEnd}))if(saved.has(key))control.value=saved.get(key);
+  let initialShop=saved.get('shop_id')||'',initialTopup=saved.get('topup_shop')||'';
+  if(initialTopup==='0')initialTopup='';if(initialShop==='0')initialShop='';
   const warning = root.querySelector('#ads-session-warning');
   const template = document.getElementById('ads-card-template');
   const periodLabels = {daily: 'Hari ini', weekly: 'Minggu berjalan', monthly: 'Bulan berjalan'};
@@ -146,7 +150,7 @@
     topupState.hidden = false;
     topupState.textContent = 'Memuat total topup bulanan…';
     const url = new URL(root.dataset.topupsEndpoint, window.location.href);
-    if (topupShop.value) url.searchParams.set('shop_id', topupShop.value);
+    if (initialTopup||topupShop.value) url.searchParams.set('shop_id', initialTopup||topupShop.value);
     url.searchParams.set('period', topupPeriod.value);
     if (topupPeriod.value === 'custom') {
       url.searchParams.set('start_date', topupStart.value);
@@ -160,7 +164,7 @@
       if (payload.status !== 'success' || !payload.report || !Array.isArray(payload.report.months)) throw new Error(payload.message || 'Respons laporan topup tidak lengkap.');
       if (current !== topupRequestId) return;
       const report = payload.report;
-      const selectedShop = topupShop.value;
+      const selectedShop = initialTopup||topupShop.value;initialTopup='';
       topupShop.replaceChildren(new Option('Semua toko', ''));
       const shopOptions = Array.isArray(report.shop_options) ? report.shop_options : report.shops;
       shopOptions.forEach(shop => topupShop.add(new Option(shop.shop_name || 'Toko #' + shop.shop_id, String(shop.shop_id))));
@@ -231,7 +235,7 @@
       if (payload.status !== 'success' || !Array.isArray(payload.shops)) throw new Error(payload.message || 'Respons laporan tidak lengkap. Coba Muat ulang data.');
       if (current !== requestId) return;
       shops = payload.shops;
-      const selection = shopFilter.value;
+      const selection = initialShop||shopFilter.value;initialShop='';
       shopFilter.replaceChildren(new Option('Semua toko', ''));
       shops.forEach(shop => shopFilter.add(new Option(shop.shop_name || 'Toko #' + shop.shop_id, String(shop.shop_id))));
       shopFilter.value = shops.some(shop => String(shop.shop_id) === selection) ? selection : '';

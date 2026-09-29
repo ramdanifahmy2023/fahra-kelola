@@ -3,7 +3,7 @@
   if(!root)return;
   const $=id=>document.getElementById('notification-'+id);
   const panel=$('panel'),bell=$('button');
-  let unreadOnly=true,offset=0,rows=[],busy=false,revision=0,hasMore=false;
+  let unreadOnly=true,offset=0,rows=[],busy=false,revision=0,hasMore=false,group=null,grouped=false;
   const number=v=>new Intl.NumberFormat('id-ID').format(Number(v||0));
   const text=(tag,value,className='')=>{const el=document.createElement(tag);el.textContent=value;el.className=className;return el;};
   const icon=name=>{const el=text('span',name,'material-symbols-outlined');el.setAttribute('aria-hidden','true');return el;};
@@ -17,6 +17,23 @@
     if(!response.ok||data.status!=='success')throw new Error(data.message||'Permintaan gagal. Coba lagi.');
     return data;
   }
+  function shopIdentity(item){
+    const shop=text('div','','notification-shop');
+    if(item.shop_logo&&/^https?:\/\//.test(item.shop_logo)){const img=document.createElement('img');img.src=item.shop_logo;img.alt='';img.width=24;img.height=24;img.addEventListener('error',()=>img.replaceWith(icon('storefront')),{once:true});shop.append(img);}else shop.append(icon('storefront'));
+    shop.append(text('span',item.shop_name||'Toko #'+item.shop_id));return shop;
+  }
+  function renderGroups(data){
+    const titles={low_stock:'produk stok kritis / habis',shipping_deadline:'pesanan perlu dikirim',connection:'masalah koneksi',sync_stale:'pembaruan tertunda'};
+    rows=[];hasMore=!!data.has_more;grouped=true;$('list').replaceChildren();$('back').hidden=true;
+    for(const item of data.groups){
+      const card=text('article','','notification-item notification-group');card.append(shopIdentity(item),text('h3',number(item.total)+' '+(titles[item.type]||'masalah aktif')));
+      card.append(text('p',number(item.unread)+' belum dibaca · '+number(item.urgent)+' mendesak'));
+      const view=text('button','Lihat rincian','btn');view.type='button';view.setAttribute('aria-label','Lihat rincian '+(titles[item.type]||'masalah')+' · '+item.shop_name);view.addEventListener('click',()=>{group={shop_id:item.shop_id,type:item.type};offset=0;load().then(()=>$('back').focus());});card.append(view);$('list').append(card);
+    }
+    if(!data.groups.length)$('list').append(text('p',$('urgent').checked?'Tidak ada notifikasi mendesak untuk pilihan ini.':data.summary.total>0?'Tidak ada notifikasi baru. '+number(data.summary.total)+' masalah masih aktif.':'Belum ada masalah aktif yang terdeteksi.','notification-empty'));
+    $('mark-all').hidden=true;$('read-help').textContent='Buka rincian untuk menandai dibaca atau menunda pengingat.';$('mark-all').disabled=true;$('prev').disabled=offset===0||busy;$('next').disabled=!hasMore||busy;
+    $('page-status').textContent=data.groups.length?number(offset+1)+'–'+number(offset+data.groups.length)+' dari '+number(data.group_count)+' kelompok':'0 kelompok';
+  }
   function render(data,countsOnly=false){
     const s=data.summary||{},count=Number(data.unread_count||0);
     $('badge').hidden=count===0;$('badge').textContent=count>99?'99+':number(count);
@@ -26,6 +43,8 @@
     $('summary').textContent=announcement;
     $('source-warning').hidden=data.evaluation_available!==false;
     if(countsOnly)return;
+    if(Array.isArray(data.groups)){renderGroups(data);return;}
+    grouped=false;$('back').hidden=!group;$('mark-all').hidden=false;$('read-help').textContent='Dibaca dan pengingat nanti hanya untuk akun Anda. Masalah tetap aktif sampai selesai.';
     hasMore=!!data.has_more;rows=data.notifications||[];$('list').replaceChildren();
     for(const item of rows){
       const row=text('article','','notification-item');row.dataset.alertId=item.id;
@@ -49,6 +68,7 @@
       if(item.unread){
         const read=text('button','','btn notification-read');read.type='button';read.setAttribute('aria-label','Tandai dibaca: '+item.title+' · '+item.shop_name);read.append(icon('done'));read.addEventListener('click',()=>mark([item]));actions.append(read);
       }else actions.append(text('span','Sudah dibaca','notification-read-label'));
+      const later=text('button','Ingatkan 1 jam','btn notification-later');later.type='button';later.setAttribute('aria-label','Ingatkan 1 jam: '+item.title+' · '+item.shop_name);later.addEventListener('click',()=>mark([item],'snooze'));actions.append(later);
       body.append(actions);heading.append(body);row.append(heading);$('list').append(row);
     }
     if(!rows.length){
@@ -57,29 +77,30 @@
     }
     $('mark-all').disabled=!rows.some(row=>row.unread)||busy;
     $('prev').disabled=offset===0||busy;$('next').disabled=!data.has_more||busy;
-    const total=unreadOnly?s.unread:s.total;
+    const total=data.filtered_count??(unreadOnly?s.unread:s.total);
     $('page-status').textContent=rows.length?number(offset+1)+'–'+number(offset+rows.length)+' dari '+number(total):'0 ditampilkan';
   }
   async function load(automatic=false){
     if(busy)return;
     const token=++revision;$('reload').disabled=true;
     try{
-      const data=await request('summary?unread_only='+(unreadOnly?'1':'0')+'&limit=10&offset='+offset);
+      const params=new URLSearchParams({unread_only:unreadOnly?'1':'0',limit:'10',offset:String(offset),urgent_only:$('urgent').checked?'1':'0',grouped:group?'0':'1'});if(group){params.set('shop_id',group.shop_id);params.set('type',group.type);}
+      const data=await request('summary?'+params);
       if(token!==revision)return;
       $('error').hidden=true;
       render(data,automatic&&!panel.hidden);
     }catch(e){if(token===revision)error(e.message);}
     finally{if(token===revision)$('reload').disabled=false;}
   }
-  async function mark(items){
+  async function mark(items,action='acknowledge'){
     if(busy)return;
     busy=true;revision++;$('error').hidden=true;$('mark-all').disabled=true;
-    root.querySelectorAll('.notification-read,[data-notification-filter]').forEach(b=>b.disabled=true);
+    root.querySelectorAll('.notification-read,.notification-later,[data-notification-filter],#notification-back,#notification-urgent').forEach(b=>b.disabled=true);
     $('prev').disabled=true;$('next').disabled=true;$('reload').disabled=true;
     let failed=false;
-    try{await request('acknowledge',items.map(item=>({id:item.id,revision:item.revision})));offset=0;}
+    try{await request(action,items.map(item=>({id:item.id,revision:item.revision})));offset=0;}
     catch(e){failed=true;error(e.message);$('error').focus();}
-    finally{busy=false;root.querySelectorAll('.notification-read,[data-notification-filter]').forEach(b=>b.disabled=false);$('mark-all').disabled=!rows.some(row=>row.unread);$('reload').disabled=false;$('prev').disabled=offset===0;$('next').disabled=!hasMore;}
+    finally{busy=false;root.querySelectorAll('.notification-read,.notification-later,[data-notification-filter],#notification-back,#notification-urgent').forEach(b=>b.disabled=false);$('mark-all').disabled=!rows.some(row=>row.unread);$('reload').disabled=false;$('prev').disabled=offset===0;$('next').disabled=!hasMore;}
     if(!failed){await load();if(!panel.hidden)$('mark-all').disabled?$('reload').focus():$('mark-all').focus();}
   }
   bell.addEventListener('click',()=>{if(!panel.hidden){close();return;}panel.hidden=false;bell.setAttribute('aria-expanded','true');load();});
@@ -91,6 +112,8 @@
     root.querySelectorAll('[data-notification-filter]').forEach(el=>el.setAttribute('aria-pressed',String(el===button)));load();
   }));
   $('reload').addEventListener('click',()=>load());
+  $('back').addEventListener('click',()=>{group=null;offset=0;load();});
+  $('urgent').addEventListener('change',()=>{offset=0;load();});
   $('mark-all').addEventListener('click',()=>mark(rows.filter(row=>row.unread)));
   $('prev').addEventListener('click',()=>{offset=Math.max(0,offset-10);load();});
   $('next').addEventListener('click',()=>{offset+=10;load();});

@@ -87,6 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
   <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
   <div class="overflow-x-auto">
+<?php if (!empty($data['focused_customer_id'])): ?><div class="workspace-focus">Menampilkan pelanggan dari pencarian.<a href="<?= burl; ?>/panel/customers?shop_id=<?= (int)$data['active_shop_id']; ?>&page=1">Lihat semua pelanggan toko</a></div><?php endif; ?>
     <table class="table w-full">
       <thead>
         <tr>
@@ -109,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
         </tr>
         <?php else: ?>
         <?php foreach ($data['customers'] as $customer): ?>
-        <tr class="hover">
+        <tr class="hover" id="customer-<?= (int)$customer['id']; ?>">
           <td class="whitespace-nowrap">
             <?php if (empty($customer['created_at']) || $customer['created_at'] === '0000-00-00 00:00:00'): ?>
               <div class="skeleton h-4 w-20 rounded-md"></div>

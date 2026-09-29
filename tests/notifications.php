@@ -88,7 +88,20 @@ try{
  $model->putAlert(1,'shipping_deadline','order','55','urgent',['title'=>'Fixture','message'=>'Fixture','path'=>'/panel/orders?shop_id=1&order_id=55','action_label'=>'Buka','stage'=>1,'valid_until'=>gmdate('Y-m-d H:i:s',$now-1)]);
  checkNotify(array_values(array_filter($model->notifications(1,false),fn($a)=>$a['type']==='shipping_deadline'))[0]['stale']===true,'Existing stale incident remains visible and labelled stale');
  checkNotify(count($model->notifications(1,false,1,1))===1,'Pagination works');
+ // A standalone fresh stock episode exercises independent reminder receipts.
+ notifySql("INSERT INTO products(id,shop_id,name,status,total_stock) VALUES(12,1,'Snooze fixture',1,4),(13,1,'Group fixture',1,3)");$model->reconcileShop(1);
+ $stockRows=array_values(array_filter($model->notifications(1,false,100),fn($a)=>$a['type']==='low_stock'));$sleep=$stockRows[0];
+ $model->snooze(1,[['id'=>$sleep['id'],'revision'=>$sleep['revision']]]);
+ checkNotify(count($model->notifications(2,false,100))===count($model->notifications(1,false,100))+1,'Reminders are per account');
+ $groups=$model->groups(1,false,10,0);$stockGroup=array_values(array_filter($groups['groups'],fn($a)=>$a['type']==='low_stock'))[0];
+ checkNotify($stockGroup['total']===1,'Grouped count excludes reminders for that account');
+ $model->putAlert(1,'low_stock','product',(string)($sleep['message']==='Snooze fixture · stok 4'?12:13),'urgent',['title'=>'Fixture','action_label'=>'Periksa','stage'=>1]);
+ checkNotify($model->filteredCount(1,false,['type'=>'low_stock'])>=2,'Escalation bypasses older reminder revision');
+ $model->snooze(1,[['id'=>$sleep['id'],'revision'=>$sleep['revision']]]);
+ checkNotify($model->filteredCount(1,false,['urgent'=>true,'type'=>'low_stock'])>=1,'Stale reminder click cannot hide escalation');
+ notifySql('UPDATE notification_snoozes SET snoozed_until=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 SECOND)');
+ checkNotify($model->filteredCount(1,false,['type'=>'low_stock'])===count(array_filter($model->notifications(1,false,100),fn($a)=>$a['type']==='low_stock')),'Expired reminders return with matching list counts');
  echo "PASS: {$checks} notification policy, lifecycle, per-user reads, concurrency, source freshness and detector checks\n";
 }finally{
- foreach(array_reverse(array_merge($tables,['notification_receipts','notification_checks'])) as $table)notifySql("DROP TEMPORARY TABLE IF EXISTS {$table}");
+ foreach(array_reverse(array_merge($tables,['notification_receipts','notification_checks','notification_snoozes'])) as $table)notifySql("DROP TEMPORARY TABLE IF EXISTS {$table}");
 }

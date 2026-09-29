@@ -8,6 +8,7 @@
     <a href="<?= burl; ?>/panel" class="panel-mobile-brand btn btn-ghost px-2 text-lg font-black tracking-tight text-primary lg:hidden"><?= app_name; ?></a>
   </div>
   <div class="panel-navbar-actions flex-none flex items-center gap-1.5 sm:gap-2">
+    <button type="button" id="quick-search-button" class="btn btn-ghost btn-square" aria-label="Cari pesanan, produk, atau pelanggan" aria-haspopup="dialog" aria-controls="quick-search" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
     <div class="dropdown dropdown-end" id="theme-menu">
       <button type="button" id="theme-menu-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Pilih tema" aria-expanded="false" aria-controls="theme-menu-list" tabindex="0">
         <span id="theme-menu-icon" class="material-symbols-outlined" aria-hidden="true">contrast</span>
@@ -30,10 +31,11 @@
           <div class="notification-filters" role="group" aria-label="Tampilkan notifikasi"><button type="button" data-notification-filter="new" aria-pressed="true">Baru</button><button type="button" data-notification-filter="active" aria-pressed="false">Semua aktif</button></div>
           <button type="button" id="notification-reload" class="btn" aria-label="Muat ulang notifikasi"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
         </div>
+        <div class="notification-view-options"><button type="button" id="notification-back" class="btn" hidden>Semua kelompok</button><label><input type="checkbox" id="notification-urgent" class="checkbox">Mendesak saja</label></div>
         <p id="notification-error" role="alert" tabindex="-1" hidden></p>
         <p id="notification-source-warning" hidden>Pemeriksaan terbaru belum berhasil. Menampilkan notifikasi tersimpan.</p>
         <div id="notification-list"><p class="notification-empty">Memuat notifikasi…</p></div>
-        <footer class="notification-footer"><button type="button" id="notification-mark-all" class="btn">Tandai daftar dibaca</button><p>Dibaca hanya untuk akun Anda; masalah tetap aktif sampai selesai.</p><div class="notification-pagination"><button type="button" id="notification-prev" class="btn" aria-label="Halaman notifikasi sebelumnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button><span id="notification-page-status"></span><button type="button" id="notification-next" class="btn" aria-label="Halaman notifikasi berikutnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button></div></footer>
+        <footer class="notification-footer"><button type="button" id="notification-mark-all" class="btn">Tandai daftar dibaca</button><p id="notification-read-help">Dibaca dan pengingat nanti hanya untuk akun Anda. Masalah tetap aktif sampai selesai.</p><div class="notification-pagination"><button type="button" id="notification-prev" class="btn" aria-label="Halaman notifikasi sebelumnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button><span id="notification-page-status"></span><button type="button" id="notification-next" class="btn" aria-label="Halaman notifikasi berikutnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button></div></footer>
       </section>
     </div>
     <div id="sync-detail-card" class="hidden h-9 max-w-[205px] items-center gap-2 rounded-lg border border-primary/15 bg-primary/8 px-2.5 transition-all duration-300">
@@ -100,3 +102,5 @@
 })();
 </script>
 <script src="<?= assets; ?>/js/notifications.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/notifications.js'); ?>" defer></script>
+
+<?php require __DIR__.'/quick-search.php'; ?>

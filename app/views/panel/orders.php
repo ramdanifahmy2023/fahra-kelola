@@ -1,3 +1,4 @@
+<section id="orders-page">
 <!-- Loading Overlay -->
 <div id="page-loader" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
   <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
@@ -49,11 +50,11 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 </div>
 <div id="order-background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi pesanan berjalan di belakang. Halaman ini membaca data lokal.</div>
 
-<?php if (!empty($data['focused_order_id'])): ?><div id="notification-order-focus">Menampilkan pesanan dari notifikasi.<a href="<?= burl; ?>/panel/orders?shop_id=<?= (int)$data['active_shop_id']; ?>">Lihat semua pesanan toko</a></div><?php endif; ?>
+<?php if (!empty($data['focused_order_id'])): ?><div id="notification-order-focus">Menampilkan pesanan pilihan.<a href="<?= burl; ?>/panel/orders?shop_id=<?= (int)$data['active_shop_id']; ?>">Lihat semua pesanan toko</a></div><?php endif; ?>
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
-  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
-  <div class="overflow-x-auto">
+
+  <div class="overflow-x-auto order-desktop-table">
     <table class="table w-full">
       <!-- head -->
       <thead class="bg-base-200/50 text-base-content">
@@ -87,11 +88,15 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
     </table>
   </div>
   
+  <div id="order-mobile-list" aria-label="Daftar pesanan">
+    <?php if (empty($data['orders'])): ?><p class="order-mobile-empty">Tidak ada pesanan untuk toko dan periode pilihan.</p><?php endif; ?>
+    <?php foreach ($data['orders'] as $ord): require __DIR__.'/order_card.php'; endforeach; ?>
+  </div>
   <!-- Pagination Controls -->
   <div class="p-4 border-t border-base-200 flex items-center justify-between bg-base-100 flex-wrap gap-4">
     <div class="text-sm opacity-70 flex items-center gap-2">
       Menampilkan 
-      <select class="select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200 focus:outline-none" onchange="changeLimit(this.value, <?= $data['active_shop_id'] ?>)">
+      <select class="select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200 focus:outline-none" aria-label="Jumlah pesanan per halaman" onchange="changeLimit(this.value, <?= $data['active_shop_id'] ?>)">
         <option value="10" <?= $data['limit'] == 10 ? 'selected' : '' ?>>10</option>
         <option value="20" <?= $data['limit'] == 20 ? 'selected' : '' ?>>20</option>
         <option value="50" <?= $data['limit'] == 50 ? 'selected' : '' ?>>50</option>
@@ -622,3 +627,8 @@ function startDetailSync(shopId) {
         });
 }
 </script>
+
+<dialog id="order-detail-dialog" aria-labelledby="order-detail-title"><header><h2 id="order-detail-title">Rincian pesanan</h2><button type="button" id="order-detail-close" class="btn" aria-label="Tutup rincian pesanan"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></header><div id="order-detail-content"></div></dialog>
+<script src="<?= assets; ?>/js/order-cards.js?v=<?= filemtime(__DIR__.'/../../../public/assets/js/order-cards.js'); ?>" defer></script>
+
+</section>
