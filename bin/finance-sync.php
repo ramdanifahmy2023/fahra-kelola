@@ -3,15 +3,20 @@ declare(strict_types=1);
 chdir(__DIR__.'/../public');
 require '../app/init.php';
 require '../app/models/Finance.php';
-$options=getopt('',['shop::','start::','end::','pages::','schema-only','pending-only','repair-pending']);
+$options=getopt('',['shop::','start::','end::','pages::','schema-only','pending-only','repair-pending','wallet-only']);
 $finance=new Finance(); $finance->ensureSchema();
 if (isset($options['schema-only'])) { echo "Finance schema ready\n"; exit; }
 $range=FinancePolicy::range($options['start'] ?? null,$options['end'] ?? null);
 $shops=$finance->shops($options['shop'] ?? '');
-if (!isset($options['repair-pending'])) $finance->requestImports($shops,$range,true,isset($options['pending-only']));
+if (!isset($options['repair-pending']) && !isset($options['wallet-only'])) $finance->requestImports($shops,$range,true,isset($options['pending-only']));
 $limit=max(1,min(2000,(int)($options['pages'] ?? 100))); $failed=false;
 foreach ($shops as $item) {
   $shop=$finance->one('SELECT * FROM shops WHERE id=:id',['id'=>$item['id']]);
+  if (isset($options['wallet-only'])) {
+    $result=$finance->refreshWallet($shop); $failed=$failed || !$result['ok'];
+    echo json_encode(['shop_id'=>(int)$shop['id']]+$result,JSON_UNESCAPED_UNICODE).PHP_EOL;
+    continue;
+  }
   if (isset($options['repair-pending'])) {
     $result=$finance->repairPending($shop);
     echo json_encode(['shop_id'=>(int)$shop['id']]+$result,JSON_UNESCAPED_UNICODE).PHP_EOL;

@@ -114,6 +114,9 @@
     return c?.today_included ? 'Hari ini masih berjalan' : '';
   };
   const issueNote = (text,warning=false) => text ? `<small class="finance-store-note${warning ? ' finance-incomplete' : ''}">${esc(text)}</small>` : '';
+  const walletKnown = s => s.wallet?.amount!==null && s.wallet?.amount!==undefined;
+  const walletIssue = s => s.wallet?.failed ? 'Pembaruan gagal' : s.wallet?.stale ? 'Pembaruan tertunda' : '';
+  const walletDetail = s => `${walletKnown(s) ? 'Saldo Saya Shopee · '+stamp(s.wallet.updated_at)+'.' : 'Saldo belum tersedia.'} ${s.wallet?.failed ? (walletKnown(s) ? 'Saldo terakhir tetap ditampilkan. ' : '')+(s.wallet.error || 'Pembaruan terakhir gagal.') : s.wallet?.stale ? 'Menunggu pembaruan saldo.' : ''}`;
   const adsNote = (s,days) => s.ads.amount===null ? 'Belum tersedia' : s.ads.days<days ? countedDays(s.ads.days,days) : s.ads.stale ? 'Pembaruan tertunda' : '';
   const gmvDetail = (s,range) => {
     const c=s.gmv_coverage;
@@ -131,6 +134,14 @@
       const source=key==='pending' ? 'Posisi terbaru, tanpa filter tanggal.' : available.length && available.every(s=>s.released_basis!=='detail') ? 'Ringkasan Shopee.' : 'Jumlah rincian berdasarkan tanggal pelepasan.';
       $(key + '-note').textContent = `${source} Pembaruan paling lama: ${stamp(times[0])}.`;
     }
+    const wallets=stores.filter(walletKnown), walletIssues=wallets.filter(s=>walletIssue(s));
+    const walletTimes=wallets.map(s=>s.wallet.updated_at).filter(Boolean).sort();
+    $('wallet').textContent=money(wallets.length ? wallets.reduce((sum,s)=>sum+s.wallet.amount,0) : null);
+    $('wallet-quality').innerHTML=quality(wallets.length,wallets.length-walletIssues.length,count,'Memakai saldo terakhir'+affectedShops(walletIssues.length,count));
+    $('wallet-note').textContent=`Tanpa filter tanggal. Pembaruan paling lama: ${stamp(walletTimes[0])}.${walletIssues.length ? ' Sebagian pembaruan tertunda atau gagal; lihat rincian toko.' : ''}`;
+    const restricted=wallets.filter(s=>s.wallet.withdrawal_restricted===true);
+    $('wallet-restrictions').hidden=!restricted.length;
+    $('wallet-restrictions').textContent=restricted.length ? `Penarikan dibatasi di ${restricted.length} toko · lihat alasan` : '';
     function metric(title, symbol, amount, available, complete, missing, note) { return `<div><h2>${icon(symbol)}${esc(title)}</h2><strong>${esc(money(amount))}</strong>${quality(available,complete,count,missing)}<p>${esc(note)}</p><p>${esc(day(data.range.start)+' sampai '+day(data.range.end))} WIB</p></div>`; }
     const gmv = stores.filter(s => s.gmv !== null), ads = stores.filter(s => s.ads.amount !== null), topups=stores.filter(s=>s.topups?.amount!==null && s.topups?.amount!==undefined);
     const gmvComplete=gmv.filter(s=>s.gmv_days===days).length, adsComplete=ads.filter(s=>s.ads.days===days).length;
@@ -146,12 +157,13 @@
     const hasUnknown=pending.some(unknownState), incomplete=pending.length<count;
     const detailTotal=pending.reduce((n,s)=>n+s.pending_detail,0), pendingTotal=pending.reduce((n,s)=>n+s.pending,0);
     replaceKeepingLink($('pending-states'),stateList(totals,stateCounts,hasUnknown || incomplete)+`<p class="finance-help">${pending.length}/${count} toko · status diperiksa paling lama ${esc(stamp(statusTimes[0]))}.${hasUnknown || incomplete ? ' Sebagian status belum tersedia. Penyebabnya ada pada rincian toko.' : ''}</p>`+(pending.length && Math.abs(pendingTotal-detailTotal)>.005 ? `<p class="finance-notice">Rincian berbeda ${esc(money(Math.abs(pendingTotal-detailTotal)))} dari ringkasan Shopee. Total Pending mengikuti ringkasan Shopee.</p>` : ''));
-    $('store-period').textContent=`Pending: posisi terbaru. Angka lainnya: ${day(data.range.start)} sampai ${day(data.range.end)}.`;
+    $('store-period').textContent=`Pending dan Saldo Penjual: posisi terbaru. Angka lainnya: ${day(data.range.start)} sampai ${day(data.range.end)}.`;
     const markup = stores.map(s => `<article class="finance-store" data-store-id="${s.id}">
       <header><span class="shop-picker-logo" data-logo="${s.id}"></span><h3>${esc(s.name)}</h3></header>
       <dl class="finance-store-values">
         <div><dt>Pending</dt><dd>${esc(money(s.pending))}</dd></div>
         <div><dt>Sudah dilepas</dt><dd>${esc(money(s.released))}</dd>${issueNote(s.released_days<days ? countedDays(s.released_days,days) : '',true)}</div>
+        <div data-wallet-shop="${s.id}"><dt>Saldo Penjual</dt><dd>${esc(money(s.wallet?.amount))}</dd>${issueNote(walletIssue(s),true)}${issueNote(s.wallet?.withdrawal_restricted===true ? 'Penarikan dibatasi' : '',true)}</div>
         <div><dt>Omset dibayar</dt><dd>${esc(money(s.gmv))}</dd>${issueNote(gmvNote(s,data.range),s.gmv_days<days || s.gmv_coverage?.today_failed)}</div>
         <div data-topup-shop="${s.id}"><dt>Top up iklan</dt><dd>${esc(money(s.topups?.amount))}</dd>${issueNote(topupIssue(s.topups,data.range),true)}</div>
         <div><dt>Biaya iklan</dt><dd>${esc(money(s.ads.amount))}</dd>${issueNote(adsNote(s,days),true)}</div>
@@ -159,7 +171,7 @@
       ${s.released_difference ? `<p class="finance-store-alert">${icon('info')}Rincian pelepasan berbeda ${esc(money(Math.abs(s.released_difference)))}. Angka utama mengikuti ringkasan Shopee.</p>` : ''}
       ${unknownState(s) ? `<p class="finance-store-alert">${icon('help')}${s.pending_state_counts?.unknown || 0} pesanan masih menunggu kepastian status.</p>` : ''}
       <details><summary>Rincian &amp; pembaruan<span class="finance-disclosure-icon material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
-      <div class="finance-store-details"><h4>Bagian Pending</h4>${stateList(s.pending_states,s.pending_state_counts,unknownState(s),s.id)}
+      <div class="finance-store-details">${s.wallet?.withdrawal_restricted===true ? `<div class="finance-wallet-notice"><h4>Penarikan Saldo Penjual dibatasi</h4><p>${esc(s.wallet.notice || 'Shopee belum memberikan alasan pembatasan.')}</p><p class="finance-help">Keterangan Shopee pada pembaruan terakhir. Saldo tetap masuk total.</p></div>` : ''}<h4>Bagian Pending</h4>${stateList(s.pending_states,s.pending_state_counts,unknownState(s),s.id)}
       ${(s.pending_issues || []).map(issue=>`<p class="finance-help">${Number(issue.orders)} pesanan: ${esc(issue.message)}</p>`).join('')}
       <p class="finance-help">Status diperiksa paling lama: ${esc(stamp(s.pending_status_updated))}. Semua bagian sudah termasuk Pending.</p><h4>Pembanding saldo</h4><dl class="finance-breakdown">
         <div><dt>Jumlah rincian pending</dt><dd>${esc(money(s.pending_detail))}</dd></div>
@@ -167,6 +179,7 @@
         <div><dt>Penyesuaian dana dilepas</dt><dd>${esc(money(s.adjustment))}</dd></div>
       </dl>${s.pending !== null && s.pending !== s.pending_detail ? '<p class="finance-help">Ringkasan Shopee dan rincian Pending saat ini berbeda.</p>' : ''}
       <h4>Sumber &amp; waktu data</h4><dl class="finance-source-list">
+        <div><dt>Saldo Penjual</dt><dd>${esc(walletDetail(s))}</dd></div>
         <div><dt>Pending</dt><dd>${esc(stamp(s.pending_updated))}</dd></div>
         <div><dt>Sudah dilepas</dt><dd>${s.released_basis==='detail' ? 'Rincian berdasarkan tanggal pelepasan' : 'Ringkasan Shopee'} · ${esc(stamp(s.released_updated))}</dd></div>
         <div><dt>Omset dibayar</dt><dd>${esc(gmvDetail(s,data.range))} Pembaruan paling lama: ${esc(stamp(s.gmv_updated))}.</dd></div>
@@ -174,7 +187,7 @@
         <div><dt>Biaya iklan</dt><dd>${s.ads.basis==='period' ? 'Total laporan sesuai periode pilihan.' : coverage(s.ads.days,days)+'.'} Produk, toko, dan live. Pembaruan paling lama: ${esc(stamp(s.ads.updated_at))}.</dd></div>
       </dl></div></details>
       ${s.error ? `<p class="finance-notice">${esc(s.error)}</p>` : ''}
-      ${s.active_imports ? `<p class="finance-help">${icon('sync')}Saldo sedang diperbarui. Angka sebelumnya tetap tampil.</p>` : ''}
+      ${s.active_imports || s.wallet?.refresh_pending ? `<p class="finance-help">${icon('sync')}Saldo sedang diperbarui. Angka sebelumnya tetap tampil.</p>` : ''}
     </article>`).join('') || '<p class="finance-empty">Belum ada toko yang tersedia untuk ditampilkan.</p>';
     if(markup!==lastStoresMarkup) {
       const open=Array.from($('store-list').querySelectorAll('details[open]'),el=>el.closest('[data-store-id]').dataset.storeId);
@@ -184,19 +197,19 @@
       restoreLink();
       $('store-list').querySelectorAll('[data-logo]').forEach(el=>window.renderShopLogo(el,el.dataset.logo));
     }
-    const active = stores.reduce((n,s)=>n+s.active_imports,0);
-    $('status').textContent = active ? `Saldo ${stores.filter(s=>s.active_imports).length}/${count} toko sedang diperbarui. Angka sebelumnya tetap tampil.` : 'Tampilan diperiksa otomatis. Waktu data tercantum pada saldo.';
+    const active = stores.filter(s=>s.active_imports || s.wallet?.refresh_pending).length;
+    $('status').textContent = active ? `Saldo ${active}/${count} toko sedang diperbarui. Angka sebelumnya tetap tampil.` : 'Tampilan diperiksa otomatis. Waktu data tercantum pada saldo.';
     return active;
   }
   async function loadSummary(reset = false) {
     const sequence = ++summarySequence; clearTimeout(timer); error('');
-    if (reset) { for (const id of ['pending','released']) { $(id).textContent='Memuat…'; $(id+'-note').textContent='Memuat pilihan ini…'; $(id+'-quality').replaceChildren(); } $('secondary').textContent='Memuat omset dan biaya iklan…'; $('pending-states').textContent='Memuat rincian Pending…'; $('store-list').replaceChildren(); lastStoresMarkup=''; }
+    if (reset) { for (const id of ['pending','released','wallet']) { $(id).textContent='Memuat…'; $(id+'-note').textContent='Memuat pilihan ini…'; $(id+'-quality').replaceChildren(); } $('wallet-restrictions').hidden=true; $('secondary').textContent='Memuat omset dan biaya iklan…'; $('pending-states').textContent='Memuat rincian Pending…'; $('store-list').replaceChildren(); lastStoresMarkup=''; }
     $('summary-panel').setAttribute('aria-busy','true');
     try {
       const data = await api('summary?' + query()); if (sequence !== summarySequence) return;
       const active = renderSummary(data);
       timer=setTimeout(refreshView,active ? 5000 : 30000);
-    } catch (e) { if(sequence!==summarySequence)return; error(e.message); $('status').textContent='Pembaruan gagal. Angka yang masih tampil adalah data sebelumnya.'; if(reset) { for(const id of ['pending','released'])$(id).textContent='Belum dapat dimuat'; $('secondary').textContent='Omset dan biaya iklan belum dapat dimuat.'; $('pending-states').textContent='Rincian Pending belum dapat dimuat.'; } timer=setTimeout(refreshView,30000); }
+    } catch (e) { if(sequence!==summarySequence)return; error(e.message); $('status').textContent='Pembaruan gagal. Angka yang masih tampil adalah data sebelumnya.'; if(reset) { for(const id of ['pending','released','wallet']) { $(id).textContent='Belum dapat dimuat'; $(id+'-note').textContent=''; } $('secondary').textContent='Omset dan biaya iklan belum dapat dimuat.'; $('pending-states').textContent='Rincian Pending belum dapat dimuat.'; } timer=setTimeout(refreshView,30000); }
     finally { if(sequence===summarySequence)$('summary-panel').setAttribute('aria-busy','false'); }
   }
   function pagination(kind,result) {
@@ -234,6 +247,13 @@
     for(const name of ['summary','details','cost']) $(''+name+'-panel').hidden=name!==tab;
     url(); loadList();
   }
+  $('wallet-restrictions').onclick=event=>{
+    event.preventDefault(); if(!dashboard)setTab('summary');
+    const notices=Array.from($('store-list').querySelectorAll('.finance-wallet-notice'));
+    notices.forEach(el=>{el.closest('details').open=true;});
+    const summary=notices[0]?.closest('details').querySelector('summary');
+    if(summary) { summary.focus({preventScroll:true}); summary.scrollIntoView({block:'start'}); }
+  };
   function invalidatePreview() { proof=null; $('save-cost').disabled=true; $('cost-preview').hidden=true; }
   async function openCost(item) {
     editing=item; invalidatePreview(); const sequence=++dialogSequence;

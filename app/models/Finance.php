@@ -13,6 +13,7 @@ class Finance extends BaseModel {
       if (trim($sql) !== '') $this->execute($sql);
     }
     $this->execute(file_get_contents(__DIR__.'/../../database/migrations/20260929_ads_browser_reports.sql'));
+    $this->execute(file_get_contents(__DIR__.'/../../database/migrations/20260930_finance_wallet.sql'));
     $this->ready = true;
   }
 
@@ -62,12 +63,65 @@ class Finance extends BaseModel {
     return (bool)$this->one("SELECT id FROM finance_imports WHERE shop_id=:shop AND state IN ('queued','running') LIMIT 1",['shop'=>$shopId]);
   }
 
+  public function requestWallets(array $shops): void {
+    $this->ensureSchema();
+    foreach ($shops as $shop) $this->execute('INSERT INTO finance_wallet (shop_id,source_shop_id,requested_at) VALUES (:shop,:source,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE requested_at=IF(last_attempt_at IS NULL OR last_attempt_at<=UTC_TIMESTAMP()-INTERVAL 60 SECOND,UTC_TIMESTAMP(),requested_at)',
+      ['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id']]);
+  }
+
+  private function walletInterval(int $shopId): int {
+    $schedule=$this->one("SELECT interval_seconds FROM sync_schedules WHERE shop_id=:shop AND sync_type='finance'",['shop'=>$shopId]);
+    return max(60,(int)($schedule['interval_seconds'] ?? 600));
+  }
+
+  private function syncWallet(array $shop,$api): array {
+    $params=['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id']];
+    try {
+      $row=$this->one('SELECT * FROM finance_wallet WHERE shop_id=:shop AND source_shop_id=:source',$params);
+      $last=$row['last_attempt_at'] ?? null;
+      $requested=($row['requested_at'] ?? '')>($last ?? '');
+      if ($last && !$requested && time()-strtotime($last.' UTC')<$this->walletInterval($params['shop'])) return ['ok'=>true,'updated'=>false];
+      $this->execute('INSERT INTO finance_wallet (shop_id,source_shop_id,last_attempt_at) VALUES (:shop,:source,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE last_attempt_at=UTC_TIMESTAMP()',$params);
+      $data=$api->wallet($shop);
+      // A cookie/source change during the request must not publish under the old identity.
+      $current=$this->one('SELECT shop_id,cookie FROM shops WHERE id=:id',['id'=>$params['shop']]);
+      if (!$current || (string)$current['shop_id']!==(string)$shop['shop_id'] || (string)($current['cookie'] ?? '')!==(string)($shop['cookie'] ?? '')) throw new RuntimeException('Wallet identity changed');
+      $this->execute('UPDATE finance_wallet SET amount=:amount,withdrawal_restricted=:restricted,notice=:notice,synced_at=UTC_TIMESTAMP(),failed=0,error_message=NULL WHERE shop_id=:shop AND source_shop_id=:source',
+        $params+['amount'=>$data['amount'],'restricted'=>$data['withdrawal_restricted']===null ? null : (int)$data['withdrawal_restricted'],'notice'=>$data['notice']]);
+      return ['ok'=>true,'updated'=>true];
+    } catch (Throwable $error) {
+      $message=$error instanceof FinanceWalletReadException ? $error->getMessage() : 'Saldo Penjual belum dapat diperbarui. Data terakhir tetap ditampilkan.';
+      try { $this->execute('INSERT INTO finance_wallet (shop_id,source_shop_id,last_attempt_at,failed,error_message) VALUES (:shop,:source,UTC_TIMESTAMP(),1,:error) ON DUPLICATE KEY UPDATE last_attempt_at=UTC_TIMESTAMP(),failed=1,error_message=VALUES(error_message)',$params+['error'=>$message]); }
+      catch (Throwable $storageError) { error_log('Finance wallet: snapshot status could not be stored.'); }
+      return ['ok'=>false,'updated'=>false,'message'=>$message];
+    }
+  }
+
+  public function refreshWallet(array $shop,$api=null): array {
+    $this->ensureSchema(); require_once __DIR__.'/../helpers/FinanceApi.php';
+    $key=$this->lockKey('worker',(int)$shop['id']);
+    if (!(int)$this->one('SELECT GET_LOCK(:key,0) locked',['key'=>$key])['locked']) return ['ok'=>true,'updated'=>false,'busy'=>true];
+    try { return $this->syncWallet($shop,$api ?? new FinanceApi()); }
+    finally { $this->one('SELECT RELEASE_LOCK(:key) released',['key'=>$key]); }
+  }
+
+  private function wallet(array $shop): array {
+    $row=$this->one('SELECT * FROM finance_wallet WHERE shop_id=:shop AND source_shop_id=:source',['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id']]);
+    $interval=$this->walletInterval((int)$shop['id']); $updated=$row['synced_at'] ?? null;
+    return ['amount'=>isset($row['amount']) ? (int)$row['amount'] : null,'updated_at'=>$updated,
+      'withdrawal_restricted'=>isset($row['withdrawal_restricted']) ? (bool)$row['withdrawal_restricted'] : null,
+      'notice'=>$row['notice'] ?? null,'failed'=>!empty($row['failed']),'error'=>$row['error_message'] ?? null,
+      'stale'=>$updated && time()-strtotime($updated.' UTC')>=$interval*2,'interval_seconds'=>$interval,
+      'refresh_pending'=>($row['requested_at'] ?? '')>($row['last_attempt_at'] ?? '')];
+  }
+
   public function work(array $shop, $api = null, int $pages = 3, int $rateMs = 350): array {
     $this->ensureSchema(); require_once __DIR__.'/../helpers/FinanceApi.php';
     $api = $api ?? new FinanceApi(); $shopId = (int)$shop['id']; $key = $this->lockKey('worker',$shopId);
     if (!(int)($this->one('SELECT GET_LOCK(:key,0) locked',['key'=>$key])['locked'] ?? 0)) return [true,null,false];
     $import = null;
     try {
+      $this->syncWallet($shop,$api);
       if (!$this->hasWork($shopId)) {
         $range=FinancePolicy::range();
         $coverage=(int)$this->one("SELECT COUNT(*) days FROM finance_days d JOIN finance_imports i ON i.id=d.import_id AND i.state='ready' AND i.source_shop_id=:source WHERE d.shop_id=:shop AND d.income_date>=:start AND d.income_date<:end",['shop'=>$shopId,'source'=>(int)$shop['shop_id'],'start'=>$range['start'],'end'=>$range['end']])['days'];
@@ -261,6 +315,7 @@ class Finance extends BaseModel {
       }
       $stores[]=[
         'id'=>(int)$shop['id'],'name'=>$shop['name'],'logo'=>$shop['shop_logo'],
+        'wallet'=>$this->wallet($shop),
         'pending'=>$pending ? (int)($pending['overview_pending'] ?? $pending['detail_amount'])/100000 : null,
         'pending_detail'=>$pending ? (int)$pending['detail_amount']/100000 : null,
         'pending_orders'=>$pending ? (int)$pending['orders'] : null,'pending_updated'=>$pending['completed_at'] ?? null,

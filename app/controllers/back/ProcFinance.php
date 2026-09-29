@@ -44,8 +44,8 @@ class ProcFinance extends Controller {
   public function sync(): void { $this->run(function () {
     $input=$this->input(); $m=$this->m('Finance'); $shops=$m->shops($input['shops'] ?? '');
     if (!$shops) throw new InvalidArgumentException('Tambahkan toko terlebih dahulu.');
-    $imports=$m->requestImports($shops,$this->range($input)); $jobs=$this->m('SyncJob');
-    foreach ($shops as $shop) if ($m->hasWork((int)$shop['id'])) $jobs->enqueueType((int)$shop['id'],'finance');
-    return ['queued'=>count($imports),'message'=>'Pembaruan masuk antrean. Data lengkap terakhir tetap ditampilkan.'];
+    $m->requestImports($shops,$this->range($input)); $m->requestWallets($shops); $jobs=$this->m('SyncJob'); $queued=0;
+    foreach ($shops as $shop) if ($jobs->enqueueType((int)$shop['id'],'finance')) $queued++;
+    return ['queued'=>$queued,'message'=>'Pembaruan saldo dan penghasilan masuk antrean. Data terakhir tetap ditampilkan.'];
   }); }
 }

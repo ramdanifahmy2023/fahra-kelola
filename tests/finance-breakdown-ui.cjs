@@ -1,10 +1,8 @@
 const assert=require('node:assert/strict');
-const {execFileSync}=require('node:child_process');
 const fs=require('node:fs'),path=require('node:path');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root=path.resolve(__dirname,'..'),base=process.env.FINANCE_TEST_URL || 'http://127.0.0.1:8133';
-const php=code=>execFileSync('php',['-r',code],{cwd:root,encoding:'utf8'}).trim();
-const sid=php("chdir('public');require '../app/init.php';$d=new Database;$d->query('SELECT id,name,email FROM accounts LIMIT 1');session_id(bin2hex(random_bytes(24)));session_start();$_SESSION['auth_user']=$d->single();echo session_id();session_write_close();");
+const session=require('./panel-test-session.cjs')(root),sid=session.sid;
 const output=path.join(root,'tmp/finance-breakdown-ui');fs.mkdirSync(output,{recursive:true});
 (async()=>{let browser;try{
   browser=await chromium.launch({headless:true});
@@ -54,7 +52,7 @@ const output=path.join(root,'tmp/finance-breakdown-ui');fs.mkdirSync(output,{rec
 
   let snapshot={...result.stores[0],pending:500,pending_detail:500,pending_states:{shipping:0,delivered:0,return:0,unknown:500},pending_state_counts:{shipping:0,delivered:0,return:0,unknown:1},topups:{amount:null,transactions:0,complete:false,updated_at:null,enabled:false},ads:{amount:123,days:1,updated_at:null}};
   await page.route('**/procFinance/summary?*',route=>route.fulfill({json:{status:'success',range:result.range,stores:[snapshot]}}));
-  await page.goto(base+'/panel/finance');await loaded();
+  await page.goto(base+'/panel/finance?tab=summary');await loaded();
   assert.match(await page.locator('#finance-pending-states [data-pending-state=shipping]').innerText(),/Belum teridentifikasi/);
   assert.match(await page.locator('#finance-pending-states [data-pending-state=shipping]').innerText(),/Belum lengkap/);
   assert.match(await page.locator('[data-topup-shop]').innerText(),/Belum tersedia/);
@@ -74,4 +72,4 @@ const output=path.join(root,'tmp/finance-breakdown-ui');fs.mkdirSync(output,{rec
   assert.equal(await page.locator('.finance-store details').evaluate(el=>el.open),true);
   assert.deepEqual(errors,[]);
   console.log('PASS: finance topup totals/store scope, VAT labels, pending counts/drilldown/reload, unknown versus zero, responsive themes and keyboard');
-}finally{await browser?.close();php("session_id('"+sid+"');session_start();$_SESSION=[];session_destroy();");}})().catch(e=>{console.error(e);process.exitCode=1;});
+}finally{await browser?.close();session.cleanup();}})().catch(e=>{console.error(e);process.exitCode=1;});

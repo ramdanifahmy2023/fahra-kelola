@@ -34,6 +34,7 @@ Last reviewed: 2026-09-30 (Boost worker handoff). This is durable project contex
 | Runtime settings | Database schedule rows and queue state are authoritative; old incident notes are historical evidence |
 | Extension downloads | `/panel/extensions`; `ExtensionRelease.php` reads per-version JSON in `resources/extensions/releases/`; immutable ZIPs live in `public/downloads/extensions/` |
 | Finance / HPP | `/panel/finance`; pending/latest overview, released overview or custom-date details with explicit reconciliation, multi-shop filters, dated per-variant cost and signed impact preview. See [finance contract](ops/finance.md). |
+| Saldo Penjual | Exact Shopee **Saldo**, `wallet_available_balance` in raw rupiah, latest position per cookie-verified shop. Independent of report dates. Ignore Saldo Aktif; no held-money arithmetic or withdrawal eligibility claim. Explicit source restrictions do not reduce totals. Same Finance lock/cadence; [implementation and verification](ops/finance-wallet-implementation-20260930.md). |
 | Dashboard defaults and clarity | All shops, first day of the current month through today in WIB; presets roll forward while custom ranges remain fixed. Shared Finance monetary overview, shop-scoped operational data, separately labelled intraday activity, visible partial-data warnings and pending status breakdown. See [UI contract](ops/dashboard-finance-ux.md). |
 
 ## Decision history and evidence
