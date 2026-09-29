@@ -23,7 +23,9 @@ class ProcAutomation extends Controller {
     try {
       if (!is_int($data['version'] ?? null) || $data['version'] < 0) throw new InvalidArgumentException('Versi konfigurasi tidak valid.');
       $model = $this->m('AutomationProfile'); $model->ensureSchema();
-      $profile = $model->save($data['shop_id'],$data['version'],$data['config'],(int)authUser()['id']);
+      $connection = array_key_exists('connection_id',$data) ? $data['connection_id'] : false;
+      if (array_key_exists('connection_id',$data) && $connection !== null && (!is_int($connection) || $connection < 1)) throw new InvalidArgumentException('Koneksi toko tidak valid.');
+      $profile = $model->save($data['shop_id'],$data['version'],$data['config'],(int)authUser()['id'],$connection);
       $this->json(['status'=>'success','profile'=>$profile]);
     } catch (InvalidArgumentException $error) { $this->json(['status'=>'error','message'=>$error->getMessage()],422); }
     catch (Throwable $error) { $this->json(['status'=>'error','message'=>$error->getCode()===409 ? $error->getMessage() : 'Konfigurasi gagal disimpan. Coba lagi.'], $error->getCode()===409 ? 409 : 500); }

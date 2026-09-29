@@ -18,7 +18,8 @@
       persona_name:field('persona-name').value, persona:field('persona').value, support_policy:field('support').value,
       max_reply_chars:Number(field('max-length').value), model:field('model').value, rules};
   }
-  const dirty = () => JSON.stringify(config()) !== baseline;
+  const state = () => ({config:config(),connection_id:Number(field('connection').value)||null});
+  const dirty = () => JSON.stringify(state()) !== baseline;
   function fill(value) {
     const mapping = {scope:'scope',start:'start_date',end:'end_date','persona-name':'persona_name',persona:'persona',support:'support_policy','max-length':'max_reply_chars',model:'model'};
     Object.entries(mapping).forEach(([id,key]) => {field(id).value = value[key];});
@@ -40,18 +41,35 @@
     if (!response.ok || result.status!=='success') throw new Error(result.message || 'Permintaan gagal. Coba lagi.');
     return result;
   }
-  fill(initial.profile.config); baseline=JSON.stringify(config()); refresh();
+  let connections=[];
+  const selected=initial.profile.connection_id;
+  if(selected) field('connection').add(new Option('Koneksi tersimpan #'+selected,String(selected)));
+  field('connection').value=selected ? String(selected) : '';
+  function providerInfo() {
+    const choice=connections.find(item=>item.id===Number(field('connection').value));
+    field('effective-model').textContent=choice ? 'Model efektif: '+(field('model').value.trim() || choice.default_model) : 'Pilih koneksi sebelum menggunakan AI.';
+  }
+  window.addEventListener('ai-connections-changed',event=>{
+    connections=event.detail; const value=field('connection').value;
+    field('connection').replaceChildren(new Option('Tanpa koneksi',''));
+    connections.forEach(item=>field('connection').add(new Option(item.name,String(item.id))));
+    if(value && !connections.some(item=>String(item.id)===value)) field('connection').add(new Option('Koneksi tidak tersedia #'+value,value));
+    field('connection').value=value;
+    field('connection-state').textContent=connections.length ? 'Koneksi dapat dipakai oleh beberapa toko.' : 'Belum ada koneksi. Tambahkan melalui Kelola koneksi.';
+    providerInfo();
+  });
+  fill(initial.profile.config); baseline=JSON.stringify(state()); refresh(); providerInfo();
   function changed() {refresh(); previewRevision++; field('preview-result').hidden=true;}
-  form.addEventListener('input',changed); form.addEventListener('change',changed); field('model').addEventListener('input',changed);
+  form.addEventListener('input',changed); form.addEventListener('change',changed); field('model').addEventListener('input',()=>{changed();providerInfo();}); field('connection').addEventListener('change',()=>{changed();providerInfo();});
   window.addEventListener('beforeunload',event=>{if(dirty() || saving){event.preventDefault();event.returnValue='';}});
   form.addEventListener('submit',async event=>{
     event.preventDefault(); if(saving) return;
-    saving=true; const submitted=config(); const snapshot=JSON.stringify(submitted);
+    saving=true; const submitted=state(); const snapshot=JSON.stringify(submitted);
     field('save-button').disabled=true; field('save-button').textContent='Menyimpan…'; field('error').hidden=true;
     try {
-      const result=await request('save',{version,config:submitted});
+      const result=await request('save',{version,...submitted});
       version=result.profile.version;
-      if (JSON.stringify(config())===snapshot) {fill(result.profile.config); baseline=JSON.stringify(config());}
+      if (JSON.stringify(state())===snapshot) {fill(result.profile.config); baseline=JSON.stringify(state());}
       else baseline=snapshot;
       refresh();
     } catch(error) {field('error').textContent=error.message;field('error').hidden=false;field('error').focus();}

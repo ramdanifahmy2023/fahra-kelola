@@ -1,6 +1,6 @@
 # Audit dan rencana CRUD koneksi 9Router
 
-Tanggal: 2026-09-29. Basis aplikasi: `c51b220`. Status: **audit dan rencana saja**. Belum ada form CRUD, migrasi baru, penyimpanan API key, atau panggilan ke instalasi 9Router pengguna dalam pekerjaan ini.
+Tanggal audit: 2026-09-29. Basis audit: `c51b220`. **Rencana ini kemudian diimplementasikan**; perilaku aktual dan perbedaan dari proposal ada di [panduan operasi](9router-connections.md). Temuan di bawah merekam kondisi saat audit, bukan status fitur terkini.
 
 ## Tujuan dan batas pekerjaan
 
@@ -122,4 +122,4 @@ Kerjakan di worktree terpisah karena beberapa Codex sedang aktif. Integrasikan p
 - Nama combo nyata dan parameter uji generasi yang didukung. Tidak perlu membagikan API key melalui percakapan.
 - Asumsi pengelola panel bersama sesuai auth saat ini. Pemisahan akses antar akun memerlukan desain izin tersendiri.
 
-Scope rencana sudah mencakup form dan CRUD lengkap, penyimpanan terenkripsi, serta pemilihan koneksi/model per toko. Rancangan ini belum mengimplementasikan maupun mengaktifkan perilaku tersebut.
+Scope rencana mencakup form dan CRUD lengkap, penyimpanan terenkripsi, serta pemilihan koneksi/model per toko. Lihat panduan operasi untuk hasil implementasi; worker dan pengiriman rating tetap belum aktif.

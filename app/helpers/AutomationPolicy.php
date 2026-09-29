@@ -45,9 +45,10 @@ class AutomationPolicy {
       if (!$config['start_date']) throw new InvalidArgumentException('Isi tanggal mulai untuk rentang tanggal.');
       if ($config['end_date'] && $config['end_date'] < $config['start_date']) throw new InvalidArgumentException('Tanggal akhir tidak boleh sebelum tanggal mulai.');
     }
-    foreach (['persona_name'=>80,'persona'=>2000,'support_policy'=>2000,'model'=>120] as $key=>$max) {
+    foreach (['persona_name'=>80,'persona'=>2000,'support_policy'=>2000,'model'=>255] as $key=>$max) {
       $config[$key] = self::text($input[$key] ?? '', $max, ['persona_name'=>'Nama persona','persona'=>'Persona','support_policy'=>'Kebijakan bantuan','model'=>'Model'][$key]);
     }
+    if (preg_match('/[\x00-\x1f\x7f]/', $config['model'])) throw new InvalidArgumentException('Nama model tidak boleh mengandung karakter kontrol.');
     if ($config['persona'] === '') throw new InvalidArgumentException('Isi gaya dan peran persona.');
     $length = $input['max_reply_chars'] ?? null;
     if (!is_int($length) || $length < 50 || $length > 1000) throw new InvalidArgumentException('Batas internal balasan harus 50–1.000 karakter.');
