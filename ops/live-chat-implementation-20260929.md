@@ -45,6 +45,8 @@ Review antislop dan UI UX Pro Max mengikuti identitas Shopdash, fokus pada recov
 
 ## Batas dan pekerjaan tersisa
 
+Audit lanjutan dan rencana transport tersedia di [audit send 30 September](live-chat-send-plan-20260930.md): send browser baru sukses, send PHP tetap HTTP 403 `90309999` termasuk setelah kontrol CTOKEN/User-Agent. Audit juga membuktikan header MCP bersumber dari ringkasan endpoint terkini, bukan snapshot immutable setiap payload; gunakan batas provenance tersebut saat membaca rekaman lama.
+
 - **Blocker transport send:** cookie + bootstrap + kontrak body/query yang sudah dikoreksi belum cukup untuk sesi yang diuji. Browser Shopee berhasil mengirim pada rekaman sebelumnya, sedangkan PHP ditolak. Header keamanan dinamis dan `re_policy` berbeda; penyebab tepat per header belum diisolasi, sehingga tidak disebut sebagai kepastian. Menyalin nilai signature dari capture ke konfigurasi permanen bukan perbaikan yang terverifikasi.
 - Jalur lanjutan yang dapat diuji adalah transport melalui konteks browser Shopee yang masih terautentikasi, atau integrasi resmi dengan akses chat. Ini rencana, bukan klaim bahwa sebuah bridge sudah terbukti bekerja. Komponen yang tersedia sekarang tidak menyediakan transport tersebut untuk aplikasi: XYZ Sniper yang dipakai adalah pembaca capture, Sellerio 2.1.0 adalah penyalin cookie. Belum ada penghubung browser/extension baru yang diterapkan atau diinstal.
 - `user_is_forbidden` pada sebagian toko dalam audit awal tidak diperbaiki dengan menganggapnya cookie expired. Probe implementasi ini bukan pengujian ulang seluruh tujuh toko. Refresh menampilkan penolakan apa adanya.
