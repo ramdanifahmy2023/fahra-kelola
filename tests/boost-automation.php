@@ -12,6 +12,8 @@ class BoostFixtureTransport extends BoostTransport {
 checkBoost(BoostPolicy::ids(['1',2])===['1','2'],'Normalize bounded IDs');
 foreach([[],['1','1'],[0],[-1],[true],['1e2'],['99999999999999999'],range(1,6)] as $ids)checkBoost(rejectBoost(fn()=>BoostPolicy::ids($ids)),'Reject invalid selections');
 checkBoost(BoostPolicy::ids([],true)===[],'Allow clearing profile');
+checkBoost(!BoostTransport::senderSetting('0','1'),'Environment stop overrides enabled config');
+checkBoost(BoostTransport::senderSetting(false,'1'),'Config can enable without process override');
 checkBoost(BoostPolicy::outcome(['http_status'=>200,'body'=>['code'=>0]])['status']==='success','Strict accepted response');
 foreach([['code'=>'0'],['code'=>false],['code'=>null],[],null,'ok'] as $body)checkBoost(BoostPolicy::outcome(['http_status'=>200,'body'=>$body])['status']==='unknown','Malformed response never retries');
 checkBoost(BoostPolicy::outcome(['http_status'=>503,'body'=>['code'=>0]])['status']==='unknown','HTTP failure overrides API code');
@@ -86,6 +88,8 @@ try {
   $count=count($t->sent);$e->execute(1);checkBoost(count($t->sent)===$count,'Next due respected');
   $healthBefore=$s->health();$runBefore=$one('SELECT COUNT(*) AS c FROM product_boost_runs');$e->preview(1);checkBoost($runBefore===$one('SELECT COUNT(*) AS c FROM product_boost_runs') && $healthBefore===$s->health(),'Preview has no mutations');
   $clean();$disabled=new BoostExecutor($s,$t,fn()=>false);checkBoost(rejectBoost(fn()=>$disabled->execute(1,'manual',['1'],1,'fixture_disabled'),503) && !$t->sent,'Global stop blocks manual sender');
+  $clean();$switch=true;$t->onSend=function()use(&$switch){$switch=false;};$stoppable=new BoostExecutor($s,$t,function()use(&$switch){return $switch;});
+  $r=$stoppable->execute(1,'manual',['1','2'],1,'fixture_hot_stop');checkBoost($t->sent===['1'] && $r['items'][1]['status']==='not_sent','Global stop rechecked between POSTs');
   $clean();$p=$s->profile(1);$s->save(1,$p['version'],[],1);checkBoost(!$s->profile(1)['enabled'],'Clearing selections pauses profile');
   echo "PASS: $checks Boost policy, profile, execution, crash, pause, deduplication and reconciliation checks\n";
 } finally {foreach($tables as $table)$exec('DROP TEMPORARY TABLE IF EXISTS '.$table);}

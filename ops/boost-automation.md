@@ -82,7 +82,7 @@ Tes browser menerima `PLAYWRIGHT_MODULE` sesuai lokasi instalasi. Gunakan server
 
 Bukti pada 2026-09-29:
 
-- 58 pemeriksaan backend lolos: validasi pilihan, isolasi toko, optimistic version, subset tetap, cooldown 255 menit, deduplikasi request, GET gagal/Retry-After, identitas respons, hasil ambigu, recovery sending/reserved, konfirmasi hasil, pause/edit di tengah run, dan preview tanpa penulisan.
+- 61 pemeriksaan backend lolos: validasi pilihan, isolasi toko, optimistic version, subset tetap, cooldown 255 menit, deduplikasi request, GET gagal/Retry-After, identitas respons, hasil ambigu, recovery sending/reserved, konfirmasi hasil, pause/edit/stop server di tengah run, prioritas environment stop, dan preview tanpa penulisan.
 - Tes proses terpisah membuktikan lock mencegah pengambilan toko bersamaan, dilepas setelah selesai, dan dilepas saat proses pemilik keluar tanpa unlock eksplisit.
 - Tes daftar produk existing lolos. Tes UI sebelum perubahan juga dijalankan sebagai baseline; screenshot sebelum/sesudah disimpan lokal di `tmp/boost-ui-before` dan `tmp/boost-ui`.
 - UI baru diuji pada 320/500/999/1600px dalam light/dark: draft, katalog/paginasi/search race, konflik simpan, aktif/jeda, pengiriman manual tiruan, unknown/konfirmasi, kegagalan read, CSRF, keyboard, kontrol minimal 44px, zoom 200%, dan perhitungan kontras teks editor minimal 4.5:1. Tidak ada pageerror.

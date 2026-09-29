@@ -10,6 +10,7 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 - Keep the current Shopdash visual identity. The Products shop dropdown is the reference for shop selection throughout the panel.
 - Shop lists open downward in one scrollable column, with the correct shop logo. Headers on Promotions, Ads, and Boost also display shop logos.
 - Prefer shared components over page-specific copies. Preserve filters, independent selection state, keyboard access, and both themes.
+- For Automation, prefer compact task-focused layouts with meaningful icons and shop logos. Keep lengthy help behind disclosures while leaving errors, unsaved state, and consequential warnings visible. The requested compact Automation layout was implemented on 2026-09-29; see the visual implementation note below.
 - Every completed task is committed and pushed to GitHub after appropriate verification. Do not force-push or include unrelated user work.
 - Extension releases stay downloadable as backups. Never overwrite or delete a published ZIP or its release metadata when updating; every release and changelog item must have a name. Use the release workflow in [extension maintenance](ops/sellerio-extension.md).
 - Keep maintenance knowledge in the repository so subsequent Codex/AI sessions can explicitly read it. `AGENTS.md` is the entrypoint; `tools.md` and this file are intentional root documentation exceptions to the normal `ops/` placement rule.
@@ -46,6 +47,7 @@ Passing counts above are historical, not a promise about the current revision. R
 
 ## Automation Engine foundation
 
+- Visual interface: Aturan toko / Uji aturan / Koneksi AI tabs, compact persona/rule editors, meaningful icons, draft retention and indicators, and hidden-field validation reveal. See [implementation and verification](ops/automation-visual-ui.md), based on the [visual plan](ops/automation-visual-plan.md). Saving settings still does not activate a sender.
 - On 2026-09-29 the user initially requested an audit, then requested the foundation for rating automation. Users choose target stars and scope themselves; do not hard-code all stars or automatically exclude low ratings.
 - `/panel/automation` stores independent per-shop target filters, persona, support policy, model ID, and actions/instructions for stars 1–5. Actions are AI draft, manual review, or skip. These are saved intentions, not an active worker.
 - Provider selected by the user: 9Router, OpenAI-compatible. CRUD connections and synthetic model testing are implemented; the user's actual provider endpoint/credentials still need configuration and verification. No review submission has been performed.
@@ -57,6 +59,10 @@ Passing counts above are historical, not a promise about the current revision. R
 - See [foundation](ops/automation-foundation.md), [API capture audit](ops/rating-api-audit-20260929.md), and [future implementation proposal](ops/automation-engine-plan.md). Rating discovery, AI rating drafts, sending, queues, and schedules remain unimplemented. Provider transport currently serves catalog and synthetic connection tests only.
 - XYZ Sniper MCP was used read-only to inspect project 1. Never persist its authentication token or captured credentials. Pagination beyond page 1 and backend write transport remain unverified.
 - Next phase: verify 9Router capabilities and rating pagination/transport, then implement discovery and AI drafts before an explicitly enabled sender. Users configure tone, support policies, target dates, and per-star handling in the foundation page.
+
+## Notification audit
+
+- The bell currently serves stock alerts only. The [notification priority audit](ops/notification-priority-audit.md) records lifecycle issues, candidate shipping/session/sync/chat/ads alerts, and source-readiness limits. These are recommendations, not implemented detectors or approved thresholds. Read and resolved must remain separate concepts.
 
 ## Things that must be rechecked each session
 

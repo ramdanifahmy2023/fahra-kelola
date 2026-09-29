@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS finance_current (
   import_id BIGINT UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS finance_pending_states (
+  import_id BIGINT UNSIGNED NOT NULL,
+  external_order_id BIGINT NOT NULL,
+  state VARCHAR(16) NOT NULL,
+  synced_at DATETIME NULL,
+  PRIMARY KEY (import_id,external_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS finance_overview_totals (
   import_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
   week_start DATE NOT NULL,

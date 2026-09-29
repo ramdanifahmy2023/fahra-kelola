@@ -61,12 +61,17 @@ class FinancePolicy {
   }
 
   public static function pendingState(array $row): string {
-    if (str_contains($row['status_key'] ?? '', 'return')) return 'return';
+    if (($row['status_key'] ?? '') === 'ps_content_return_processing') return 'return';
+    if (isset($row['snapshot_state']) && in_array($row['snapshot_state'], ['shipping','delivered','return','unknown'], true)) return $row['snapshot_state'];
     if (empty($row['detail_synced_at']) || empty($row['completed_at']) || strtotime($row['detail_synced_at'].' UTC') < strtotime($row['completed_at'].' UTC')-900) return 'unknown';
-    $description = mb_strtolower($row['status_description'] ?? '');
-    if (str_contains($description,'dikembalikan') || str_contains($description,'pengembalian')) return 'return';
-    if (str_contains($description,'telah tiba') || str_contains($description,'sudah diterima')) return 'delivered';
-    if (str_contains($description,'sedang dikirimkan ke pembeli')) return 'shipping';
+    return self::deliveryState($row['status_description'] ?? '');
+  }
+
+  public static function deliveryState(string $description): string {
+    $description = mb_strtolower(trim($description));
+    if (str_starts_with($description,'pesanan sedang dikembalikan ke penjual') || str_starts_with($description,'pembeli mengajukan pengembalian') || str_starts_with($description,'buyer raised return/refund') || str_starts_with($description,'order is being returned to seller')) return 'return';
+    if (str_starts_with($description,'pesanan telah tiba di pembeli') || str_starts_with($description,'order has been delivered to buyer')) return 'delivered';
+    if (str_starts_with($description,'pesanan sedang dikirimkan ke pembeli') || str_starts_with($description,'order is being shipped to buyer')) return 'shipping';
     return 'unknown';
   }
 }

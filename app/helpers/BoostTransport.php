@@ -50,6 +50,10 @@ class BoostTransport {
 
   public static function senderEnabled(): bool {
     $env = @parse_ini_file(__DIR__.'/../../config/.env') ?: [];
-    return (string)(getenv('BOOST_SEND_ENABLED') ?: ($env['BOOST_SEND_ENABLED'] ?? '0')) === '1';
+    return self::senderSetting(getenv('BOOST_SEND_ENABLED'), $env['BOOST_SEND_ENABLED'] ?? '0');
+  }
+
+  public static function senderSetting($processValue, $fileValue): bool {
+    return (string)($processValue !== false ? $processValue : $fileValue) === '1';
   }
 }

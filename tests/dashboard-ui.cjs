@@ -20,7 +20,7 @@ const realtime=(ids=['1','2'])=>({status:'success',selected_shop_count:ids.lengt
     await route.fulfill({json:realtime(ids.length ? ids : ['1','2'])}).catch(()=>{});
   });
   await page.route('**/procFinance/sync',route=>{syncs++;return route.fulfill({json:{status:'success',queued:1,message:'Pembaruan masuk antrean.'}});});
-  const loaded=()=>page.waitForFunction(()=>document.querySelectorAll('.finance-store').length>0 && document.querySelector('#finance-summary-panel').getAttribute('aria-busy')==='false');
+  const loaded=()=>page.waitForFunction(()=>document.querySelectorAll('.finance-store').length>0 && document.querySelector('#finance-summary-panel').getAttribute('aria-busy')==='false' && document.querySelector('#dashboard-operations').getAttribute('aria-busy')==='false');
   await page.goto(base+'/panel');await loaded();await page.locator('.dashboard-stock-row').first().waitFor();await page.locator('#dashboard-hour-select').waitFor();
   const today=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
   assert.equal(await page.inputValue('#finance-period'),'month');assert.equal(await page.inputValue('#finance-start'),today.slice(0,8)+'01');assert.equal(await page.inputValue('#finance-end'),today);
