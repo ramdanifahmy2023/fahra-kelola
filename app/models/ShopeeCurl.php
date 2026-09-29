@@ -448,9 +448,10 @@ class ShopeeCurl {
             return false;
         }
 
+        if (!is_array($response['data']['products'] ?? null) || !is_array($response['data']['page_info'] ?? null)) return false;
         return [
-            'products' => $response['data']['products'] ?? [],
-            'page_info' => $response['data']['page_info'] ?? []
+            'products' => $response['data']['products'],
+            'page_info' => $response['data']['page_info']
         ];
     }
 

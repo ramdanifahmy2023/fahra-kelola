@@ -297,8 +297,8 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
   $type = (string)($job['sync_type'] ?? '');
   $shopId = (int)$job['shop_id'];
   if ($type === 'products') {
-    $result = (new ProductSync())->run($shop, (string)($job['mode'] ?? 'diff'), 100, $rateMs);
-    return [!empty($result['ok']), $result['message'] ?? null];
+    $result = (new ProductSync())->run($shop, (string)($job['mode'] ?? 'diff'), 2, $rateMs);
+    return [!empty($result['ok']), $result['message'] ?? null, $result['complete'] ?? true];
   }
   if ($type === 'ads') {
     $monitor = new AdsMonitor();
@@ -380,10 +380,18 @@ do {
   $jobId = (int)$job['id'];
   if (($job['sync_type'] ?? 'orders') !== 'orders') {
     try {
-      [$genericOk, $genericError] = processGenericJob($db, $job, $shop, $shopee, $rateMs, $packageLimit);
+      $genericResult = processGenericJob($db, $job, $shop, $shopee, $rateMs, $packageLimit);
+      [$genericOk, $genericError] = $genericResult;
+      $genericComplete = $genericResult[2] ?? true;
     } catch (Throwable $exception) {
       $genericOk = false;
-      $genericError = 'Worker error: ' . substr($exception->getMessage(), 0, 500);
+      $genericComplete = true;
+      $genericError = 'Worker error: ' . get_class($exception);
+    }
+    if ($genericOk && !$genericComplete) {
+      $sync->releaseJob($jobId, 'running');
+      $loops++;
+      continue;
     }
     $background = new BackgroundSync();
     $background->markResult((int)$job['shop_id'], (string)$job['sync_type'], $genericOk, $genericError, (string)($job['mode'] ?? 'diff'));
