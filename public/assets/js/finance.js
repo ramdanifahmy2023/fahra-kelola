@@ -54,11 +54,11 @@
   function error(message) { $('error').hidden = !message; $('error').querySelector('p').textContent = message || ''; }
   const coverage = (days, total) => `${days}/${total} hari tersedia`;
   const quality = (available,complete,count) => `<span class="finance-quality ${complete<count ? 'is-partial' : ''}">${icon(complete<count ? 'info' : 'check_circle')}${available===0 ? 'Data belum tersedia' : complete<count ? 'Total sementara · data belum lengkap' : 'Data semua toko tersedia'}</span>`;
-  const states = [['shipping','Dalam pengiriman','local_shipping'],['delivered','Tiba, menunggu dilepas','package_2'],['return','Retur proses','assignment_return'],['unknown','Status belum dipastikan','help']];
+  const states = [['preparing','Perlu dikirim','inventory_2'],['pickup','Pickup / verifikasi kurir','package_2'],['shipping','Dalam pengiriman','local_shipping'],['delivered','Tiba, menunggu dilepas','task_alt'],['return','Retur proses','assignment_return'],['mixed','Paket berbeda tahap','splitscreen'],['unknown','Status belum dipastikan','help']];
   const detailLink = (state,shop) => root.dataset.base+'/panel/finance?'+query({tab:'details',category:'1',state,...(shop ? {shops:shop} : {})});
-  const stateList = (values,counts,partial=false,shop=null) => `<dl class="finance-state-list">${states.map(([key,label,symbol])=>{
-    const unresolved=key!=='unknown' && partial, empty=values && unresolved && !counts?.[key];
-    return `<div data-pending-state="${key}"><dt>${icon(symbol)}${label}</dt><dd>${empty ? 'Belum teridentifikasi' : esc(money(values?.[key]))}</dd><small>${counts?.[key]===undefined ? 'Jumlah pesanan belum tersedia' : counts[key]+' pesanan'+(unresolved ? ' teridentifikasi' : '')}</small>${unresolved ? '<small class="finance-incomplete">Belum lengkap</small>' : ''}<a class="finance-text-button" href="${esc(detailLink(key,shop))}" aria-label="Lihat rincian ${esc(label)}">Lihat rincian</a></div>`;
+  const stateList = (values,counts,partial=false,shop=null) => `<dl class="finance-state-list">${states.filter(([key])=>key!=='mixed' || counts?.mixed>0).map(([key,label,symbol])=>{
+    const unresolved=!['unknown','mixed'].includes(key) && partial, empty=values && unresolved && !counts?.[key];
+    return `<div data-pending-state="${key}"><dt>${icon(symbol)}<span>${label}</span></dt><dd>${empty ? 'Belum teridentifikasi' : esc(money(values ? values[key] ?? 0 : null))}</dd><small>${counts ? (counts[key] || 0)+' pesanan'+(unresolved ? ' teridentifikasi' : '') : 'Jumlah pesanan belum tersedia'}</small>${unresolved ? '<small class="finance-incomplete">Belum lengkap</small>' : ''}<a class="finance-text-button" href="${esc(detailLink(key,shop))}" aria-label="Lihat rincian ${esc(label)}">Lihat rincian</a></div>`;
   }).join('')}</dl>`;
   const unknownState = store => (store.pending_state_counts?.unknown ?? (store.pending_states?.unknown ? 1 : 0))>0;
   function replaceKeepingLink(container,markup) {
@@ -69,6 +69,21 @@
   }
   const interval = seconds => seconds%3600===0 ? seconds/3600+' jam' : seconds%60===0 ? seconds/60+' menit' : seconds+' detik';
   const topupNote = t => !t ? 'Belum pernah diperbarui.' : `${t.transactions} transaksi berhasil · termasuk PPN. ${t.error ? 'Pembaruan terakhir gagal. ' : ''}${t.stale ? 'Jadwal pembaruan terlewat. ' : ''}${!t.complete ? 'Riwayat belum lengkap untuk periode ini. ' : ''}Pembaruan terakhir: ${stamp(t.updated_at)}. ${t.enabled ? 'Jadwal setiap '+interval(t.interval_seconds)+'.' : 'Jadwal otomatis belum aktif.'}`;
+  const gmvNote = (s,range) => {
+    const c=s.gmv_coverage;
+    if(s.gmv===null)return 'Belum tersedia';
+    if(c?.missing_dates?.length===1 && c.missing_dates[0]===today())return 'Hari ini belum masuk';
+    if(s.gmv_days<range.days)return `${s.gmv_days}/${range.days} hari tersedia`;
+    if(c?.today_failed)return 'Pembaruan hari ini gagal';
+    return c?.today_included ? 'Termasuk hari ini · sementara' : '';
+  };
+  const issueNote = (text,warning=false) => text ? `<small class="finance-store-note${warning ? ' finance-incomplete' : ''}">${esc(text)}</small>` : '';
+  const adsNote = (s,days) => s.ads.amount===null ? 'Belum tersedia' : s.ads.days<days ? coverage(s.ads.days,days) : s.ads.stale ? 'Pembaruan tertunda' : '';
+  const gmvDetail = (s,range) => {
+    const c=s.gmv_coverage;
+    if(!c)return coverage(s.gmv_days,range.days);
+    return `${coverage(s.gmv_days,range.days)}.${c.first_date ? ' Data '+day(c.first_date)+' sampai '+day(c.last_date)+'.' : ''}${c.missing_dates.length ? ' Belum tersedia: '+c.missing_dates.map(day).join(', ')+'.' : ''}${c.today_included ? ' Hari ini masih sementara'+(c.today_through ? ', sampai '+stamp(c.today_through) : '')+'.' : ''}${c.today_failed ? ' Pembaruan omset hari ini gagal; data sebelumnya dipertahankan.' : ''}`;
+  };
   function renderSummary(data) {
     const stores = data.stores, count = stores.length, days = data.range.days;
     for (const key of ['pending','released']) {
@@ -84,31 +99,44 @@
     const gmv = stores.filter(s => s.gmv !== null), ads = stores.filter(s => s.ads.amount !== null), topups=stores.filter(s=>s.topups?.amount!==null && s.topups?.amount!==undefined);
     const gmvComplete=gmv.filter(s=>s.gmv_days===days).length, adsComplete=ads.filter(s=>s.ads.days===days).length;
     const topupComplete=topups.filter(s=>s.topups.complete).length, topupTimes=topups.map(s=>s.topups.updated_at).filter(Boolean).sort();
-    $('secondary').innerHTML = metric('Omset dibayar','receipt_long',gmv.length ? gmv.reduce((n,s)=>n+s.gmv,0) : null,gmv.length,gmvComplete,`Pesanan sudah dibayar. Periode lengkap ${gmvComplete}/${count} toko.`)
+    const todayStores=gmv.filter(s=>s.gmv_coverage?.today_included).length;
+    $('secondary').innerHTML = metric('Omset dibayar','receipt_long',gmv.length ? gmv.reduce((n,s)=>n+s.gmv,0) : null,gmv.length,gmvComplete,todayStores ? `Termasuk omset hari ini dari ${todayStores}/${count} toko. Angka hari ini masih sementara.` : gmv.length && gmv.every(s=>s.gmv_coverage?.missing_dates?.length===1 && s.gmv_coverage.missing_dates[0]===today()) ? 'Data hari ini belum masuk. Lihat tanggal tersedia pada rincian toko.' : `Pesanan sudah dibayar. Periode lengkap ${gmvComplete}/${count} toko.`)
       + metric('Top up iklan berhasil','add_card',topups.length ? topups.reduce((n,s)=>n+s.topups.amount,0) : null,topups.length,topupComplete,`Uang untuk isi saldo, termasuk PPN. ${topups.reduce((n,s)=>n+s.topups.transactions,0)} transaksi. Pembaruan paling lama: ${stamp(topupTimes[0])}.`)
       + metric('Biaya iklan terpakai','campaign',ads.length ? ads.reduce((n,s)=>n+s.ads.amount,0) : null,ads.length,adsComplete,`Biaya pemakaian, bukan top up. Periode lengkap ${adsComplete}/${count} toko.`);
     const pending=stores.filter(s=>s.pending_states!==null);
-    const totals=pending.length ? Object.fromEntries(states.map(([key])=>[key,pending.reduce((n,s)=>n+s.pending_states[key],0)])) : null;
+    const totals=pending.length ? Object.fromEntries(states.map(([key])=>[key,pending.reduce((n,s)=>n+(s.pending_states[key] || 0),0)])) : null;
     const stateCounts=pending.length ? Object.fromEntries(states.map(([key])=>[key,pending.reduce((n,s)=>n+(s.pending_state_counts?.[key] || 0),0)])) : null;
     const statusTimes=pending.map(s=>s.pending_status_updated).filter(Boolean).sort();
     const hasUnknown=pending.some(unknownState), incomplete=pending.length<count;
     const detailTotal=pending.reduce((n,s)=>n+s.pending_detail,0), pendingTotal=pending.reduce((n,s)=>n+s.pending,0);
-    replaceKeepingLink($('pending-states'),stateList(totals,stateCounts,hasUnknown || incomplete)+`<p class="finance-help">Rincian tersedia untuk ${pending.length}/${count} toko. ${hasUnknown || incomplete ? 'Belum lengkap: status yang belum dipastikan bisa mencakup pesanan belum dikirim, dalam pengiriman, atau sudah tiba.' : 'Retur proses belum berarti refund sudah dipotong.'} Status pesanan diperiksa paling lama: ${esc(stamp(statusTimes[0]))}.</p>`+(pending.length && Math.abs(pendingTotal-detailTotal)>.005 ? `<p class="finance-notice">Jumlah rincian: ${esc(money(detailTotal))}. Ringkasan Shopee: ${esc(money(pendingTotal))}. Rincian lebih ${detailTotal>pendingTotal ? 'besar' : 'kecil'} ${esc(money(Math.abs(pendingTotal-detailTotal)))}. Angka utama mengikuti ringkasan Shopee.</p>` : ''));
+    replaceKeepingLink($('pending-states'),stateList(totals,stateCounts,hasUnknown || incomplete)+`<p class="finance-help">${pending.length}/${count} toko · status diperiksa paling lama ${esc(stamp(statusTimes[0]))}.${hasUnknown || incomplete ? ' Sebagian status belum tersedia. Penyebabnya ada pada rincian toko.' : ''}</p>`+(pending.length && Math.abs(pendingTotal-detailTotal)>.005 ? `<p class="finance-notice">Rincian berbeda ${esc(money(Math.abs(pendingTotal-detailTotal)))} dari ringkasan Shopee. Total Pending mengikuti ringkasan Shopee.</p>` : ''));
+    $('store-period').textContent=`Pending: posisi terbaru. Angka lainnya: ${day(data.range.start)} sampai ${day(data.range.end)}.`;
     const markup = stores.map(s => `<article class="finance-store" data-store-id="${s.id}">
       <header><span class="shop-picker-logo" data-logo="${s.id}"></span><h3>${esc(s.name)}</h3></header>
-      <dl>
-        <div><dt>Pending</dt><dd>${esc(money(s.pending))}</dd><small>${esc(stamp(s.pending_updated))}</small></div>
-        <div><dt>Sudah dilepas Shopee</dt><dd>${esc(money(s.released))}</dd><small class="${s.released_days<days ? 'finance-incomplete' : ''}">${s.released_days<days ? 'Belum lengkap · ' : ''}${esc(coverage(s.released_days,days))}</small><small>${s.released_basis==='detail' ? 'Rincian periode' : 'Ringkasan Shopee'}</small></div>
-        <div><dt>Omset dibayar</dt><dd>${esc(money(s.gmv))}</dd><small class="${s.gmv_days<days ? 'finance-incomplete' : ''}">${s.gmv_days<days ? 'Belum lengkap · ' : ''}${esc(coverage(s.gmv_days,days))}</small><small>Pembaruan terakhir: ${esc(stamp(s.gmv_updated))}</small></div>
-        <div data-topup-shop="${s.id}"><dt>Top up iklan berhasil</dt><dd>${esc(money(s.topups?.amount))}</dd><small>${esc(topupNote(s.topups))}</small></div>
-        <div><dt>Biaya iklan terpakai</dt><dd>${esc(money(s.ads.amount))}</dd><small class="${s.ads.days<days ? 'finance-incomplete' : ''}">${s.ads.days<days ? 'Belum lengkap · ' : ''}${esc(coverage(s.ads.days,days))}</small><small>Pembaruan terakhir: ${esc(stamp(s.ads.updated_at))}</small></div>
+      <dl class="finance-store-values">
+        <div><dt>Pending</dt><dd>${esc(money(s.pending))}</dd></div>
+        <div><dt>Sudah dilepas</dt><dd>${esc(money(s.released))}</dd>${issueNote(s.released_days<days ? coverage(s.released_days,days) : '',true)}</div>
+        <div><dt>Omset dibayar</dt><dd>${esc(money(s.gmv))}</dd>${issueNote(gmvNote(s,data.range),s.gmv_days<days || s.gmv_coverage?.today_failed)}</div>
+        <div data-topup-shop="${s.id}"><dt>Top up iklan</dt><dd>${esc(money(s.topups?.amount))}</dd>${issueNote(!s.topups?.complete ? 'Riwayat belum lengkap' : s.topups.stale ? 'Pembaruan terlewat' : '',true)}</div>
+        <div><dt>Biaya iklan</dt><dd>${esc(money(s.ads.amount))}</dd>${issueNote(adsNote(s,days),true)}</div>
       </dl>
-      ${s.released_difference ? `<p class="finance-notice">Ringkasan Shopee berbeda ${esc(money(s.released_difference))} dari jumlah rincian. Angka utama mengikuti ringkasan Shopee. Buka pembanding di bawah untuk melihat keduanya.</p>` : ''}
-      <details><summary>Pengiriman, retur, dan pembanding saldo</summary>${stateList(s.pending_states,s.pending_state_counts,unknownState(s),s.id)}<p class="finance-help">Status pesanan diperiksa paling lama: ${esc(stamp(s.pending_status_updated))}.</p><dl class="finance-breakdown">
+      ${s.released_difference ? `<p class="finance-store-alert">${icon('info')}Rincian pelepasan berbeda ${esc(money(Math.abs(s.released_difference)))}. Angka utama mengikuti ringkasan Shopee.</p>` : ''}
+      ${unknownState(s) ? `<p class="finance-store-alert">${icon('help')}${s.pending_state_counts?.unknown || 0} pesanan masih menunggu kepastian status.</p>` : ''}
+      <details><summary>Rincian &amp; pembaruan<span class="finance-disclosure-icon material-symbols-outlined" aria-hidden="true">expand_more</span></summary>
+      <div class="finance-store-details"><h4>Bagian Pending</h4>${stateList(s.pending_states,s.pending_state_counts,unknownState(s),s.id)}
+      ${(s.pending_issues || []).map(issue=>`<p class="finance-help">${Number(issue.orders)} pesanan: ${esc(issue.message)}</p>`).join('')}
+      <p class="finance-help">Status diperiksa paling lama: ${esc(stamp(s.pending_status_updated))}. Semua bagian sudah termasuk Pending.</p><h4>Pembanding saldo</h4><dl class="finance-breakdown">
         <div><dt>Jumlah rincian pending</dt><dd>${esc(money(s.pending_detail))}</dd></div>
         <div><dt>Jumlah rincian dilepas</dt><dd>${esc(money(s.released_detail))}</dd><small>${esc(coverage(s.released_detail_days,days))}</small></div>
         <div><dt>Penyesuaian dana dilepas</dt><dd>${esc(money(s.adjustment))}</dd></div>
-      </dl><p class="finance-help">Bagian pending tidak ditambahkan lagi ke total. ${s.pending !== null && s.pending !== s.pending_detail ? 'Ringkasan Shopee dan rincian pending saat ini berbeda.' : ''}</p></details>
+      </dl>${s.pending !== null && s.pending !== s.pending_detail ? '<p class="finance-help">Ringkasan Shopee dan rincian Pending saat ini berbeda.</p>' : ''}
+      <h4>Sumber &amp; waktu data</h4><dl class="finance-source-list">
+        <div><dt>Pending</dt><dd>${esc(stamp(s.pending_updated))}</dd></div>
+        <div><dt>Sudah dilepas</dt><dd>${s.released_basis==='detail' ? 'Rincian berdasarkan tanggal pelepasan' : 'Ringkasan Shopee'} · ${esc(stamp(s.released_updated))}</dd></div>
+        <div><dt>Omset dibayar</dt><dd>${esc(gmvDetail(s,data.range))} Pembaruan paling lama: ${esc(stamp(s.gmv_updated))}.</dd></div>
+        <div><dt>Top up iklan</dt><dd>${esc(topupNote(s.topups))}</dd></div>
+        <div><dt>Biaya iklan</dt><dd>${s.ads.basis==='period' ? 'Total laporan sesuai periode pilihan.' : coverage(s.ads.days,days)+'.'} Produk, toko, dan live. Pembaruan paling lama: ${esc(stamp(s.ads.updated_at))}.</dd></div>
+      </dl></div></details>
       ${s.error ? `<p class="finance-notice">${esc(s.error)}</p>` : ''}
       ${s.active_imports ? `<p class="finance-help">${icon('sync')}Saldo sedang diperbarui. Angka sebelumnya tetap tampil.</p>` : ''}
     </article>`).join('') || '<p class="finance-empty">Belum ada toko yang tersedia untuk ditampilkan.</p>';
@@ -156,8 +184,8 @@
       if(sequence!==listSequence)return;
       if(!result.rows.length) target.innerHTML=`<p class="finance-empty">${kind==='detail' ? 'Belum ada rincian untuk pilihan ini. Jika saldo belum tersedia, klik Perbarui saldo Shopee. Jika memakai pencarian, coba nomor pesanan lain.' : 'Tidak ada produk yang cocok. Coba SKU lain atau sinkronkan produk di halaman Produk.'}</p>`;
       else if(kind==='detail') {
-        const states={shipping:'Dalam pengiriman',return:'Retur proses',delivered:'Tiba, menunggu dilepas',unknown:'Status belum dipastikan',released:'Sudah dilepas'};
-        target.innerHTML='<div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Pesanan / toko</th><th>Status / tanggal</th><th>Penghasilan / HPP</th><th>Penyesuaian</th></tr></thead><tbody>'+result.rows.map(r=>`<tr><td data-label="Pesanan / toko"><strong>${esc(r.order_sn)}</strong><span>${esc(r.shop_name)}</span><small>${esc(r.product_name)}</small></td><td data-label="Status / tanggal">${esc(states[r.state])}<span>${esc(r.released_at ? stamp(r.released_at) : r.estimated_at ? 'Perkiraan: '+stamp(r.estimated_at) : 'Tanggal pelepasan belum tersedia')}</span></td><td data-label="Penghasilan / HPP">${esc(money(r.income_amount))}<small>HPP: ${esc(r.cost?.amount === null ? (r.cost.items ? 'belum lengkap' : 'rincian produk belum tersedia') : money(r.cost?.amount))}</small></td><td data-label="Penyesuaian">${esc(money(r.adjustment_amount))}</td></tr>`).join('')+'</tbody></table></div>';
+        const labels={...Object.fromEntries(states.map(([key,label])=>[key,label])),released:'Sudah dilepas'};
+        target.innerHTML='<div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Pesanan / toko</th><th>Status / tanggal</th><th>Penghasilan / HPP</th><th>Penyesuaian</th></tr></thead><tbody>'+result.rows.map(r=>`<tr><td data-label="Pesanan / toko"><strong>${esc(r.order_sn)}</strong><span>${esc(r.shop_name)}</span><small>${esc(r.product_name)}</small></td><td data-label="Status / tanggal">${esc(labels[r.state])}${r.state_note ? '<small>'+esc(r.state_note)+'</small>' : ''}<span>${esc(r.released_at ? stamp(r.released_at) : r.estimated_at ? 'Perkiraan: '+stamp(r.estimated_at) : 'Tanggal pelepasan belum tersedia')}</span></td><td data-label="Penghasilan / HPP">${esc(money(r.income_amount))}<small>HPP: ${esc(r.cost?.amount === null ? (r.cost.items ? 'belum lengkap' : 'rincian produk belum tersedia') : money(r.cost?.amount))}</small></td><td data-label="Penyesuaian">${esc(money(r.adjustment_amount))}</td></tr>`).join('')+'</tbody></table></div>';
       } else {
         target.innerHTML='<div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Produk / varian</th><th>Toko / SKU</th><th>HPP per unit</th><th>Aksi</th></tr></thead><tbody>'+result.rows.map((r,i)=>`<tr><td data-label="Produk / varian"><strong>${esc(r.product_name)}</strong><span>${esc(r.variation_name || 'Tanpa varian')}</span>${Number(r.archived) ? '<small>Produk arsip</small>' : ''}</td><td data-label="Toko / SKU">${esc(r.shop_name)}<span>${esc(r.sku || 'SKU belum diisi di Shopee')}</span><small>ID varian: ${esc(r.model_id)}</small></td><td data-label="HPP per unit">${r.unit_cost===null ? 'Belum diisi' : esc(money(r.unit_cost))}<span>${r.valid_from ? 'Sejak '+esc(day(r.valid_from)) : ''}</span></td><td data-label="Aksi"><button class="btn" type="button" data-edit-cost="${i}">Atur HPP</button></td></tr>`).join('')+'</tbody></table></div>';
         target.querySelectorAll('[data-edit-cost]').forEach(b=>b.addEventListener('click',()=>openCost(result.rows[Number(b.dataset.editCost)])));

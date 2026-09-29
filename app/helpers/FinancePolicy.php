@@ -1,6 +1,18 @@
 <?php
 
 class FinancePolicy {
+  public const STATES = ['preparing','pickup','shipping','delivered','return','mixed','unknown'];
+  public const STATUS_NOTES = [
+    'not_checked'=>'Status belum diperiksa. Perbarui saldo Shopee.',
+    'request_failed'=>'Pembacaan status Shopee gagal. Akan dicoba pada pembaruan berikutnya.',
+    'budget'=>'Sebagian status menunggu giliran pembaruan berikutnya.',
+    'not_returned'=>'Shopee belum mengembalikan status pesanan ini.',
+    'unrecognized'=>'Keterangan status Shopee belum dikenali.',
+    'missing_description'=>'Shopee belum memberikan keterangan tahap pengiriman.',
+    'mixed_packages'=>'Paket dalam pesanan ini berada di tahap berbeda. Nominal dihitung sekali.',
+    'courier_verification'=>'Menunggu pengiriman diverifikasi oleh jasa kirim.',
+    'pickup_recorded'=>'Pickup paket sudah tercatat di Shopee.'
+  ];
   public static function date(string $value): DateTimeImmutable {
     $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value, new DateTimeZone('Asia/Jakarta'));
     if (!$date || $date->format('Y-m-d') !== $value) throw new InvalidArgumentException('Tanggal tidak valid.');
@@ -62,7 +74,7 @@ class FinancePolicy {
 
   public static function pendingState(array $row): string {
     if (($row['status_key'] ?? '') === 'ps_content_return_processing') return 'return';
-    if (isset($row['snapshot_state']) && in_array($row['snapshot_state'], ['shipping','delivered','return','unknown'], true)) return $row['snapshot_state'];
+    if (isset($row['snapshot_state']) && in_array($row['snapshot_state'], self::STATES, true)) return $row['snapshot_state'];
     if (empty($row['detail_synced_at']) || empty($row['completed_at']) || strtotime($row['detail_synced_at'].' UTC') < strtotime($row['completed_at'].' UTC')-900) return 'unknown';
     return self::deliveryState($row['status_description'] ?? '');
   }
@@ -72,6 +84,27 @@ class FinancePolicy {
     if (str_starts_with($description,'pesanan sedang dikembalikan ke penjual') || str_starts_with($description,'pembeli mengajukan pengembalian') || str_starts_with($description,'buyer raised return/refund') || str_starts_with($description,'order is being returned to seller')) return 'return';
     if (str_starts_with($description,'pesanan telah tiba di pembeli') || str_starts_with($description,'order has been delivered to buyer')) return 'delivered';
     if (str_starts_with($description,'pesanan sedang dikirimkan ke pembeli') || str_starts_with($description,'order is being shipped to buyer')) return 'shipping';
+    if (str_starts_with($description,'mohon kirim / arrange pickup sebelum') || str_starts_with($description,'to avoid late shipment, please arrange drop-off / arrange pickup by')) return 'preparing';
+    if ($description==='menunggu pengiriman diverifikasi oleh jasa kirim.' || str_starts_with($description,'paket dipick up pada')) return 'pickup';
     return 'unknown';
+  }
+
+  public static function statusDescription($description): array {
+    $description=is_string($description) ? trim($description) : '';
+    $state=self::deliveryState($description); $reason=null;
+    if ($state==='unknown') $reason=$description==='' ? 'missing_description' : 'unrecognized';
+    if ($state==='pickup') $reason=str_starts_with(mb_strtolower($description),'paket dipick up pada') ? 'pickup_recorded' : 'courier_verification';
+    return ['state'=>$state,'reason'=>$reason];
+  }
+
+  public static function combineStatuses(array $statuses): array {
+    if (!$statuses) return ['state'=>'unknown','reason'=>'missing_description'];
+    $states=array_unique(array_column($statuses,'state'));
+    if (in_array('unknown',$states,true)) {
+      foreach ($statuses as $status) if ($status['state']==='unknown') return $status;
+    }
+    if (count($states)>1) return ['state'=>'mixed','reason'=>'mixed_packages'];
+    $reasons=array_unique(array_column($statuses,'reason'));
+    return ['state'=>reset($states),'reason'=>count($reasons)===1 ? reset($reasons) : null];
   }
 }
