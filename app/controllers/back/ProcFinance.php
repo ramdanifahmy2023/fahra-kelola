@@ -32,7 +32,7 @@ class ProcFinance extends Controller {
   public function details(): void { $this->run(function () {
     $m=$this->m('Finance'); $m->ensureSchema(); $category=(int)($_GET['category'] ?? 1);
     if (!in_array($category,[1,2],true)) throw new InvalidArgumentException('Jenis penghasilan tidak valid.');
-    return $m->details($m->shops($_GET['shops'] ?? ''),$this->range($_GET),$category,(int)($_GET['page'] ?? 1),(string)($_GET['search'] ?? ''));
+    return $m->details($m->shops($_GET['shops'] ?? ''),$this->range($_GET),$category,(int)($_GET['page'] ?? 1),(string)($_GET['search'] ?? ''),(string)($_GET['state'] ?? ''));
   }); }
   public function catalog(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->catalog($m->shops($_GET['shops'] ?? ''),(int)($_GET['page'] ?? 1),(string)($_GET['search'] ?? '')); }); }
   public function history(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return ['rows'=>$m->history($_GET)]; }); }

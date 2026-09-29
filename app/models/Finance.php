@@ -9,6 +9,9 @@ class Finance extends BaseModel {
     foreach (explode(';',file_get_contents(__DIR__.'/../../database/migrations/20260929_finance.sql')) as $sql) {
       if (trim($sql) !== '') $this->execute($sql);
     }
+    foreach (explode(';',file_get_contents(__DIR__.'/../../database/migrations/20260929_ad_balance_topups.sql')) as $sql) {
+      if (trim($sql) !== '') $this->execute($sql);
+    }
     $this->ready = true;
   }
 
@@ -80,6 +83,7 @@ class Finance extends BaseModel {
         $this->execute("UPDATE finance_imports SET state='running' WHERE id=:id",['id'=>(int)$import['id']]);
         $response = $api->page($shop,$import);
         $rows = array_map(static fn($row)=>FinancePolicy::row($row,(int)$import['category']),$response['rows']);
+        $pendingStates=(int)$import['category']===1 ? $api->pendingStates($shop,array_column($rows,'external_order_id'),$rateMs) : [];
         $next = $response['next']; $seen = json_decode($import['seen_cursors'] ?? '[]',true) ?: [];
         if ($next && (!$rows || in_array($next['cursor'],$seen,true) || count($seen)>10000)) throw new UnexpectedValueException('Halaman Shopee berulang atau tidak bergerak. Coba pembaruan kembali.');
         if ($next) $seen[] = $next['cursor'];
@@ -93,6 +97,12 @@ class Finance extends BaseModel {
             $row = ['import_id'=>(int)$import['id'],'shop_id'=>$shopId]+$row;
             $columns = array_keys($row); $updates = array_map(static fn($key)=>$key.'=VALUES('.$key.')',array_diff($columns,['import_id','external_order_id']));
             $this->execute('INSERT INTO finance_income_rows ('.implode(',',$columns).') VALUES (:'.implode(',:',$columns).') ON DUPLICATE KEY UPDATE '.implode(',',$updates),$row);
+            if ((int)$import['category']===1) {
+              $status=$pendingStates[$row['external_order_id']] ?? ['state'=>'unknown','synced_at'=>null];
+              $this->execute('INSERT INTO finance_pending_states (import_id,external_order_id,state,synced_at) VALUES (:import,:order_id,:state,:synced_at) ON DUPLICATE KEY UPDATE state=VALUES(state),synced_at=VALUES(synced_at)',[
+                'import'=>$row['import_id'],'order_id'=>$row['external_order_id'],'state'=>$status['state'],'synced_at'=>$status['synced_at']
+              ]);
+            }
           }
           $this->execute("UPDATE finance_imports SET cursor_json=:cursor,seen_cursors=:seen,page_count=page_count+1,state=:state,overview_pending=:overview,completed_at=IF(:done=1,UTC_TIMESTAMP(),NULL),error_message=NULL WHERE id=:id",['cursor'=>$next ? json_encode($next) : null,'seen'=>json_encode($seen),'state'=>$next?'running':'ready','overview'=>$overview,'done'=>$next?0:1,'id'=>(int)$import['id']]);
           if (!$next) {
@@ -142,6 +152,29 @@ class Finance extends BaseModel {
     return ['amount'=>$days ? $total/100000 : null,'days'=>$days,'updated_at'=>$updated ? gmdate('Y-m-d H:i:s',$updated) : null];
   }
 
+  private function topups(array $shop,array $range): array {
+    $params=['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id']];
+    $sync=$this->one('SELECT backfill_complete,synced_at,last_error FROM ad_topup_sync_state WHERE shop_id=:shop AND source_shop_id=:source',$params);
+    $start=FinancePolicy::date($range['start'])->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    $end=FinancePolicy::date($range['end'])->modify('+1 day')->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    $row=$this->one('SELECT COUNT(*) transactions,SUM(actual_price) amount FROM ad_balance_topups WHERE shop_id=:shop AND source_shop_id=:source AND occurred_at_utc>=:start AND occurred_at_utc<:end',$params+['start'=>$start,'end'=>$end]);
+    $updated=$sync['synced_at'] ?? null;
+    $through=$updated ? (new DateTimeImmutable($updated,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Jakarta'))->format('Y-m-d') : null;
+    $complete=!empty($sync['backfill_complete']) && $through && $range['start']>='2026-08-01' && $range['end']<=$through && empty($sync['last_error']);
+    $schedule=$this->one("SELECT interval_seconds,enabled FROM sync_schedules WHERE shop_id=:shop AND sync_type='ads_topups'",['shop'=>(int)$shop['id']]);
+    $interval=(int)($schedule['interval_seconds'] ?? 86400);
+    return ['amount'=>$row['transactions'] ? (float)$row['amount'] : ($complete ? 0 : null),'transactions'=>(int)$row['transactions'],
+      'complete'=>(bool)$complete,'updated_at'=>$updated,'history_start'=>'2026-08-01','interval_seconds'=>$interval,
+      'enabled'=>!empty($schedule['enabled']),'stale'=>$updated && time()-strtotime($updated.' UTC')>$interval,
+      'error'=>!empty($sync['last_error'])];
+  }
+
+  private function statusFields(): string {
+    return "ps.state snapshot_state,ps.synced_at status_synced_at,o.detail_synced_at,i.completed_at,
+      COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(o.raw_data),o.raw_data,'{}'),'$.status_info_v2.status_description.description_value')),'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(o.raw_data),o.raw_data,'{}'),'$.status_info.status_description.description_value')),'null'),o.status_description) status_description";
+  }
+
   public function summary(array $shops, array $range): array {
     $stores=[];
     foreach ($shops as $shop) {
@@ -161,10 +194,14 @@ class Finance extends BaseModel {
       $work=$this->one("SELECT SUM(state IN ('queued','running')) active,SUM(state='failed') failed FROM finance_imports WHERE shop_id=:shop AND source_shop_id=:source AND (category=1 OR (start_date<=:end AND end_date>=:start))",$rp);
       $latest=$this->one("SELECT f.error_message FROM finance_imports f WHERE f.shop_id=:shop AND f.source_shop_id=:source AND f.state='failed' AND (f.category=1 OR (f.start_date<=:end AND f.end_date>=:start)) AND NOT EXISTS (SELECT 1 FROM finance_imports newer WHERE newer.shop_id=f.shop_id AND newer.source_shop_id=f.source_shop_id AND newer.category=f.category AND newer.state='ready' AND newer.id>f.id AND newer.start_date<=f.start_date AND newer.end_date>=f.end_date) ORDER BY f.id DESC LIMIT 1",$rp);
       $states=['shipping'=>0,'return'=>0,'delivered'=>0,'unknown'=>0];
-      $stateCounts=array_fill_keys(array_keys($states),0);
+      $stateCounts=array_fill_keys(array_keys($states),0); $statusTimes=[];
       if ($pending) {
-        $rows=$this->rows('SELECT r.income_amount,r.status_key,o.status_description,o.detail_synced_at,i.completed_at FROM finance_income_rows r JOIN finance_imports i ON i.id=r.import_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE r.import_id=:id',['id'=>(int)$pending['id']]);
-        foreach ($rows as $row) { $state=FinancePolicy::pendingState($row); $states[$state]+=(int)$row['income_amount']; $stateCounts[$state]++; }
+        $rows=$this->rows('SELECT r.income_amount,r.status_key,'.$this->statusFields().' FROM finance_income_rows r JOIN finance_imports i ON i.id=r.import_id LEFT JOIN finance_pending_states ps ON ps.import_id=r.import_id AND ps.external_order_id=r.external_order_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE r.import_id=:id',['id'=>(int)$pending['id']]);
+        foreach ($rows as $row) {
+          $state=FinancePolicy::pendingState($row); $states[$state]+=(int)$row['income_amount']; $stateCounts[$state]++;
+          $time=$row['status_key']==='ps_content_return_processing' ? $row['completed_at'] : ($row['status_synced_at'] ?? ($state!=='unknown' ? $row['detail_synced_at'] : null));
+          if ($time) $statusTimes[]=$time;
+        }
       }
       $stores[]=[
         'id'=>(int)$shop['id'],'name'=>$shop['name'],'logo'=>$shop['shop_logo'],
@@ -176,25 +213,34 @@ class Finance extends BaseModel {
         'released_orders'=>(int)$release['orders'],'released_updated'=>$releaseUpdated,
         'adjustment'=>(int)$release['days'] && (int)$release['adjustment_known']===(int)$release['orders'] ? (int)$release['adjustment']/100000 : null,
         'gmv'=>(int)$gmv['days'] ? (float)$gmv['amount'] : null,'gmv_days'=>(int)$gmv['days'],'gmv_updated'=>$gmv['updated_at'],
-        'ads'=>$this->ads($shop,$range),'pending_states'=>$pending ? array_map(static fn($v)=>$v/100000,$states) : null,
+        'ads'=>$this->ads($shop,$range),'topups'=>$this->topups($shop,$range),'pending_states'=>$pending ? array_map(static fn($v)=>$v/100000,$states) : null,
         'pending_state_counts'=>$pending ? $stateCounts : null,
+        'pending_status_updated'=>$statusTimes ? min($statusTimes) : ($pending && !(int)$pending['orders'] ? $pending['completed_at'] : null),
         'active_imports'=>(int)$work['active'],'error'=>$latest['error_message'] ?? null
       ];
     }
     return ['range'=>$range,'stores'=>$stores];
   }
 
-  public function details(array $shops,array $range,int $category,int $page,string $search=''): array {
+  public function details(array $shops,array $range,int $category,int $page,string $search='',string $state=''): array {
+    if (!in_array($state,['','shipping','delivered','return','unknown'],true)) throw new InvalidArgumentException('Pilihan status Pending tidak valid.');
+    if ($category!==1 && $state!=='') throw new InvalidArgumentException('Rincian status hanya tersedia untuk Pending.');
     if (!$shops) return ['rows'=>[],'total'=>0,'page'=>1];
     $ids=implode(',',array_map('intval',array_column($shops,'id'))); $params=[];
     if ($category===1) $join='JOIN finance_current c ON c.shop_id=r.shop_id AND c.import_id=r.import_id';
     else { $join='JOIN finance_days d ON d.shop_id=r.shop_id AND d.import_id=r.import_id AND d.income_date=r.released_date AND d.income_date BETWEEN :start AND :end'; $params=['start'=>$range['start'],'end'=>$range['end']]; }
     $where="r.shop_id IN ({$ids})";
     if ($search!=='') { $where.=' AND r.order_sn LIKE :search'; $params['search']='%'.addcslashes(mb_substr($search,0,100),'%_\\').'%'; }
-    $from="FROM finance_income_rows r {$join} JOIN finance_imports i ON i.id=r.import_id AND i.state='ready' JOIN shops s ON s.id=r.shop_id AND s.shop_id=i.source_shop_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE {$where}";
-    $total=(int)$this->one('SELECT COUNT(*) total '.$from,$params)['total'];
-    $page=max(1,min($page,max(1,(int)ceil($total/25)))); $offset=($page-1)*25;
-    $rows=$this->rows('SELECT r.*,s.name shop_name,o.status_description,o.detail_synced_at,i.completed_at '.$from." ORDER BY COALESCE(r.released_at,i.completed_at) DESC,r.external_order_id DESC LIMIT 25 OFFSET {$offset}",$params);
+    $from="FROM finance_income_rows r {$join} JOIN finance_imports i ON i.id=r.import_id AND i.state='ready' JOIN shops s ON s.id=r.shop_id AND s.shop_id=i.source_shop_id LEFT JOIN finance_pending_states ps ON ps.import_id=r.import_id AND ps.external_order_id=r.external_order_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE {$where}";
+    $select='SELECT r.*,s.name shop_name,'.$this->statusFields().' '.$from.' ORDER BY COALESCE(r.released_at,i.completed_at) DESC,r.external_order_id DESC';
+    if ($state!=='') {
+      $rows=array_values(array_filter($this->rows($select,$params),static fn($r)=>FinancePolicy::pendingState($r)===$state));
+      $total=count($rows); $page=max(1,min($page,max(1,(int)ceil($total/25)))); $rows=array_slice($rows,($page-1)*25,25);
+    } else {
+      $total=(int)$this->one('SELECT COUNT(*) total '.$from,$params)['total'];
+      $page=max(1,min($page,max(1,(int)ceil($total/25)))); $offset=($page-1)*25;
+      $rows=$this->rows($select." LIMIT 25 OFFSET {$offset}",$params);
+    }
     require_once __DIR__.'/FinanceCost.php'; $costs=new FinanceCost();
     foreach ($rows as &$row) {
       $row['external_order_id']=(string)$row['external_order_id'];

@@ -25,8 +25,9 @@ $financeDashboard=!empty($data['finance_dashboard']);
     <article><div class="finance-metric-heading"><span class="finance-metric-icon material-symbols-outlined" aria-hidden="true">account_balance_wallet</span><div><h2>Sudah dilepas Shopee</h2><p id="finance-released-period">Selama periode pilihan</p></div></div><p class="finance-amount" id="finance-released">Memuat…</p><p id="finance-released-quality"></p><p id="finance-released-note" class="finance-meta"></p><p class="finance-meta">Belum berarti sudah ditarik ke rekening bank.</p></article>
   </div>
   <p class="finance-help">Saldo mengikuti Penghasilan Saya Shopee, belum termasuk penyesuaian.</p>
-  <div id="finance-secondary" class="finance-secondary finance-surface" aria-label="Omset dan biaya selama periode pilihan"></div>
-  <section id="finance-pending-breakdown" class="finance-surface finance-pending-breakdown" aria-labelledby="finance-pending-title"><div class="finance-section-heading"><div><h2 id="finance-pending-title">Isi rincian Pending</h2><p>Pengiriman dan retur di bawah ini sudah termasuk dalam rincian Pending.</p></div></div><div id="finance-pending-states"></div></section>
+  <div id="finance-secondary" class="finance-secondary finance-surface" aria-label="Omset, top up, dan biaya iklan selama periode pilihan"></div>
+  <p class="finance-help">Top up adalah uang untuk mengisi saldo iklan. Biaya terpakai adalah pemakaiannya. Jangan dijumlahkan sebagai satu biaya. Riwayat top up tersedia sejak 1 Agustus 2026.</p>
+  <section id="finance-pending-breakdown" class="finance-surface finance-pending-breakdown" aria-labelledby="finance-pending-title"><div class="finance-section-heading"><div><h2 id="finance-pending-title">Isi rincian Pending</h2><p>Dalam pengiriman: barang masih dibawa kurir. Tiba, menunggu dilepas: barang sudah diterima, dananya masih ditahan Shopee.</p><p>Semua bagian ini sudah termasuk dalam rincian Pending. Jangan ditambahkan lagi ke total Pending.</p></div></div><div id="finance-pending-states"></div></section>
   <?php if (!$financeDashboard): ?>
   <nav class="finance-tabs" aria-label="Bagian keuangan"><button type="button" data-finance-tab="summary" aria-pressed="true">Ringkasan toko</button><button type="button" data-finance-tab="details" aria-pressed="false">Rincian penghasilan</button><button type="button" data-finance-tab="cost" aria-pressed="false">HPP produk</button></nav>
   <?php endif; ?>
@@ -38,6 +39,7 @@ $financeDashboard=!empty($data['finance_dashboard']);
   <?php if (!$financeDashboard): ?>
   <section id="finance-details-panel" class="finance-surface" aria-label="Rincian penghasilan" hidden>
     <div class="finance-section-heading"><div><h2>Rincian penghasilan</h2><p id="finance-detail-scope"></p></div><div><label for="finance-category">Status dana</label><select class="select" id="finance-category"><option value="1">Pending</option><option value="2">Sudah dilepas</option></select></div></div>
+    <div id="finance-state-field"><label for="finance-state">Bagian Pending</label><select class="select" id="finance-state"><option value="">Semua bagian Pending</option><option value="shipping">Dalam pengiriman</option><option value="delivered">Tiba, menunggu dilepas</option><option value="return">Retur proses</option><option value="unknown">Status belum dipastikan</option></select></div>
     <form id="finance-order-search-form" class="finance-search"><label for="finance-order-search">Nomor pesanan</label><input class="input" id="finance-order-search" maxlength="100" placeholder="Cari nomor pesanan"><button class="btn" type="submit">Cari</button></form>
     <div id="finance-detail-list" aria-live="polite"></div><div id="finance-detail-pagination" class="finance-pagination"></div>
   </section>
