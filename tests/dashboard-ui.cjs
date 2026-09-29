@@ -102,7 +102,7 @@ const realtime=(ids=['1','2'])=>({status:'success',selected_shop_count:ids.lengt
   await rolling.goto(base+'/panel/finance');await rolling.locator('.finance-store').waitFor();
   assert.equal(await rolling.inputValue('#finance-start'),'2026-09-01');assert.equal(await rolling.inputValue('#finance-end'),'2026-09-30');
   assert.match(await rolling.locator('#finance-pending').innerText(),/Rp\s*0/);assert.equal(await rolling.locator('#finance-released').innerText(),'Belum tersedia');
-  assert.match(await rolling.locator('#finance-secondary').innerText(),/Total sementara/);
+  assert.match(await rolling.locator('#finance-secondary').innerText(),/Baru 1 dari 30 hari terhitung/);
   await rolling.clock.fastForward(31000);await rolling.waitForFunction(()=>document.querySelector('#finance-start').value==='2026-10-01');assert.equal(await rolling.inputValue('#finance-end'),'2026-10-01');
   await rolling.selectOption('#finance-period','custom');await rolling.fill('#finance-start','2026-09-01');await rolling.fill('#finance-end','2026-09-02');await rolling.locator('#finance-filters button[type=submit]').click();
   await rolling.clock.fastForward(86400000);assert.equal(await rolling.inputValue('#finance-start'),'2026-09-01');assert.equal(await rolling.inputValue('#finance-end'),'2026-09-02');
