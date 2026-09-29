@@ -1,0 +1,35 @@
+{
+  "name": "Sellerio Get Cookies",
+  "short_name": "Sellerio Cookies",
+  "description": "Salin cookie dari tab aktif untuk menghubungkan toko ke Sellerio.",
+  "version": "2.1.0",
+  "icons": {
+    "16": "icon.png",
+    "32": "icon_32.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  },
+  "permissions": [
+    "cookies", "activeTab", "storage", "scripting"
+  ],
+  "host_permissions": [
+    "http://*/*", "https://*/*"
+  ],
+  "optional_host_permissions": [
+    "*://*/*"
+  ],
+  "action": {
+    "default_title": "Sellerio Get Cookies",
+    "default_icon": {
+      "16": "icon.png",
+      "32": "icon_32.png",
+      "48": "icon_48.png",
+      "128": "icon_128.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "manifest_version": 3
+}

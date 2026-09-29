@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Sellerio Get Cookies</title>
+    <link rel="stylesheet" href="popup.css" />
+    <script src="jquery.min.js" defer></script>
+    <script src="popup.js" defer></script>
+  </head>
+  <body>
+    <header class="header">
+      <img class="brand-mark" src="icon.svg" width="44" height="44" alt="" />
+      <h1>Sellerio <span>Get Cookies</span></h1>
+    </header>
+
+    <main class="content">
+      <div class="site">
+        <span class="label">Tab aktif</span>
+        <p id="CurrentCookieUrl">Memuat domain...</p>
+      </div>
+
+      <div class="cookie-field">
+        <label for="cookieresult">Cookie</label>
+        <textarea id="cookieresult" rows="6" spellcheck="false" autocapitalize="off" autocomplete="off" aria-describedby="cookie-status" aria-busy="true" placeholder="Memuat cookie dari tab aktif..."></textarea>
+      </div>
+
+      <p id="cookie-status" class="status" role="status" aria-live="polite" aria-atomic="true" data-state="loading">Sedang membaca cookie...</p>
+
+      <button id="btncopycookie" class="copy-button" type="button" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <rect x="8" y="8" width="12" height="13" rx="2" />
+          <path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" />
+        </svg>
+        <span id="copy-label">Salin cookie</span>
+      </button>
+    </main>
+
+    <footer class="footer">
+      <p>Tempel cookie ke pengaturan toko di Sellerio.</p>
+    </footer>
+
+    <div hidden inert aria-hidden="true">
+      <input id="CurrentFacebookId" type="text" />
+      <input id="GetUidFromUrl" type="text" />
+      <input id="auto_save_fbaccount" type="checkbox" />
+      <input id="show_getuidicon" type="checkbox" />
+      <div id="list_account"></div>
+      <img id="imgqrcode" alt="QR Code" />
+      <button id="btncookieimport" type="button"></button>
+      <button id="btncookiesave" type="button"></button>
+      <button id="btnExportCookie" type="button"></button>
+      <button id="btncookielogout" type="button"></button>
+      <button id="btngetqr" type="button"></button>
+      <button id="btngetidfromlink" type="button"></button>
+      <button id="btngettoken" type="button"></button>
+    </div>
+  </body>
+</html>
