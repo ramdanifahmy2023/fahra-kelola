@@ -10,14 +10,16 @@
 @media (min-width: 640px) { #boost-monitor .boost-primary-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 24rem; } }
 #boost-monitor :is(button, summary, a, input):focus-visible { outline: 2px solid var(--color-base-content); outline-offset: 3px; }
 .shop-picker.dropdown { display: block; width: 100%; min-width: 0; }
+.shop-picker-list[hidden] { display: none !important; }
 .shop-identity { display: flex; align-items: flex-start; gap: 12px; min-width: 0; flex: 1; }
 .shop-logo { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 6px; background: var(--color-base-200); }
 .shop-logo img { display: block; width: 40px; height: 40px; border-radius: inherit; object-fit: cover; }
 .shop-picker > button { min-height: 44px; }
 .shop-picker .shop-picker-list { display: flex; flex-direction: column; flex-wrap: nowrap; width: 100%; max-height: min(20rem, 60dvh); overflow-y: auto; overflow-x: hidden; z-index: 30; }
 .shop-picker-list > li { flex: 0 0 auto; width: 100%; min-width: 0; }
-.shop-picker-list > li > a { display: flex; align-items: center; gap: 12px; min-height: 44px; white-space: normal; }
-.shop-picker-list > li > a > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.shop-picker-list > li > :is(a, button) { display: flex; align-items: center; gap: 12px; min-height: 44px; width: 100%; white-space: normal; }
+.shop-picker-list > li > :is(a, button) > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.shop-picker-logo { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; }
 .shop-picker img { width: 24px; height: 24px; flex-shrink: 0; border-radius: 4px; object-fit: cover; }
 .shop-picker :is(button, a):focus-visible { outline: 2px solid var(--color-base-content); outline-offset: -2px; }
 #boost-monitor [data-products] { container-type: inline-size; }

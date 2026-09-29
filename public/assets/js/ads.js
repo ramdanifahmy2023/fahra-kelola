@@ -11,6 +11,8 @@
   const topupRows = root.querySelector('#ads-topups-rows');
   const topupUpdated = root.querySelector('[data-topups-updated]');
   const topupShop = root.querySelector('#ads-topup-shop');
+  const syncShopPicker = window.enhanceShopSelect(shopFilter);
+  const syncTopupPicker = window.enhanceShopSelect(topupShop);
   const topupPeriod = root.querySelector('#ads-topup-period');
   const topupCustomRange = root.querySelector('#ads-topup-custom-range');
   const topupStart = root.querySelector('#ads-topup-start');
@@ -163,6 +165,7 @@
       const shopOptions = Array.isArray(report.shop_options) ? report.shop_options : report.shops;
       shopOptions.forEach(shop => topupShop.add(new Option(shop.shop_name || 'Toko #' + shop.shop_id, String(shop.shop_id))));
       topupShop.value = shopOptions.some(shop => String(shop.shop_id) === selectedShop) ? selectedShop : '';
+      syncTopupPicker();
       topupPeriodNote.textContent = date(report.start_date) + ' sampai ' + date(report.end_date) + ' · WIB';
       const pending = report.shops.filter(shop => !shop.backfill_complete);
       const errors = report.shops.filter(shop => shop.error_message);
@@ -210,6 +213,7 @@
     const current = ++requestId;
     refresh.disabled = true;
     shopFilter.disabled = true;
+    syncShopPicker();
     grid.setAttribute('aria-busy', 'true');
     grid.hidden = true;
     warning.hidden = true;
@@ -243,6 +247,7 @@
       if (current === requestId) {
         refresh.disabled = false;
         shopFilter.disabled = !loaded;
+        syncShopPicker();
         grid.setAttribute('aria-busy', 'false');
       }
     }

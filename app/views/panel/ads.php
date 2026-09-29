@@ -137,4 +137,5 @@
   </article>
 </template>
 <?php require __DIR__ . '/templates/shop-logos.php'; ?>
+<script src="<?= assets; ?>/js/shop-select.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/shop-select.js'); ?>"></script>
 <script src="<?= assets; ?>/js/ads.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/ads.js'); ?>" defer></script>

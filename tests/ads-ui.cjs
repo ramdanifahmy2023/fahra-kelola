@@ -36,11 +36,47 @@ const ready = page => page.waitForFunction(() => document.querySelector('#ads-gr
       }
     }
     const shop = await page.locator('#ads-shop option').nth(1).getAttribute('value');
-    await page.selectOption('#ads-shop', shop);
+    await page.locator('#ads-shop-trigger').click();
+    await page.locator('#ads-shop-trigger + ul [data-shop-value="' + shop + '"]').click();
     check(await page.locator('#ads-grid article').count() === 1, 'Shop filter');
     await page.click('#ads-refresh'); await ready(page);
     check(await page.inputValue('#ads-shop') === shop, 'Reload preserves shop selection');
-    await page.selectOption('#ads-shop', '');
+    for (const width of [320, 500, 999, 1600]) {
+      await page.setViewportSize({width, height: 1008});
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate(mode => window.shopdashTheme.setMode(mode), theme);
+        for (const id of ['ads-shop', 'ads-topup-shop']) {
+          const trigger = page.locator('#' + id + '-trigger');
+          await trigger.click();
+          const list = page.locator('#' + id + '-trigger + ul');
+          await list.waitFor({state: 'visible'});
+          const bounds = await list.boundingBox();
+          const buttonBounds = await trigger.boundingBox();
+          check(bounds.y >= buttonBounds.y + buttonBounds.height, 'Shop menu opens below');
+          check(bounds.x >= 0 && bounds.x + bounds.width <= width + 1, 'Menu stays inside viewport');
+          const rows = await list.locator('li').evaluateAll(items => items.map(el => {const r = el.getBoundingClientRect(); return {x:r.x,y:r.y,bottom:r.bottom};}));
+          check(rows.length > 1, 'Shop options loaded');
+          for (let i = 1; i < rows.length; i++) check(Math.abs(rows[i].x - rows[0].x) < 1 && rows[i].y >= rows[i-1].bottom - 1, 'Single vertical list');
+          check(await list.locator('img').count() > 0, 'Shop logos visible in list');
+          await list.locator('button').last().scrollIntoViewIfNeeded();
+          await list.locator('button').first().scrollIntoViewIfNeeded();
+          await page.screenshot({path: path.join(output, `${id}-${width}-${theme}.png`), animations: 'disabled'});
+          await page.keyboard.press('Escape');
+          await list.waitFor({state: 'hidden'});
+        }
+      }
+    }
+    await page.locator('#ads-topup-shop-trigger').click();
+    const topupOption = page.locator('#ads-topup-shop-trigger + ul button').nth(1);
+    const topupId = await topupOption.getAttribute('data-shop-value');
+    const topupResponse = page.waitForResponse(response => response.url().includes('/procads/topups?') && new URL(response.url()).searchParams.get('shop_id') === topupId);
+    await topupOption.focus();
+    await page.keyboard.press('Enter');
+    await topupResponse;
+    check(await page.inputValue('#ads-topup-shop') === topupId, 'Topup selection filters request independently');
+    check(await page.inputValue('#ads-shop') === shop, 'Topup does not change ads selection');
+    await page.locator('#ads-shop-trigger').click();
+    await page.locator('#ads-shop-trigger + ul [data-shop-value=""]').click();
     await page.screenshot({path: path.join(output, 'live-desktop.png'), animations: 'disabled'});
     await page.setViewportSize({width: 390, height: 844});
     await page.screenshot({path: path.join(output, 'live-mobile.png'), animations: 'disabled'});
