@@ -29,6 +29,7 @@ This is not Laravel or a Node backend. Do not introduce framework commands or an
 | Sync | `sync.php`, `BackgroundSync.php`, `SyncJob.php`, `ProcSync.php` |
 | Shops/session management | `shops.php`, `Shop.php`, `ProcShops.php` |
 | Chat | `chat.php`, `ChatMonitor.php`, `ShopeeChat.php`, `ProcChat.php` |
+| Extension downloads | `extensions.php`, `ExtensionRelease.php`; filesystem release catalog in `resources/extensions/releases/`, ZIPs in `public/downloads/extensions/` |
 
 View paths in the table are under `app/views/panel/`, model paths under `app/models/`, and back controllers under `app/controllers/back/` unless otherwise specified.
 

@@ -4,6 +4,99 @@
 @source "../../app/views/**/*.php";
 @source "../../public/assets/js/**/*.js";
 
+.panel-navbar #panel-menu-button:focus-visible, .panel-navbar .panel-mobile-brand:focus-visible { outline: 2px solid var(--color-base-content); outline-offset: 2px; }
+.panel-navbar .panel-mobile-brand { display: block; min-width: 0; max-width: 100%; height: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 44px; color: var(--color-base-content); }
+@media (min-width: 1024px) { .panel-navbar .panel-mobile-brand { display: none; } }
+@media (max-width: 639px) {
+  .panel-navbar { gap: 0; padding-inline: 8px; }
+  .panel-navbar .panel-mobile-brand { padding-inline: 4px; font-size: .875rem; }
+  .panel-navbar .panel-navbar-actions { gap: 4px; }
+  .panel-navbar :is(#panel-menu-button, #theme-menu-button, #notification-button, .panel-user-trigger) { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; }
+  .panel-navbar .panel-user-trigger { gap: 0; }
+  .panel-navbar .panel-user-trigger > div { width: 28px; height: 28px; }
+  .panel-navbar .panel-user-chevron { display: none; }
+}
+
+#extensions-page { max-width: 76rem; min-width: 0; color: var(--color-base-content); font-size: .875rem; line-height: 1.65; }
+#extensions-page :is(h1, h2, h3, h4, p) { margin: 0; }
+#extensions-page :is(a, summary):focus-visible { outline: 2px solid var(--color-base-content); outline-offset: 3px; }
+#extensions-page :is(p, h1, h2, h3, h4, dd, a, summary) { overflow-wrap: anywhere; }
+#extensions-page h1 { font-size: clamp(1.65rem, 3vw, 2rem); font-weight: 800; line-height: 1.2; letter-spacing: -.035em; }
+#extensions-page h2 { font-size: 1.125rem; font-weight: 750; line-height: 1.4; }
+#extensions-page .extensions-heading { margin-bottom: 24px; }
+#extensions-page .extensions-heading p { max-width: 44rem; margin-top: 8px; color: var(--sd-muted); }
+#extensions-page .extensions-muted { color: var(--sd-muted); }
+#extensions-page .extension-current { display: grid; gap: 16px; padding: 20px; border: 1px solid var(--color-base-300); border-radius: 16px; background: var(--color-base-100); }
+#extensions-page .extension-product { display: flex; gap: 14px; align-items: center; min-width: 0; }
+#extensions-page .extension-product img { flex: 0 0 52px; width: 52px; height: 52px; }
+#extensions-page .extension-product > div { min-width: 0; }
+#extensions-page .extension-product h2 { margin-top: 4px; font-size: clamp(1.2rem, 2.5vw, 1.5rem); font-weight: 800; letter-spacing: -.025em; }
+#extensions-page .extension-eyebrow { color: var(--sd-muted); font-size: .8125rem; font-weight: 650; }
+#extensions-page .extension-description { max-width: 36rem; }
+#extensions-page .extension-specs { display: grid; gap: 12px; margin: 0; }
+#extensions-page .extension-specs dt { color: var(--sd-muted); font-size: .75rem; }
+#extensions-page .extension-specs dd { margin: 2px 0 0; font-size: .8125rem; font-weight: 600; }
+#extensions-page .extension-download { min-width: 0; }
+#extensions-page .extension-download > p { margin-top: 10px; color: var(--sd-muted); font-size: .75rem; }
+#extensions-page .extensions-button { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; width: 100%; min-height: 46px; gap: 8px; padding: 11px 16px; border: 1px solid; border-radius: 12px; font-size: .875rem; font-weight: 700; line-height: 1.5; text-align: center; text-decoration: none; cursor: pointer; transition: background-color 150ms ease; }
+#extensions-page .extensions-button-primary { background: var(--color-primary); color: var(--color-primary-content); border-color: var(--color-primary-content); }
+#extensions-page .extensions-button-primary:hover { background: #f39b40; }
+#extensions-page .extensions-button-secondary { background: var(--color-base-100); color: var(--color-base-content); border-color: var(--sd-muted); }
+#extensions-page .extensions-button-secondary:hover { background: var(--color-base-200); }
+#extensions-page .extensions-sections { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 12px; }
+#extensions-page .extensions-columns { display: grid; gap: 32px; margin-top: 24px; }
+#extensions-page :is(#installation-heading, #history-heading) { scroll-margin-top: 100px; }
+#extensions-page .extension-guide, #extensions-page .extension-history { min-width: 0; }
+#extensions-page .extension-guide > p, #extensions-page .extension-history-heading p { margin-top: 8px; }
+#extensions-page .extension-steps { display: grid; gap: 22px; margin: 24px 0 12px; padding: 0 0 0 24px; list-style: decimal; }
+#extensions-page .extension-steps li { padding-left: 6px; }
+#extensions-page .extension-steps li::marker { color: var(--sd-muted); font-weight: 700; }
+#extensions-page .extension-steps h3, #extensions-page .extension-changelog h4 { font-size: .875rem; font-weight: 700; }
+#extensions-page .extension-steps p { margin-top: 4px; color: var(--sd-muted); }
+#extensions-page strong { color: var(--color-base-content); font-weight: 650; }
+#extensions-page code { font-size: .8125rem; color: var(--color-base-content); overflow-wrap: anywhere; }
+#extensions-page .extension-browser-addresses { display: grid; gap: 6px; margin-top: 10px; }
+#extensions-page .extension-browser-addresses > div { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+#extensions-page .extension-browser-addresses dt { min-width: 56px; color: var(--sd-muted); font-size: .8125rem; }
+#extensions-page .extension-browser-addresses dd { min-width: 0; margin: 0; }
+#extensions-page .extensions-text-link { display: inline-flex; min-height: 44px; align-items: center; gap: 8px; color: var(--color-base-content); font-weight: 650; text-decoration: underline; text-underline-offset: 4px; }
+#extensions-page .extensions-text-link .material-symbols-outlined { font-size: 18px; }
+#extensions-page .extension-update-guide { margin-top: 14px; border-top: 1px solid var(--color-base-300); padding-top: 10px; }
+#extensions-page .extension-update-guide summary { min-height: 44px; padding: 10px 0; font-weight: 650; cursor: pointer; }
+#extensions-page .extension-update-guide p { margin: 8px 0 12px; color: var(--sd-muted); }
+#extensions-page .extension-release-list { display: grid; gap: 16px; margin-top: 20px; }
+#extensions-page .extension-release { min-width: 0; padding: 20px; border: 1px solid var(--color-base-300); border-radius: 12px; background: var(--color-base-100); }
+#extensions-page .extension-release-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: .75rem; color: var(--sd-muted); }
+#extensions-page .extension-release-meta > span { font-weight: 700; }
+#extensions-page .extension-release > h3 { margin-top: 8px; font-size: 1rem; font-weight: 750; line-height: 1.45; }
+#extensions-page .extension-changelog { margin: 12px 0 16px; }
+#extensions-page .extension-changelog summary { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; font-size: .8125rem; font-weight: 650; cursor: pointer; list-style: none; }
+#extensions-page .extension-changelog summary::-webkit-details-marker { display: none; }
+#extensions-page .extension-changelog summary .material-symbols-outlined { flex-shrink: 0; font-size: 20px; }
+#extensions-page .extension-changelog[open] summary .material-symbols-outlined { transform: rotate(180deg); }
+#extensions-page .extension-changelog ul { display: grid; gap: 14px; padding: 8px 0 0; list-style: none; }
+#extensions-page .extension-changelog p { margin-top: 3px; font-size: .8125rem; color: var(--sd-muted); }
+#extensions-page .extension-file-size { font-size: .75rem; font-weight: 500; }
+#extensions-page .extension-archive-note { margin-top: 14px; color: var(--sd-muted); font-size: .8125rem; }
+#extensions-page .extensions-message { padding: 24px; border: 1px solid var(--color-base-300); border-radius: 16px; background: var(--color-base-100); }
+#extensions-page .extensions-message p { margin-top: 8px; color: var(--sd-muted); }
+#extensions-page .extensions-message a { margin-top: 20px; width: auto; }
+#extensions-page .extension-unavailable { color: var(--sd-muted); }
+@media (min-width: 600px) {
+  #extensions-page .extension-specs { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 36rem; }
+  #extensions-page .extension-current { padding: 28px; }
+  #extensions-page .extensions-button { width: auto; }
+}
+@media (min-width: 1200px) {
+  #extensions-page .extension-current { grid-template-columns: minmax(0, 1fr) auto; column-gap: 40px; }
+  #extensions-page .extension-product, #extensions-page .extension-description, #extensions-page .extension-specs { grid-column: 1; }
+  #extensions-page .extension-download { grid-column: 2; grid-row: 1 / 4; align-self: center; max-width: 22rem; }
+  #extensions-page .extension-download > p { text-align: center; }
+  #extensions-page .extensions-columns { grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 40px; }
+  #extensions-page .extension-guide { padding-right: 20px; }
+}
+@media (prefers-reduced-motion: reduce) { #extensions-page .extensions-button { transition: none; } }
+
 #boost-monitor [hidden] { display: none !important; }
 #boost-monitor .boost-primary-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 #boost-monitor .boost-primary-actions .btn { width: 100%; min-width: 0; height: auto; min-height: 44px; padding: 10px 12px; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
