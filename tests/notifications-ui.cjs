@@ -34,7 +34,7 @@ const testSession=require('./panel-test-session.cjs')(root);const sid=testSessio
  assert.equal(rows.length,25,'Read does not resolve incidents');
  await page.click('[data-notification-filter=active]');await page.waitForFunction(()=>document.querySelector('.notification-read-label')!==null);
  assert.equal(await page.locator('[data-alert-id="1"] .notification-read').count(),0);
- rows.forEach(r=>r.unread=false);await page.click('[data-notification-filter=new]');await page.getByText('Tidak ada notifikasi baru. 25 masalah masih aktif.',{exact:true}).waitFor();
+ rows.forEach(r=>r.unread=false);await page.click('[data-notification-filter=new]');await page.getByText('Tidak ada notifikasi baru. 25 notifikasi tersimpan.',{exact:true}).waitFor();
  assert.ok(await page.locator('#notification-badge').isHidden());assert.ok(!(await page.locator('#notification-list').innerText()).includes('Semua stok aman'));
  rows[0].unread=true;rows[0].revision=2;rows[0].severity='urgent';await page.click('#notification-reload');await page.waitForFunction(()=>document.querySelector('#notification-badge').textContent==='1');
  await page.click('#notification-mark-all');await page.waitForFunction(()=>document.querySelector('#notification-badge').hidden);assert.equal(rows[0].unread,false);

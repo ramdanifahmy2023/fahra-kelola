@@ -1,13 +1,12 @@
 const assert=require('node:assert/strict');
-const {execFileSync}=require('node:child_process');
 const fs=require('node:fs'),path=require('node:path');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),base=process.env.CHAT_TEST_URL||'http://127.0.0.1:8147';
-const php=code=>execFileSync('php',['-r',code],{cwd:root,encoding:'utf8'}).trim();
-const sid=php("chdir('public');require '../app/init.php';$d=new Database();$d->query('SELECT id,name,email FROM accounts LIMIT 1');$a=$d->single();session_id(bin2hex(random_bytes(24)));session_start();$_SESSION['auth_user']=$a;echo session_id();session_write_close();");
+const testSession=require('./panel-test-session.cjs')(root),sid=testSession.sid;
 (async()=>{let browser;try{
   browser=await chromium.launch();const ctx=await browser.newContext({viewport:{width:1600,height:1000}});
   await ctx.addCookies([{name:'PHPSESSID',value:sid,url:base}]);const page=await ctx.newPage(),errors=[],writes=[];
+  await ctx.route('**/procWorkspace/**',r=>r.fulfill({json:{status:'success'}}));
   page.on('pageerror',e=>errors.push(e.message));
   const shops=[{shop_id:1,shop_name:'Toko A dengan nama panjang untuk pemeriksaan tampilan',sync_enabled:false,stale:true,last_sync_at:'2026-09-28 10:00:00'},{shop_id:2,shop_name:'Toko B',sync_enabled:true,error_message:'user_is_forbidden'}];
   const rows=[{shop_id:1,shop_name:shops[0].shop_name,remote_conversation_id:'a',buyer_name:'Pembeli A',status:'activated',is_blocked:0},{shop_id:2,shop_name:'Toko B',remote_conversation_id:'b',buyer_name:'Pembeli B',status:'closed',is_blocked:1}];
@@ -71,4 +70,4 @@ const sid=php("chdir('public');require '../app/init.php';$d=new Database();$d->q
   assert.equal(await page.locator('[data-conversation-id="a"]').count(),0);
   assert.deepEqual(errors,[]);
   console.log('PASS: read-only chat controls/endpoints, race protection, cache polling, recovery, hidden notification target, shop switching, keyboard and 4 widths x 2 themes');
-}finally{await browser?.close();php("session_id('"+sid+"');session_start();session_destroy();");}})().catch(e=>{console.error(e);process.exitCode=1;});
+}finally{await browser?.close();testSession.cleanup();}})().catch(e=>{console.error(e);process.exitCode=1;});

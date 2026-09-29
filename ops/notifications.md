@@ -2,6 +2,8 @@
 
 Implemented 2026-09-29 after the [priority audit](notification-priority-audit.md). This is the first phase: stock lifecycle, shop/module connection issues, operational sync health, and shipping deadlines. Chat response time, ad balance, returns, rating discovery and AI worker incidents remain future work. Finance/HPP code is outside this change.
 
+On 2026-09-30, incoming Shopee chat notifications were added to the same bell, count, groups, receipts and reminders. They are read-only and use the existing sync worker; browser sound follows a separate chat event cursor. See [chat contract, verification and rollout](chat-readonly-notifications-20260930.md). This does not implement response-time/SLA detection or integrated sending.
+
 ## Detection and data contract
 
 | Type | Trigger and recovery | Action |

@@ -29,7 +29,7 @@ class ChatIncomingNotifications extends StockAlert {
       || (string)($message['from_id'] ?? '')!==$buyerId || $buyerId===(string)$sellerId
       || (string)($message['to_id'] ?? '')!==(string)$sellerId
       || (string)($message['conversation_id'] ?? '')!==$conversationId
-      || $remoteShop==='' || (string)($message['shop_id'] ?? '')!==$remoteShop
+      || $remoteShop==='' || (string)($message['to_shop_id'] ?? '')!==$remoteShop
       || empty($message['type'])
       || in_array($message['type'] ?? '',['notification','system'],true)) return false;
     // A timestamp without a timezone cannot establish that a message arrived after activation.

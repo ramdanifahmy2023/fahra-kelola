@@ -14,10 +14,10 @@
     $('sound-toggle').disabled=!supported||soundBusy;
     $('sound-toggle').setAttribute('aria-pressed',String(ready));
     $('sound-toggle').textContent=ready?'Matikan bunyi chat':enabled?'Aktifkan lagi bunyi chat':'Aktifkan bunyi chat';
-    $('sound-status').textContent=message||(!supported?'Browser ini belum mendukung bunyi chat antar-tab.':ready?'Bunyi aktif untuk chat baru saat halaman terlihat.':enabled?'Klik untuk mengaktifkan bunyi di halaman ini.':'Bunyi hanya untuk chat baru saat Shopdash terbuka.');
+    $('sound-status').textContent=message||(!supported?'Browser ini belum mendukung bunyi chat antar-tab.':ready?'Bunyi aktif saat Shopdash terbuka. Browser dapat menunda pemeriksaan tab di belakang.':enabled?'Klik untuk mengaktifkan bunyi di halaman ini.':'Bunyi hanya untuk chat baru saat Shopdash terbuka.');
   }
   function playChatTone(){
-    if(!soundReady()||document.hidden)return;
+    if(!soundReady())return;
     const start=audio.currentTime;
     for(const [offset,hz] of [[0,660],[.16,880]]){
       const oscillator=audio.createOscillator(),gain=audio.createGain();
@@ -29,7 +29,7 @@
     }
   }
   async function chatSound(cursor,baseline=false){
-    if(!/^(0|[1-9]\d{0,19})$/.test(String(cursor))||!navigator.locks)return;
+    if(!/^(0|[1-9]\d{0,19})$/.test(String(cursor))||!navigator.locks)return false;
     const first=!soundLoaded;soundLoaded=true;
     try{
       await navigator.locks.request(cursorKey,()=>{
@@ -38,11 +38,12 @@
         const advances=!valid||BigInt(cursor)>BigInt(previous.cursor);
         // Claim once across tabs, and silently establish a baseline after loading or an outage.
         const silent=first||baseline||!fresh;
-        if(!silent&&!soundReady()&&stored(soundKey)==='on')return;
+        if(!silent&&stored(soundKey)==='on'&&!soundReady())return;
         localStorage.setItem(cursorKey,JSON.stringify({cursor:advances?String(cursor):previous.cursor,at:Date.now()}));
         if(!silent&&advances&&soundReady())playChatTone();
       });
-    }catch{soundControls('Bunyi belum aktif. Izinkan penyimpanan browser lalu coba lagi.');}
+      soundControls();return true;
+    }catch{soundControls('Bunyi belum aktif. Izinkan penyimpanan browser lalu coba lagi.');return false;}
   }
   $('sound-toggle').addEventListener('click',async()=>{
     if(soundBusy)return;soundBusy=true;
@@ -53,8 +54,9 @@
         audio ||= new Audio();audio.onstatechange=()=>soundControls();
         await audio.resume();
         if(audio.state!=='running')throw new Error('Browser belum mengizinkan bunyi. Klik Aktifkan bunyi chat lagi.');
-        const data=await request('summary?limit=10');await chatSound(data.chat_cursor,true);
-        if(data.chat_cursor===null||data.chat_cursor===undefined)throw new Error('Data chat belum tersedia. Coba aktifkan bunyi lagi.');
+        const data=await request('summary?limit=10');
+        if(!/^(0|[1-9]\d{0,19})$/.test(String(data.chat_cursor)))throw new Error('Data chat belum tersedia. Coba aktifkan bunyi lagi.');
+        if(!await chatSound(data.chat_cursor,true))throw new Error('Izinkan penyimpanan browser untuk mengaktifkan bunyi chat.');
         localStorage.setItem(soundKey,'on');
       }
       soundControls();
@@ -177,5 +179,6 @@
   $('mark-all').addEventListener('click',()=>mark(rows.filter(row=>row.unread)));
   $('prev').addEventListener('click',()=>{offset=Math.max(0,offset-10);load();});
   $('next').addEventListener('click',()=>{offset+=10;load();});
-  load();window.setInterval(()=>{if(!document.hidden)load(true);},30000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(true);});
+  load();window.setInterval(()=>load(true),30000);
 })();

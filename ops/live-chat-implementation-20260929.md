@@ -2,6 +2,8 @@
 
 29–30 September 2026. Worktree `fahra-kelola-chat-audit`, branch `audit/shopee-live-chat`. Lanjutan [audit](live-chat-audit-20260929.md) dan [rekaman browser](live-chat-browser-capture-20260929.md).
 
+Keputusan terbaru 30 September: pengguna memilih **Chat Shopee hanya baca dan notifikasi**, dengan balasan di Shopee. Jalur HTTP send/aktivasi dinonaktifkan. Lihat [kontrak terbaru](chat-readonly-notifications-20260930.md); uraian pengamanan pengiriman di bawah adalah bukti implementasi sebelumnya, bukan arah produk saat ini.
+
 **Status: perbaikan jalur baca dan pengamanan kirim sudah diimplementasikan, diuji, dan dideploy ke live pada 30 September 2026. Pengiriman PHP ke Shopee belum berhasil: satu probe kirim ditolak dengan kode `90309999`, tanpa ID pesan. Ini bukan penyelesaian penuh bug balasan live.**
 
 ## Perubahan

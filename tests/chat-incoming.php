@@ -20,13 +20,13 @@ class IncomingTestClient {
   }
   public function getMessages($session,$cookie,$id,$limit,$offset) {
     $this->historyCalls++;
-    return ['ok'=>true,'data'=>[['id'=>$this->id,'shop_id'=>101,'conversation_id'=>$id,'from_id'=>501,'to_id'=>900,'type'=>'text','content'=>['text'=>'fixture'],'created_at'=>$this->id==='baseline'?'2020-01-01T00:00:00Z':gmdate('Y-m-d\TH:i:s\Z')]]];
+    return ['ok'=>true,'data'=>[['id'=>$this->id,'shop_id'=>0,'to_shop_id'=>101,'conversation_id'=>$id,'from_id'=>501,'to_id'=>900,'type'=>'text','content'=>['text'=>'fixture'],'created_at'=>$this->id==='baseline'?'2020-01-01T00:00:00Z':gmdate('Y-m-d\TH:i:s\Z')]]];
   }
   public function sendMessage(...$args) { $this->writes++; throw new RuntimeException('No sends allowed'); }
   public function markRead(...$args) { $this->writes++; throw new RuntimeException('No activation allowed'); }
 }
 $tables=['alerts','shops','products','chat_shop_snapshots','chat_conversations','chat_messages','sync_schedules'];
-$additional=['notification_receipts','notification_checks','chat_sync_progress','chat_thread_sync','chat_outbox','chat_incoming_monitors','chat_incoming_events'];
+$additional=['notification_receipts','notification_checks','notification_snoozes','chat_sync_progress','chat_thread_sync','chat_outbox','chat_incoming_monitors','chat_incoming_events'];
 try {
   foreach ($tables as $table) {
     $sql=incomingSql("SHOW CREATE TABLE {$table}")[0]['Create Table'];
@@ -45,9 +45,9 @@ try {
   $model->startShop(1);
   incomingCheck(incomingSql('SELECT started_at FROM chat_incoming_monitors')[0]['started_at']===$baseline,'Activation cutoff persists across polling');
   $conversation=['remote_conversation_id'=>'c1','buyer_id'=>501,'buyer_name'=>'Fixture buyer','raw_payload'=>'{"shop_id":101}'];
-  $message=['id'=>'new1','shop_id'=>101,'conversation_id'=>'c1','from_id'=>501,'to_id'=>900,'type'=>'text','content'=>['text'=>'Fixture new message'],'created_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+1)];
+  $message=['id'=>'new1','shop_id'=>0,'to_shop_id'=>101,'conversation_id'=>'c1','from_id'=>501,'to_id'=>900,'type'=>'text','content'=>['text'=>'Fixture new message'],'created_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+1)];
   incomingCheck(!$model->record(1,$conversation,array_replace($message,['created_at'=>'2020-01-01T00:00:00Z']),900),'Historical imports are silent');
-  foreach ([['from_id'=>900],['to_id'=>999],['from_id'=>777],['shop_id'=>202],['conversation_id'=>'other'],['type'=>'notification'],['type'=>'system'],['created_at'=>'2026-09-30 01:00:00'],['created_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600)]] as $change) {
+  foreach ([['from_id'=>900],['to_id'=>999],['from_id'=>777],['to_shop_id'=>202],['conversation_id'=>'other'],['type'=>'notification'],['type'=>'system'],['created_at'=>'2026-09-30 01:00:00'],['created_at'=>gmdate('Y-m-d\TH:i:s\Z',time()+3600)]] as $change) {
     incomingCheck(!$model->record(1,$conversation,array_replace($message,$change),900),'Wrong identity/system/unproven time suppressed');
   }
   incomingCheck($model->cursor()==='0','Filtered history creates no sound events');
@@ -58,15 +58,19 @@ try {
   incomingCheck($center->overview(1)['unread']===2,'Chat and existing stock share one unread total');
   $chat=array_values(array_filter($center->notifications(1),fn($row)=>$row['type']==='chat_incoming'))[0];
   incomingCheck($chat['severity']==='info' && $chat['path']==='/panel/chat?shop_id=1&conversation_id=c1','Chat has scoped local destination and its own type');
+  incomingCheck($center->filteredCount(1,true,['type'=>'chat_incoming'])===1 && $center->groups(1,true,10,0,['type'=>'chat_incoming'])['groups'][0]['type']==='chat_incoming','Grouping and type filter isolate chat from stock');
   $center->markRead(1,[['id'=>$chat['id'],'revision'=>$chat['revision']]]);
   incomingCheck($center->overview(1)['unread']===1 && $center->overview(2)['unread']===2,'Read receipt is per operator and preserves stock');
   incomingCheck(!$model->record(1,$conversation,$message,900) && $model->cursor()===$cursor,'Repeated history neither escalates nor sounds');
   incomingCheck($center->overview(1)['unread']===1,'Repeated history preserves read receipt');
+  $center->snooze(2,[['id'=>$chat['id'],'revision'=>$chat['revision']]],3600);
+  incomingCheck($center->overview(2)['unread']===1,'Chat reminder uses existing per-user snooze');
   $media=array_replace($message,['id'=>'new2','type'=>'image','content'=>[]]);
   incomingCheck($model->record(1,$conversation,$media,900),'Buyer media creates event without text');
   $chat2=array_values(array_filter($center->notifications(1),fn($row)=>$row['type']==='chat_incoming'))[0];
   incomingCheck($chat2['id']===$chat['id'] && $chat2['revision']===$chat['revision']+1 && str_contains($chat2['message'],'[image]'),'One conversation alert escalates on each new message');
   incomingCheck($center->overview(1)['unread']===2 && $center->overview(1)['total']===2,'Next message becomes unread without duplicate bell rows');
+  incomingCheck($center->overview(2)['unread']===2,'New chat revision supersedes an older snooze');
   incomingCheck(array_values(array_filter($center->notifications(1),fn($r)=>$r['type']==='low_stock'))[0]['revision']===$stock['revision'],'Chat does not alter stock revision');
   $failure=new IncomingTestFailure($db); $failure->ensureSchema();
   try { $failure->record(1,$conversation,array_replace($message,['id'=>'retry']),900); incomingCheck(false,'Expected rollback'); }
