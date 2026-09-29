@@ -37,6 +37,14 @@ Terapkan schema tambahan, seed cutoff dan aktifkan **hanya chat toko 1, 2, 5** d
 
 History upstream masih 100 pesan terbaru per pengambilan; detail cache menampilkan 200 terbaru; backfill daftar bertahap. Pagination history lebih lama dan burst latest lebih dari satu halaman belum dibuktikan. Jangan mengklaim arsip lengkap/dukungan tujuh toko. Tidak membuat pesan pembeli baru untuk uji produksi; bukti event baru/bunyi berasal dari fixture sampai ada pesan pembeli nyata setelah cutoff.
 
+### Deploy live, sekitar 01.23–01.26 WIB
+
+- Source main dari agent lain sampai `730a92a`, termasuk saldo seller dan pembaruan workspace/notifikasi, ikut digabung. CSS dibangun ulang dari source gabungan; tes chat/notifikasi empat lebar × dua tema dan 31 pemeriksaan incoming dijalankan ulang. Checkout live bersih di-fast-forward ke `513d3ad`.
+- Hanya `com.fahra.shopdash.worker` dihentikan singkat. Setelah proses lama berhenti dan lock worker checkout live diperoleh, satu lease job dan lima lease detail yang ditinggalkan dilepas. Status/progress/retry dipertahankan; snapshot privat `readonly-deployment-state.json`. Service yang sama dibootstrap dari plist lama, satu runner teramati PID 81410. Web, scheduler dan Boost tidak direstart.
+- Schema tambahan berhasil. Cutoff toko 1/2/5 tercatat sekitar 01.23.06 WIB. Ketiga jadwal aktif dengan interval 60 detik; 3/4/6/7 tetap `enabled=0`. Job baca 1 memakai job aktif 17373; toko 2/5 memakai 17579/17580. Tidak ada job send.
+- Pada 01.26 WIB, snapshot toko 1/2/5 `ok` tanpa error dan waktu baca baru sekitar 01.25–01.26. History cursor baru terisi pada 11/9/9 thread. Job masih meneruskan backfill; `last_success_at` schedule belum menandai seluruh pekerjaan selesai. Event/alert chat baru masih **0**, sehingga impor lama terbukti tidak menaikkan badge chat pada pengamatan ini.
+- Computer use Chrome membuka domain publik, memakai login tersimpan saat sesi lama expired, memilih hiban.store dan membuka history. Halaman berjudul **Chat Shopee**, riwayat nyata terlihat, dan **Balas di Shopee** mempunyai destination Seller Centre. Lonceng tetap menampilkan 62 notifikasi operasional belum dibaca dalam lima kelompok; tidak diacknowledge. **Aktifkan bunyi chat** berubah menjadi **Matikan bunyi chat**, dengan status browser aktif. Ini bukti aktivasi audio, bukan klaim sudah mendengar pesan pembeli baru.
+
 ## Verifikasi
 
 - `php tests/chat-incoming.php`: 31 pemeriksaan temporary tables untuk cutoff, recipient mapping `shop_id=0`, identitas asing, dedupe, mixed badge/group, receipt/snooze, revision, rollback/retry, ID berubah dalam detik yang sama, worker tanpa mutasi Shopee.
