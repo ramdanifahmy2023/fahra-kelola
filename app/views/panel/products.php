@@ -36,32 +36,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
     <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
   </button>
   <div class="form-control relative min-w-0 flex-1">
-    <div class="dropdown dropdown-bottom dropdown-end !block w-full">
-      <div tabindex="0" role="button" class="tooltip tooltip-bottom btn w-full justify-start gap-3 font-normal shadow-sm" data-tip="<?= htmlspecialchars($activeShop['name'] ?? 'Pilih toko'); ?>" id="selectedShopDisplay">
-        <?php if (!empty($data['shops'])): ?>
-          <img src="<?= htmlspecialchars($activeShop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
-          <span class="truncate flex-1 text-left"><?= htmlspecialchars($activeShop['name'] ?: 'Toko Tanpa Nama'); ?></span>
-          <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
-        <?php else: ?>
-          <span class="material-symbols-outlined text-[20px] opacity-50">storefront</span>
-          <span class="truncate flex-1 text-left text-base-content/50">Belum ada toko...</span>
-        <?php endif; ?>
-      </div>
-      <ul tabindex="0" class="dropdown-content z-[1] menu rounded-box mt-2 w-full max-h-64 overflow-y-auto bg-base-100 p-2 shadow-lg">
-        <?php if (!empty($data['shops'])): ?>
-          <?php foreach ($data['shops'] as $index => $shop): ?>
-            <li class="mb-1 last:mb-0">
-              <a href="<?= burl; ?>/panel/products?<?= htmlspecialchars(http_build_query(['shop_id' => (int)$shop['id'], 'limit' => (int)$data['limit']] + ($isCriticalFilter ? ['stock' => 'critical'] : [])), ENT_QUOTES, 'UTF-8'); ?>" data-product-shop="<?= (int)$shop['id']; ?>" <?= (int)$shop['id'] === (int)$data['active_shop_id'] ? 'aria-current="page"' : ''; ?> data-tip="<?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?>" class="tooltip tooltip-left flex items-center gap-3 py-2.5 <?= $shop['id'] == $data['active_shop_id'] ? 'bg-base-200' : '' ?>">
-                <img src="<?= htmlspecialchars($shop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
-                <span class="truncate font-medium"><?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?></span>
-              </a>
-            </li>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </ul>
-    </div>
-    <!-- Hidden input untuk menyimpan ID toko yang dipilih -->
-    <input type="hidden" id="selectedShopId" value="<?= $data['active_shop_id'] ?? ''; ?>" />
+    <?php require __DIR__ . '/templates/shop-picker.php'; ?>
   </div>
   </div>
 </div>

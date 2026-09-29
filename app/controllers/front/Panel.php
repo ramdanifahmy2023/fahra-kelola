@@ -194,6 +194,10 @@ class Panel extends Controller {
   public function customers() {
     $data['judul'] = 'Daftar Pelanggan - ' . app_name;
     $data['active_menu'] = 'customers';
+    $data['shops'] = $this->m('Shop')->findAll();
+    $shopId = (int)($_GET['shop_id'] ?? 0);
+    if (!in_array($shopId, array_map('intval', array_column($data['shops'], 'id')), true)) $shopId = 0;
+    $data['active_shop_id'] = $shopId;
 
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
     if ($page < 1) $page = 1;
@@ -202,11 +206,11 @@ class Panel extends Controller {
     if (!in_array($limit, [10, 20, 50, 100])) $limit = 10;
 
     $customerModel = $this->m('Customer');
-    $data['total_customers'] = $customerModel->count();
+    $data['total_customers'] = $customerModel->countForShop($shopId);
     $data['total_pages'] = max(1, ceil($data['total_customers'] / $limit));
     $data['current_page'] = min($page, $data['total_pages']);
     $data['limit'] = $limit;
-    $data['customers'] = $customerModel->findWithOrderStats($limit, ($data['current_page'] - 1) * $limit);
+    $data['customers'] = $customerModel->findWithOrderStats($limit, ($data['current_page'] - 1) * $limit, $shopId);
 
     $this->v('panel/templates/header', $data);
     $this->v('panel/customers', $data);

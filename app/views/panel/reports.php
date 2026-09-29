@@ -15,7 +15,7 @@ $shops = $data['shops'] ?? [];
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
       <label class="form-control"><span class="mb-1 text-xs font-bold text-base-content/60">Tanggal akhir</span><input id="report-end-date" type="date" class="input input-bordered input-sm w-full" /></label>
       <label class="form-control"><span class="mb-1 text-xs font-bold text-base-content/60">Urutkan ranking</span><select id="report-sort" class="select select-bordered select-sm w-full"><option value="confirmed_gmv">Penjualan (GMV)</option><option value="confirmed_orders">Pesanan selesai</option><option value="shop_uv">Pengunjung unik</option><option value="product_clicks">Klik produk</option></select></label>
-      <label class="form-control"><span class="mb-1 text-xs font-bold text-base-content/60">Filter toko</span><select id="report-shop" class="select select-bordered select-sm w-full"><option value="0">Semua toko</option><?php foreach ($shops as $shop): ?><option value="<?= (int)$shop['id']; ?>"><?= htmlspecialchars($shop['name'] ?: ('Toko #' . $shop['id']), ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select></label>
+      <div class="form-control min-w-0"><span class="mb-1 block text-xs font-bold text-base-content/60">Filter toko</span><?php require __DIR__ . '/templates/shop-picker.php'; ?></div>
       <button type="button" id="report-refresh" class="btn btn-primary btn-sm min-h-9"><span class="material-symbols-outlined text-base">refresh</span>Perbarui</button>
     </div>
     <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-base-content/50"><span>Periode berjalan: <b id="current-range">—</b></span><span>Periode pembanding: <b id="previous-range">—</b></span></div>
@@ -48,6 +48,26 @@ $shops = $data['shops'] ?? [];
 <script>
 (() => {
   const base = '<?= burl; ?>';
+  document.querySelector('.shop-picker-list').addEventListener('click', event => {
+    const option = event.target.closest('a[data-product-shop]');
+    if (!option) return;
+    event.preventDefault();
+    const picker = option.closest('.shop-picker');
+    const trigger = picker.querySelector('button');
+    const arrow = trigger.lastElementChild.cloneNode(true);
+    trigger.replaceChildren(...Array.from(option.children, child => child.cloneNode(true)), arrow);
+    const name = trigger.children[1];
+    name.className = 'min-w-0 flex-1 truncate text-left';
+    trigger.setAttribute('aria-label', 'Pilih toko: ' + name.textContent);
+    picker.querySelectorAll('a').forEach(link => {
+      link.classList.toggle('bg-base-200', link === option);
+      if (link === option) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    });
+    document.getElementById('report-shop').value = option.dataset.productShop;
+    document.activeElement.blur();
+    document.getElementById('report-shop').dispatchEvent(new Event('change'));
+  });
   const today = new Date();
   const dateInput = document.getElementById('report-end-date');
   dateInput.value = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Jakarta'}).format(today);

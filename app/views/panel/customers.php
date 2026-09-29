@@ -8,9 +8,10 @@
     <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">group</span>Customer directory</div>
     <h2 class="text-xl font-black tracking-tight text-base-content">Daftar Pelanggan</h2>
   </div>
-  <div class="flex items-center gap-2">
+  <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
     <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueCustomerBackgroundSync()" id="customer-sync-button"><span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang</button>
     <div class="badge badge-outline h-9 gap-2 px-3 text-xs font-bold"><span class="material-symbols-outlined text-sm text-primary">database</span><?= number_format($data['total_customers']) ?> pelanggan</div>
+    <div class="w-full min-w-0 sm:w-64"><?php require __DIR__ . '/templates/shop-picker.php'; ?></div>
   </div>
 </div>
 
@@ -65,7 +66,7 @@ function syncCustomers(force = false) {
 function queueCustomerBackgroundSync() {
   const button = document.getElementById('customer-sync-button');
   if (button) { button.disabled = true; button.innerText = 'Mengantrikan...'; }
-  const fd = new FormData(); fd.append('shop_id', '0'); fd.append('sync_type', 'customers');
+  const fd = new FormData(); fd.append('shop_id', document.getElementById('selectedShopId').value); fd.append('sync_type', 'customers');
   fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
     .then(r => r.json()).then(data => { if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat'); alert('Sinkronisasi pelanggan masuk antrean background.'); })
     .catch(error => alert(error.message)).finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
@@ -131,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="flex flex-wrap items-center justify-between gap-3 border-t border-base-content/8 bg-base-200/35 px-4 py-3">
     <div class="flex items-center gap-2 text-xs text-base-content/60">
       Tampilkan
-      <select class="select select-sm h-8 min-h-8 w-18" onchange="window.location.href = '?limit=' + this.value">
+      <select class="select select-sm h-8 min-h-8 w-18" onchange="window.location.href = '?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=' + this.value">
         <?php foreach ([10, 20, 50, 100] as $option): ?>
         <option value="<?= $option ?>" <?= $data['limit'] == $option ? 'selected' : '' ?>><?= $option ?></option>
         <?php endforeach; ?>
@@ -140,9 +141,9 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <?php if ($data['total_pages'] > 1): ?>
     <div class="join">
-      <?php if ($data['current_page'] > 1): ?><a href="?limit=<?= $data['limit'] ?>&page=<?= $data['current_page'] - 1 ?>" class="join-item btn btn-sm">«</a><?php else: ?><button class="join-item btn btn-sm btn-disabled">«</button><?php endif; ?>
+      <?php if ($data['current_page'] > 1): ?><a href="?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=<?= $data['limit'] ?>&page=<?= $data['current_page'] - 1 ?>" class="join-item btn btn-sm">«</a><?php else: ?><button class="join-item btn btn-sm btn-disabled">«</button><?php endif; ?>
       <button class="join-item btn btn-sm no-animation">Hal <?= $data['current_page'] ?> / <?= $data['total_pages'] ?></button>
-      <?php if ($data['current_page'] < $data['total_pages']): ?><a href="?limit=<?= $data['limit'] ?>&page=<?= $data['current_page'] + 1 ?>" class="join-item btn btn-sm">»</a><?php else: ?><button class="join-item btn btn-sm btn-disabled">»</button><?php endif; ?>
+      <?php if ($data['current_page'] < $data['total_pages']): ?><a href="?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=<?= $data['limit'] ?>&page=<?= $data['current_page'] + 1 ?>" class="join-item btn btn-sm">»</a><?php else: ?><button class="join-item btn btn-sm btn-disabled">»</button><?php endif; ?>
     </div>
     <?php endif; ?>
   </div>
@@ -215,6 +216,7 @@ function openCustomerHistory(username) {
 
   const formData = new FormData();
   formData.append('username', username);
+  formData.append('shop_id', document.getElementById('selectedShopId').value);
   fetch('<?= burl; ?>/proccustomers/history', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData })
     .then(response => response.json())
     .then(data => {

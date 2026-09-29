@@ -69,6 +69,7 @@
       const available = report.available === true;
       const set = (key, value) => node.querySelector('[data-' + key + ']').textContent = value;
       set('shop-name', shop.shop_name || 'Toko #' + shop.shop_id);
+      window.renderShopLogo(node.querySelector('[data-shop-logo]'), shop.shop_id);
       const range = report.start_date === report.end_date ? date(report.start_date) : date(report.start_date) + ' s.d. ' + date(report.end_date);
       set('performance-period', (report.channel_label || channel.selectedOptions[0].text) + ' · ' + range);
       set('shop-sync', report.fetched_at ? 'Diperbarui ' + timestamp(report.fetched_at) : 'Belum diperbarui');

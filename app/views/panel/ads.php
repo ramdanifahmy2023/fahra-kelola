@@ -93,11 +93,11 @@
 <template id="ads-card-template">
   <article class="min-w-0 overflow-hidden rounded-xl border border-base-content/20 bg-base-100 text-base-content">
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-content/20 p-5">
-      <div class="min-w-0">
+      <div class="shop-identity"><span class="shop-logo" data-shop-logo></span><div class="min-w-0">
         <h3 class="break-words text-lg font-black" data-shop-name></h3>
         <p class="mt-1 text-sm" data-performance-period></p>
         <p class="mt-2 text-xs" data-shop-sync></p>
-      </div>
+      </div></div>
       <span class="ads-report-status" data-status></span>
     </div>
     <dl class="ads-metrics p-5">
@@ -136,4 +136,5 @@
     </details>
   </article>
 </template>
+<?php require __DIR__ . '/templates/shop-logos.php'; ?>
 <script src="<?= assets; ?>/js/ads.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/ads.js'); ?>" defer></script>

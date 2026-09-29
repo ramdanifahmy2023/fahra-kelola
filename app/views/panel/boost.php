@@ -10,7 +10,7 @@
 <template id="boost-card-template">
   <article class="min-w-0 rounded-xl border border-base-content/20 bg-base-100" data-card>
     <div class="flex flex-wrap items-start justify-between gap-3 p-5">
-      <div class="min-w-0"><h3 class="break-words text-base font-bold" data-shop-name></h3><p class="mt-1 text-sm" data-shop-status>Memuat produk…</p></div>
+      <div class="shop-identity"><span class="shop-logo" data-shop-logo></span><div class="min-w-0"><h3 class="break-words text-base font-bold" data-shop-name></h3><p class="mt-1 text-sm" data-shop-status>Memuat produk…</p></div></div>
       <span class="text-sm" data-session-status></span>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3 px-5 pb-4 text-sm">
@@ -41,5 +41,6 @@
     </details>
   </article>
 </template>
+<?php require __DIR__ . '/templates/shop-logos.php'; ?>
 <script id="boost-shops" type="application/json"><?= json_encode(array_map(static function ($shop) { return ['id' => (int)$shop['id'], 'name' => $shop['name'] ?? 'Toko tanpa nama']; }, $data['shops'] ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?></script>
 <script src="<?= assets; ?>/js/boost.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/boost.js'); ?>" defer></script>

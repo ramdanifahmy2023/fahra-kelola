@@ -1,0 +1,2 @@
+<script id="shop-logo-data" type="application/json"><?= json_encode(array_map(static function ($shop) { return ['id' => (int)$shop['id'], 'logo' => $shop['shop_logo'] ?? '']; }, $data['shops'] ?? []), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?></script>
+<script src="<?= assets; ?>/js/shop-logos.js?v=<?= filemtime(__DIR__ . '/../../../../public/assets/js/shop-logos.js'); ?>"></script>

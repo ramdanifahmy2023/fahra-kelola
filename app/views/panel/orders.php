@@ -42,33 +42,8 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
       </select>
       <button type="button" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear && $selectedMonth === $currentMonth ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(1)" title="Bulan berikutnya" <?= $selectedYear === $currentYear && $selectedMonth === $currentMonth ? 'disabled' : ''; ?>>›</button>
     </div>
-  <div class="form-control w-64 relative">
-    <div class="dropdown dropdown-bottom dropdown-end w-full">
-      <div tabindex="0" role="button" class="tooltip tooltip-bottom btn h-9 min-h-9 w-full justify-start gap-3 font-normal shadow-sm" data-tip="<?= htmlspecialchars($activeShop['name'] ?? 'Pilih toko'); ?>" id="selectedShopDisplay">
-        <?php if (!empty($data['shops'])): ?>
-          <img src="<?= htmlspecialchars($activeShop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
-          <span class="truncate flex-1 text-left"><?= htmlspecialchars($activeShop['name'] ?: 'Toko Tanpa Nama'); ?></span>
-          <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
-        <?php else: ?>
-          <span class="material-symbols-outlined text-[20px] opacity-50">storefront</span>
-          <span class="truncate flex-1 text-left text-base-content/50">Belum ada toko...</span>
-        <?php endif; ?>
-      </div>
-      <ul tabindex="0" class="dropdown-content z-[1] menu rounded-box mt-2 w-full max-h-64 overflow-y-auto bg-base-100 p-2 shadow-lg">
-        <?php if (!empty($data['shops'])): ?>
-          <?php foreach ($data['shops'] as $index => $shop): ?>
-            <li class="mb-1 last:mb-0">
-              <a data-tip="<?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?>" onclick="selectShop(this, <?= $shop['id']; ?>, '<?= addslashes(htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama')); ?>', '<?= addslashes(htmlspecialchars($shop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png')); ?>')" class="tooltip tooltip-left flex items-center gap-3 py-2.5 <?= $shop['id'] == $data['active_shop_id'] ? 'bg-base-200' : '' ?>">
-                <img src="<?= htmlspecialchars($shop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
-                <span class="truncate font-medium"><?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?></span>
-              </a>
-            </li>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </ul>
-    </div>
-    <!-- Hidden input untuk menyimpan ID toko yang dipilih -->
-    <input type="hidden" id="selectedShopId" value="<?= $data['active_shop_id'] ?? ''; ?>" />
+  <div class="form-control relative w-full min-w-0 sm:w-64">
+    <?php require __DIR__ . '/templates/shop-picker.php'; ?>
   </div>
 </div>
 </div>
@@ -265,29 +240,6 @@ function changeLimit(limit, shopId) {
     window.location.href = currentUrl;
 }
 
-function selectShop(element, id, name, logo) {
-    pauseOrderSync();
-    sessionStorage.removeItem('synced_order_details_' + id);
-    document.getElementById('selectedShopId').value = id;
-    document.getElementById('selectedShopDisplay').innerHTML = `
-        <img src="${logo}" class="w-6 h-6 rounded object-cover" />
-        <span class="truncate flex-1 text-left">${name}</span>
-        <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
-    `;
-    document.getElementById('selectedShopDisplay').dataset.tip = name;
-    
-    const menu = element.closest('.menu');
-    menu.querySelectorAll('a').forEach(a => a.classList.remove('bg-base-200'));
-    element.classList.add('bg-base-200');
-    document.activeElement.blur();
-
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.set('shop_id', id);
-    currentUrl.searchParams.delete('page');
-    window.history.replaceState({}, '', currentUrl);
-    
-    refreshOrderBackgroundStatus(id);
-}
 
 function syncOrders(id, sentinel = '', pageNumber = 1, syncMode = '') {
     if (!sentinel) {

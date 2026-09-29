@@ -13,7 +13,7 @@
 <template id="promotion-card-template">
   <article class="overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-content/10 p-5">
-      <div class="min-w-0"><div class="truncate text-base font-black" data-shop-name></div><div class="mt-1 text-xs text-base-content/50" data-shop-sync></div></div>
+      <div class="shop-identity"><span class="shop-logo" data-shop-logo></span><div class="min-w-0"><div class="break-words text-base font-black" data-shop-name></div><div class="mt-1 text-xs text-base-content/50" data-shop-sync></div></div></div>
       <span class="badge badge-ghost badge-sm" data-status></span>
     </div>
     <div class="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
@@ -36,6 +36,7 @@
   </article>
 </template>
 
+<?php require __DIR__ . '/templates/shop-logos.php'; ?>
 <script>
 (() => {
   const grid = document.getElementById('promotion-grid');
@@ -71,6 +72,7 @@
       shops.forEach(shop => {
         const node = template.content.cloneNode(true), data = shop.summary || {};
         node.querySelector('[data-shop-name]').textContent = shop.shop_name || 'Toko tanpa nama';
+        window.renderShopLogo(node.querySelector('[data-shop-logo]'), shop.shop_id);
         node.querySelector('[data-shop-sync]').textContent = shop.synced_at ? 'Diperbarui ' + new Date(shop.synced_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'Belum pernah disinkronkan';
         const status = node.querySelector('[data-status]');
         if (shop.session_expired) { status.textContent = 'Sesi habis'; status.className = 'badge badge-warning badge-sm'; }

@@ -162,6 +162,7 @@
     states.set(shop.id, local);
     card.dataset.shopId = shop.id;
     card.querySelector('[data-shop-name]').textContent = shop.name;
+    window.renderShopLogo(card.querySelector('[data-shop-logo]'), shop.id);
     card.querySelector('[data-reconnect]').href = root.dataset.shopsUrl;
     card.querySelector('[data-refresh]').addEventListener('click', () => loadShop(local));
     card.querySelector('[data-boost]').addEventListener('click', () => runBoost(local));

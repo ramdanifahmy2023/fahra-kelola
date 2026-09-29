@@ -29,7 +29,7 @@ class ProcCustomers extends Controller {
       exit;
     }
 
-    echo json_encode(['status' => 'success', 'orders' => $this->m('Customer')->findOrderHistory($username)]);
+    echo json_encode(['status' => 'success', 'orders' => $this->m('Customer')->findOrderHistory($username, max(0, (int)($_POST['shop_id'] ?? 0)))]);
     exit;
   }
 }
