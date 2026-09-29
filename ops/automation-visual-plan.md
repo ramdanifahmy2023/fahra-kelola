@@ -1,6 +1,6 @@
 # Rencana visual Automation Engine
 
-Tanggal: 2026-09-29. Status: **rencana, belum diimplementasikan**. Basis audit: `f75c9c8`, halaman lokal `/panel/automation` pada server 8123. Permintaan pengguna: kurangi tulisan yang selalu terlihat, rapikan dashboard, gunakan ikon/logo/visual yang membantu pemahaman.
+Tanggal: 2026-09-29. Status: **diimplementasikan pada 2026-09-29**; lihat [hasil dan verifikasi](automation-visual-ui.md). Isi berikut mencatat rencana awal sebelum implementasi. Basis audit: `f75c9c8`, halaman lokal `/panel/automation` pada server 8123. Permintaan pengguna: kurangi tulisan yang selalu terlihat, rapikan dashboard, gunakan ikon/logo/visual yang membantu pemahaman.
 
 ## Temuan audit
 

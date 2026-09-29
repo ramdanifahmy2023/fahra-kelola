@@ -10,7 +10,7 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 - Keep the current Shopdash visual identity. The Products shop dropdown is the reference for shop selection throughout the panel.
 - Shop lists open downward in one scrollable column, with the correct shop logo. Headers on Promotions, Ads, and Boost also display shop logos.
 - Prefer shared components over page-specific copies. Preserve filters, independent selection state, keyboard access, and both themes.
-- For Automation, prefer compact task-focused layouts with meaningful icons and shop logos. Keep lengthy help behind disclosures while leaving errors, unsaved state, and consequential warnings visible. The user requested a visual plan on 2026-09-29; proposed changes are not implemented yet.
+- For Automation, prefer compact task-focused layouts with meaningful icons and shop logos. Keep lengthy help behind disclosures while leaving errors, unsaved state, and consequential warnings visible. The requested compact Automation layout was implemented on 2026-09-29; see the visual implementation note below.
 - Every completed task is committed and pushed to GitHub after appropriate verification. Do not force-push or include unrelated user work.
 - Extension releases stay downloadable as backups. Never overwrite or delete a published ZIP or its release metadata when updating; every release and changelog item must have a name. Use the release workflow in [extension maintenance](ops/sellerio-extension.md).
 - Keep maintenance knowledge in the repository so subsequent Codex/AI sessions can explicitly read it. `AGENTS.md` is the entrypoint; `tools.md` and this file are intentional root documentation exceptions to the normal `ops/` placement rule.
@@ -47,7 +47,7 @@ Passing counts above are historical, not a promise about the current revision. R
 
 ## Automation Engine foundation
 
-- Visual follow-up: [Automation visual plan](ops/automation-visual-plan.md) audits the current page and proposes Aturan toko / Uji aturan / Koneksi AI tabs, compact editors, and meaningful icons. This is a plan only, not an implemented UI contract or an active sender.
+- Visual interface: Aturan toko / Uji aturan / Koneksi AI tabs, compact persona/rule editors, meaningful icons, draft retention and indicators, and hidden-field validation reveal. See [implementation and verification](ops/automation-visual-ui.md), based on the [visual plan](ops/automation-visual-plan.md). Saving settings still does not activate a sender.
 - On 2026-09-29 the user initially requested an audit, then requested the foundation for rating automation. Users choose target stars and scope themselves; do not hard-code all stars or automatically exclude low ratings.
 - `/panel/automation` stores independent per-shop target filters, persona, support policy, model ID, and actions/instructions for stars 1–5. Actions are AI draft, manual review, or skip. These are saved intentions, not an active worker.
 - Provider selected by the user: 9Router, OpenAI-compatible. CRUD connections and synthetic model testing are implemented; the user's actual provider endpoint/credentials still need configuration and verification. No review submission has been performed.

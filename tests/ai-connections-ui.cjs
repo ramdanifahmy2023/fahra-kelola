@@ -39,25 +39,29 @@ const sid=php("chdir('public'); require '../app/init.php'; $d=new Database(); $d
    return reply({connection:item,models:[{id:'alpha-combo',kind:'combo'},{id:'provider/long-model-name-that-wraps-on-mobile-1234567890',kind:'model'},{id:'zeta',kind:'model'}]});
   });
   await page.route('**/procAutomation/save',route=>{const body=route.request().postDataJSON();selected=body.connection_id;return route.fulfill({json:{status:'success',profile:{config:body.config,version:body.version+1,connection_id:selected}}});});
-  await page.goto(base+'/panel/automation');await page.addStyleTag({content:'*,*::before,*::after { transition: none !important; animation: none !important; }'});await page.getByText('Belum ada koneksi. Tambahkan base URL', {exact:false}).waitFor();
+  await page.goto(base+'/panel/automation');await page.addStyleTag({content:'*,*::before,*::after { transition: none !important; animation: none !important; }'});await page.click('#automation-tab-connections');await page.getByText('Belum ada koneksi', {exact:true}).waitFor();
   await page.click('#ai-add');await page.fill('#ai-name','Router uji <script>');await page.fill('#ai-base-url','https://router.example.com');await page.fill('#ai-api-key','fixture-only-key');await page.fill('#ai-default-model','review-combo');
   await page.click('#ai-key-toggle');assert.equal(await page.getAttribute('#ai-api-key','type'),'text');await page.click('#ai-key-toggle');
   fail=true;await page.click('#ai-save');await page.locator('#ai-error').waitFor({state:'visible'});assert.equal(await page.inputValue('#ai-api-key'),'fixture-only-key');
-  fail=false;await page.click('#ai-save');await page.locator('#ai-form').waitFor({state:'hidden'});assert.equal(writes,1);
+  fail=false;await page.click('#ai-save');await page.locator('#ai-form').waitFor({state:'hidden'});assert.equal(writes,1);await page.waitForFunction(()=>document.activeElement.id==='ai-add');
   assert.equal(await page.inputValue('#ai-api-key'),'');assert.ok((await page.locator('#ai-list').innerText()).includes('Router uji <script>'));
+  await page.click('#automation-tab-settings');
   await page.selectOption('#automation-connection','711');await page.click('#automation-save-button');await page.waitForFunction(()=>document.querySelector('#automation-save-status').textContent.includes('tersimpan'));assert.equal(selected,711);
   assert.match(await page.locator('#automation-effective-model').innerText(),/review-combo/);
+  await page.click('#automation-advanced > summary');
   await page.fill('#automation-model','shop-override');assert.match(await page.locator('#automation-effective-model').innerText(),/shop-override/);await page.click('#automation-save-button');
+  await page.click('#automation-tab-connections');
   await page.locator('[data-action=edit]').click();assert.equal(await page.inputValue('#ai-api-key'),'');await page.fill('#ai-base-url','https://new.example.com/v1');await page.click('#ai-save');await page.locator('#ai-api-key-error').waitFor({state:'visible'});assert.equal(await page.getAttribute('#ai-api-key','aria-invalid'),'true');
   await page.fill('#ai-api-key','replacement-fixture-key');await page.click('#ai-save');await page.locator('#ai-form').waitFor({state:'hidden'});assert.equal(writes,2);
   await page.locator('[data-action=edit]').click();await page.fill('#ai-name','Router diperbarui');conflict=true;await page.click('#ai-save');await page.locator('#ai-error').waitFor({state:'visible'});assert.match(await page.locator('#ai-error').innerText(),/tab lain/);assert.equal(await page.inputValue('#ai-name'),'Router diperbarui');
   conflict=false;await page.click('#ai-save');await page.locator('#ai-form').waitFor({state:'hidden'});
-  await page.locator('[data-action=models]').click();await page.locator('#ai-model-options').waitFor({state:'visible'});await page.fill('#ai-default-model','');await page.press('#ai-default-model','ArrowDown');await page.press('#ai-default-model','Enter');assert.equal(await page.inputValue('#ai-default-model'),'alpha-combo');await page.click('#ai-save');await page.locator('#ai-form').waitFor({state:'hidden'});
+  await page.locator('.ai-more > summary').focus();await page.keyboard.press('Enter');assert.ok(await page.locator('[data-action=delete]').isVisible());await page.keyboard.press('Escape');assert.ok(await page.locator('[data-action=delete]').isHidden());
+  await page.locator('.ai-more > summary').click();await page.locator('[data-action=models]').click();await page.locator('#ai-model-options').waitFor({state:'visible'});await page.fill('#ai-default-model','');await page.press('#ai-default-model','ArrowDown');await page.press('#ai-default-model','Enter');assert.equal(await page.inputValue('#ai-default-model'),'alpha-combo');await page.click('#ai-save');await page.locator('#ai-form').waitFor({state:'hidden'});
   await page.locator('[data-action=test]').click();await page.waitForFunction(()=>document.querySelector('#ai-list').textContent.includes('Model berhasil menghasilkan'));
   probeFailure=true;await page.locator('[data-action=test]').click();await page.locator('#ai-list-error').waitFor({state:'visible'});assert.match(await page.locator('#ai-list-error').innerText(),/menolak akses/);probeFailure=false;
   rows[0].shops=[{id:1,name:'Toko A',inherits_model:true}];await page.click('#ai-reload');await page.waitForFunction(()=>document.querySelector('#ai-list').textContent.includes('1 toko'));
-  await page.locator('[data-action=delete]').click();await page.waitForFunction(()=>document.querySelector('#ai-list-error').textContent.includes('masih dipakai'));
-  await page.locator('[data-action=models]').click();await page.locator('#ai-model-options').waitFor({state:'visible'});await page.fill('#ai-default-model','');
+  await page.locator('.ai-more > summary').click();await page.locator('[data-action=delete]').click();await page.waitForFunction(()=>document.querySelector('#ai-list-error').textContent.includes('masih dipakai'));
+  await page.locator('.ai-more > summary').click();await page.locator('[data-action=models]').click();await page.locator('#ai-model-options').waitFor({state:'visible'});await page.fill('#ai-default-model','');
   const output=path.join(root,'tmp/ai-connections-ui');fs.mkdirSync(output,{recursive:true});
   for(const width of [320,500,999,1600])for(const theme of ['light','dark']){
    await page.setViewportSize({width,height:1008});await page.evaluate(t=>window.shopdashTheme.setMode(t),theme);
@@ -76,7 +80,7 @@ const sid=php("chdir('public'); require '../app/init.php'; $d=new Database(); $d
    await page.screenshot({path:path.join(output,width+'-'+theme+'.png')});await page.press('#ai-default-model','Escape');assert.ok(await page.locator('#ai-model-options').isHidden());
   }
   await page.fill('#ai-default-model','manual-combo');await page.click('#ai-save');await page.locator('#ai-form').waitFor({state:'hidden'});
-  rows[0].shops=[];await page.click('#ai-reload');await page.waitForFunction(()=>document.querySelector('#ai-list').textContent.includes('0 toko'));await page.locator('[data-action=delete]').click();await page.waitForFunction(()=>document.querySelector('#ai-list-state').textContent==='0 koneksi tersimpan.');
+  rows[0].shops=[];await page.click('#ai-reload');await page.waitForFunction(()=>document.querySelector('#ai-list').textContent.includes('0 toko'));await page.locator('.ai-more > summary').click();await page.locator('[data-action=delete]').click();await page.waitForFunction(()=>document.querySelector('#ai-list-state').textContent==='0 koneksi tersimpan.');
   const csrf=await page.locator('#automation-page').getAttribute('data-csrf');
   const denied=await context.request.post(base+'/procAiConnections/create',{data:{}});assert.equal(denied.status(),403);
   const invalid=await context.request.post(base+'/procAiConnections/create',{headers:{'X-CSRF-Token':csrf},data:{name:'',base_url:'bad'}});assert.equal(invalid.status(),422);
