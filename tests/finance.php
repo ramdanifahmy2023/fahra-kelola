@@ -24,7 +24,7 @@ class FinanceSourceFixture {
   }
 }
 $db=new Database(); $f=new FinanceFixture($db); $cost=new CostFixture($db);
-$tables=['finance_imports','finance_income_rows','finance_pending_states','finance_current','finance_days','finance_overview_totals','finance_cost_heads','finance_cost_versions','finance_cost_events','shops','orders','order_items','products','product_models','ad_shop_snapshots','ad_balance_topups','ad_topup_sync_state','sync_schedules','shop_performance_daily'];
+$tables=['finance_imports','finance_income_rows','finance_pending_states','finance_pending_diagnostics','finance_paid_intraday','finance_current','finance_days','finance_overview_totals','finance_cost_heads','finance_cost_versions','finance_cost_events','shops','orders','order_items','products','product_models','ad_shop_snapshots','ad_browser_reports','ad_balance_topups','ad_topup_sync_state','sync_schedules','shop_performance_daily'];
 try {
   foreach($tables as $table) {
     $schema=$f->one('SHOW CREATE TABLE '.$table)['Create Table'];
@@ -102,6 +102,11 @@ try {
   $f->execute("UPDATE finance_imports SET completed_at='2026-01-01'");$f->requestImports([$shops[0]],$range);$f->work($shops[0],$source,3,0);
   $statusFailure=$f->summary([$shops[0]],$range)['stores'][0];
   financeCheck($statusFailure['pending']===30 && $statusFailure['pending_state_counts']['unknown']===2,'Failed status reads publish valid income as unknown, never zero shipping certainty');
+  $source->missingStatuses=false;
+  $repair=$f->repairPending($shops[0],$source);
+  financeCheck($repair['checked']===2 && $repair['identified']===2,'Repair reads only unresolved pending orders');
+  financeCheck($f->repairPending($shops[0],$source)['checked']===0,'Identified orders are not requested again during repair');
+  financeCheck($f->summary([$shops[0]],$range)['stores'][0]['pending']===30,'Status repair does not change income');
 
   $catalog=$cost->catalog($shops,1,'SAME'); financeCheck($catalog['total']===4,'Duplicate SKU retained across variants and shops');
   $input=['shop_id'=>1,'product_id'=>'10','model_id'=>'0','unit_cost'=>'20000','valid_from'=>'2026-09-02','version'=>0];
@@ -149,6 +154,50 @@ try {
   $api=new FinanceApi($transport);$statuses=$api->pendingStates(['cookie'=>'SPC_CDS=fixture','shop_id'=>101],range(1,6),0);
   financeCheck(count($transport->calls)===2 && count($transport->calls[0]['order_param_list'])===5 && count($statuses)===6,'Bounded five-order batches, unrelated response IDs rejected');
   financeCheck($statuses[1]['state']==='delivered' && !isset($statuses[9999]),'Order cards use verified description');
-  $transport->fail=true;financeCheck($api->pendingStates(['cookie'=>'SPC_CDS=fixture','shop_id'=>101],[1],0)===[],'Failed status request remains unknown');
+  $transport->fail=true;$failedStatus=$api->pendingStates(['cookie'=>'SPC_CDS=fixture','shop_id'=>101],[1],0)[1];
+  financeCheck($failedStatus['state']==='unknown' && $failedStatus['reason']==='request_failed' && $failedStatus['synced_at']===null,'Failed status request remains unknown with cause');
+
+  $transport=new class {
+    public $descriptions=[];
+    public function request(...$args) {
+      return ['code'=>0,'data'=>['card_list'=>array_map(static fn($id,$descriptions)=>['package_level_order_card'=>[
+        'order_ext_info'=>['order_id'=>$id], 'package_list'=>array_map(static fn($d)=>['status_info'=>['status_description'=>['description_value'=>$d]]],$descriptions)
+      ]],array_keys($this->descriptions),array_values($this->descriptions))]];
+    }
+  };
+  $transport->descriptions=[1=>['Mohon kirim / arrange pickup sebelum {timestamp} untuk menghindari keterlambatan pengiriman.'],2=>['Menunggu pengiriman diverifikasi oleh Jasa Kirim.'],3=>['Paket dipick up pada {timestamp}.'],4=>['Order is being shipped to buyer.','Order has been delivered to buyer.'],5=>['Order is being shipped to buyer.','Status uji tidak dikenal']];
+  $parsed=(new FinanceApi($transport))->pendingStates(['cookie'=>'SPC_CDS=fixture','shop_id'=>101],range(1,5),0);
+  financeCheck($parsed[1]['state']==='preparing','Package cards identify preparation');
+  financeCheck($parsed[2]['state']==='pickup' && $parsed[2]['reason']==='courier_verification','Courier verification has its own note');
+  financeCheck($parsed[3]['state']==='pickup' && $parsed[3]['reason']==='pickup_recorded','Recorded pickup differs from waiting verification');
+  financeCheck($parsed[4]['state']==='mixed' && $parsed[5]['state']==='unknown','Mixed packages counted once; unknown package prevents false classification');
+  financeCheck(FinancePolicy::deliveryState('To avoid late shipment, please arrange drop-off / arrange pickup by {timestamp}.')==='preparing','Observed English preparation');
+  financeCheck(FinancePolicy::combineStatuses([$parsed[2],$parsed[3]])===['state'=>'pickup','reason'=>null],'Two known pickup descriptions remain one stage');
+
+  $transport=new class {
+    public $badDate=false,$fail=false,$value=0;
+    public function getShopPerformance($cookie,$start,$end,$period) {
+      financeCheck($period==='real_time' && $start->format('H:i')==='00:00' && $end->format('H:i')==='10:00','Intraday request follows observed WIB hour bounds');
+      return ['ok'=>!$this->fail,'result'=>['paid_gmv'=>['value'=>$this->value,'points'=>[['timestamp'=>$start->getTimestamp()-($this->badDate ? 1 : 0),'value'=>$this->value]]]]];
+    }
+  };
+  $api=new FinanceApi($transport);$at=new DateTimeImmutable('2026-09-29 10:35:00',new DateTimeZone('Asia/Jakarta'));
+  financeCheck($api->paidToday(['cookie'=>'fixture'],$at)===['date'=>'2026-09-29','amount'=>0,'through_at'=>'2026-09-29 03:00:00'],'Verified zero paid GMV with source cutoff');
+  $transport->value=915200.0000000001;financeCheck($api->paidToday(['cookie'=>'fixture'],$at)['amount']===915200,'Observed floating noise preserves whole rupiah');
+  $transport->value=12.5;financeThrows(fn()=>$api->paidToday(['cookie'=>'fixture'],$at));$transport->value=0;
+  $transport->badDate=true;financeThrows(fn()=>$api->paidToday(['cookie'=>'fixture'],$at));
+  $transport->badDate=false;$transport->fail=true;financeThrows(fn()=>$api->paidToday(['cookie'=>'fixture'],$at));
+  financeThrows(fn()=>$api->paidToday(['cookie'=>'fixture'],$at->setTime(0,5)));
+
+  $today=FinancePolicy::range()['end'];$yesterday=FinancePolicy::date($today)->modify('-1 day')->format('Y-m-d');$currentRange=FinancePolicy::range($yesterday,$today);
+  $f->execute("INSERT INTO shop_performance_daily (shop_id,metric_date,source,paid_gmv,synced_at) VALUES (1,:yesterday,'homepage',100,'2026-09-29 01:00:00'),(1,:today,'homepage',20,'2026-09-29 01:00:00')",['yesterday'=>$yesterday,'today'=>$today]);
+  $f->execute("INSERT INTO finance_paid_intraday (shop_id,source_shop_id,metric_date,amount,through_at,synced_at,last_attempt_at) VALUES (1,101,:today,30,'2026-09-29 02:00:00','2026-09-29 02:01:00','2026-09-29 02:01:00'),(1,999,:other,999,NULL,'2026-09-29 03:00:00','2026-09-29 03:00:00') ON DUPLICATE KEY UPDATE amount=VALUES(amount),synced_at=VALUES(synced_at)",['today'=>$today,'other'=>$today]);
+  $s=$f->summary([$shops[0]],$currentRange)['stores'][0];
+  financeCheck($s['gmv']===130.0 && $s['gmv_days']===2 && $s['gmv_coverage']['today_included'],'Today replaces overlapping daily value, never added twice, with source identity');
+  $f->execute('DELETE FROM shop_performance_daily WHERE metric_date=:date',['date'=>$yesterday]);
+  $s=$f->summary([$shops[0]],$currentRange)['stores'][0];
+  financeCheck($s['gmv_coverage']['missing_dates']===[$yesterday],'Exact missing date remains visible');
+  $f->execute('UPDATE finance_paid_intraday SET failed=1 WHERE shop_id=1 AND source_shop_id=101');
+  financeCheck($f->summary([$shops[0]],$currentRange)['stores'][0]['gmv_coverage']['today_failed'],'Failed refresh preserves amount and exposes failure');
   echo "PASS: finance pagination, publication, deduplication, identity, WIB, failures, multi-shop scope, SKU variants, HPP history, impact, zero and concurrent edits\n";
 } finally { foreach(array_reverse($tables) as $table)$f->execute('DROP TEMPORARY TABLE IF EXISTS '.$table); }

@@ -70,4 +70,4 @@ UI UX Pro Max and antislop were applied. Direction: Shopdash operational inbox, 
 
 ## Integration boundaries
 
-Built in an isolated worktree. Integrated Boost PR #3 (`c0a1c3f`) before delivery; source CSS merged and generated CSS rebuilt from the combined source. No changes to Boost, Chat or Finance/HPP implementation files. Subsequent agents should preserve the notification API/revision contract and use temporary-table/mocked tests before extending detectors.
+Built in an isolated worktree. Integrated Boost PR #3 (`c0a1c3f`) and the subsequent Finance/Boost integration (`d690d9b`) before delivery; source CSS merged and generated CSS rebuilt from the combined source. Notification, product-sync and notification browser checks were rerun after the final integration. No changes to Boost, Chat or Finance/HPP implementation files. Subsequent agents should preserve the notification API/revision contract and use temporary-table/mocked tests before extending detectors.

@@ -99,8 +99,8 @@
     $('[data-editor-note]',editor).textContent = mode === 'manual' ? 'Aksi sekali jalan tidak mengubah pilihan atau jadwal pengulangan.' : 'Menyimpan pilihan tidak mengaktifkan pengulangan baru.';
     $('[data-save]',editor).textContent = mode === 'manual' ? 'Tinjau pengiriman' : 'Simpan pilihan';
     $('[data-editor-shop]',editor).textContent = local.name;
-    $('#boost-search').value = ''; notice($('[data-editor-error]',editor),''); $('[data-reload-version]',editor).hidden = true;
-    renderDraft(); editor.showModal(); $('#boost-search').focus(); loadCatalog();
+    $('#boost-search').value = ''; notice($('[data-editor-error]',editor),''); notice($('[data-recommendation-status]',editor),''); $('[data-reload-version]',editor).hidden = true;
+    renderDraft(); editor.showModal(); $('[data-recommend]',editor).focus({preventScroll:true}); $('.boost-editor-content',editor).scrollTop=0; loadCatalog();
   }
   function renderDraft() {
     if (!draft) return;
@@ -109,10 +109,18 @@
     const list = $('[data-chosen]',editor); list.replaceChildren();
     draft.selected.forEach(p => {
       const li = document.createElement('li'), name = document.createElement('span'), remove = document.createElement('button');
-      name.textContent = p.name; remove.type = 'button'; remove.className = 'boost-text-button'; remove.textContent = 'Hapus'; remove.setAttribute('aria-label','Hapus '+p.name); remove.disabled = draft.busy;
-      remove.addEventListener('click',()=>{ const index=[...draft.selected.keys()].indexOf(String(p.id));draft.selected.delete(String(p.id));renderDraft();const buttons=$('[data-chosen]',editor).querySelectorAll('button');(buttons[Math.min(index,buttons.length-1)] || $('#boost-search')).focus(); }); li.append(name,remove); list.append(li);
+      name.textContent = p.name;
+      if(p.sold_count != null){const sales=document.createElement('small');sales.textContent='Terjual '+number(p.sold_count);name.append(sales);}
+      remove.type = 'button'; remove.className = 'boost-text-button'; remove.textContent = 'Hapus'; remove.setAttribute('aria-label','Hapus '+p.name); remove.disabled = draft.busy;
+      remove.addEventListener('click',()=>{ const index=[...draft.selected.keys()].indexOf(String(p.id));draft.selected.delete(String(p.id));clearRecommendationUndo();renderDraft();const buttons=$('[data-chosen]',editor).querySelectorAll('button');(buttons[Math.min(index,buttons.length-1)] || $('#boost-search')).focus(); }); li.append(name,remove); list.append(li);
     });
     $('[data-save]',editor).disabled = draft.busy || draft.conflict || (draft.mode === 'manual' ? !draft.selected.size : !dirty());
+    $('[data-recommend]',editor).disabled = draft.busy;
+    $('[data-recommend]',editor).textContent = draft.recommending ? 'Memuat rekomendasi…' : 'Pilih rekomendasi';
+    $('[data-recommendation]',editor).setAttribute('aria-busy',String(!!draft.recommending));
+    $('[data-undo-recommendation]',editor).hidden = !draft.beforeRecommendation;
+    $('[data-undo-recommendation]',editor).disabled = draft.busy;
+    $('[data-reload-version]',editor).disabled = draft.busy;
     editor.querySelectorAll('[data-product-id]').forEach(input => { input.checked = draft.selected.has(input.dataset.productId); input.disabled = draft.busy || (!input.checked && draft.selected.size >= 5); });
   }
   async function loadCatalog() {
@@ -128,14 +136,37 @@
       p.products.forEach(product=>{
         product.id=String(product.id);
         const row=document.createElement('label');row.className='boost-product-row';
-        row.innerHTML='<input type="checkbox" data-product-id="'+esc(product.id)+'">'+image(product)+'<span class="boost-product-title">'+esc(product.name)+'</span><span class="boost-product-meta">Rp '+number(product.price_min)+' · Stok '+number(product.total_stock)+'<span>'+((Number(product.total_stock)>0)?'Diperiksa lagi sebelum pengiriman':'Stok kosong; pengulangan akan menunggu')+'</span></span>';
-        const input=row.querySelector('input');input.addEventListener('change',()=>{if(input.checked)current.selected.set(product.id,product);else current.selected.delete(product.id);renderDraft();});container.append(row);
+        row.innerHTML='<input type="checkbox" data-product-id="'+esc(product.id)+'">'+image(product)+'<span class="boost-product-title">'+esc(product.name)+'</span><span class="boost-product-meta">Terjual '+number(product.sold_count)+' · Rp '+number(product.price_min)+' · Stok '+number(product.total_stock)+'<span>'+((Number(product.total_stock)>0)?'Diperiksa lagi sebelum pengiriman':'Stok kosong; pengulangan akan menunggu')+'</span></span>';
+        const input=row.querySelector('input');input.addEventListener('change',()=>{if(input.checked)current.selected.set(product.id,product);else current.selected.delete(product.id);clearRecommendationUndo();renderDraft();});container.append(row);
       });
       bindImages(container); notice($('[data-catalog-status]',editor),p.total ? number(p.total)+' produk aktif di katalog' : 'Tidak ada produk yang cocok. Ubah pencarian atau periksa sinkronisasi produk.');
       $('[data-page]',editor).textContent='Halaman '+p.page+' / '+p.pages;
       $('[data-prev]',editor).disabled=p.page<=1;$('[data-next]',editor).disabled=p.page>=p.pages;renderDraft();
     }catch(error){if(draft===current && seq===current.seq)notice($('[data-catalog-status]',editor),error.message+' Gunakan Cari untuk mencoba lagi.');}
   }
+  function clearRecommendationUndo() {
+    draft.beforeRecommendation=null;
+    notice($('[data-recommendation-status]',editor),'');
+  }
+  $('[data-recommend]',editor).addEventListener('click',async()=>{
+    const current=draft;if(!current || current.busy)return;
+    current.busy=true;current.recommending=true;renderDraft();
+    notice($('[data-recommendation-status]',editor),'Mengurutkan produk toko berdasarkan penjualan…');
+    try {
+      const result=await api('recommendations?shop_id='+current.local.id);
+      if(draft!==current)return;
+      if(!result.products.length){notice($('[data-recommendation-status]',editor),'Belum ada produk aktif dan berstok dengan data penjualan. Pilihan Anda tetap.');return;}
+      current.beforeRecommendation=new Map(current.selected);
+      current.selected=new Map(result.products.map(p=>[String(p.id),{...p,id:String(p.id)}]));
+      notice($('[data-recommendation-status]',editor),current.selected.size+' produk terlaris dipilih. '+(current.mode==='manual'?'Tinjau pengiriman untuk melanjutkan.':'Periksa pilihan, lalu klik Simpan pilihan.'));
+    }catch(error){if(draft===current)notice($('[data-recommendation-status]',editor),error.message+' Pilihan Anda tetap. Klik Pilih rekomendasi untuk mencoba lagi.');}
+    finally{current.busy=false;current.recommending=false;if(draft===current)renderDraft();}
+  });
+  $('[data-undo-recommendation]',editor).addEventListener('click',()=>{
+    if(!draft?.beforeRecommendation || draft.busy)return;
+    draft.selected=draft.beforeRecommendation;clearRecommendationUndo();renderDraft();
+    notice($('[data-recommendation-status]',editor),'Pilihan sebelumnya dikembalikan.');$('[data-recommend]',editor).focus();
+  });
   function closeEditor() { if(draft?.busy) return; if(dirty() && !window.confirm('Batalkan perubahan pilihan yang belum disimpan?')) return; editor.close(); draft=null; }
   $('[data-editor-close]',editor).addEventListener('click',closeEditor);$('[data-editor-cancel]',editor).addEventListener('click',closeEditor);
   editor.addEventListener('cancel',event=>{event.preventDefault();closeEditor();});

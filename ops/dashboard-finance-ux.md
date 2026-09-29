@@ -9,12 +9,12 @@ Implemented 2026-09-29 from the user's UI audit and explicit implementation requ
 - Bulan ini means day 1 through today in WIB. Hari ini and custom dates are available. Presets advance on the next visible refresh at midnight/month rollover; custom dates and shop subsets survive reload and navigation to Finance. The date fields appear only for custom periods.
 - Pending is the latest snapshot, independent of report dates. Released and the secondary figures carry the selected date range. Released is explicitly labelled as money released by Shopee, not bank withdrawal.
 - Missing figures stay unavailable; verified zeroes stay zero. Partial totals have a prominent text-and-icon warning, with coverage per shop. No day or shop is silently imputed. Timestamps identify available snapshots, not a promise that every upstream source has finished updating.
-- Shipping, delivered-awaiting-release, return processing, and unknown statuses are displayed together under Pending. Known buckets are labelled as identified amounts when classification is incomplete, including zero-valued unknown orders. Pending detail and overview differences remain visible; no explanation for their differences is invented.
+- Preparation, pickup/verification, shipping, delivered-awaiting-release, return processing, and unknown statuses are displayed under Pending. Mixed-package stages appear when present and count each order once. Known buckets are labelled as identified amounts when classification is incomplete. Pending detail and overview differences remain visible; no cause is invented.
 - The per-shop ledger uses actual logos and separate dates/coverage. Reconciliation and HPP explanations remain available through keyboard-accessible disclosures. Existing dated HPP editing, preview, concurrent-edit rejection, and history are retained.
 
 ## Dashboard sources and scope
 
-- Monetary figures call `/procFinance/summary`; omset always uses `paid_gmv` from the existing performance importer. Dashboard no longer calls the intraday `sales` field omset.
+- Monetary figures call `/procFinance/summary`; omset always uses `paid_gmv`. Historical daily rows combine with the latest verified same-day `paid_gmv.value`, with no duplicated date and a provisional today label. The independent activity `sales` field is not used as paid GMV.
 - The independent activity section says Hari ini and explicitly excludes the report date filter. Its source is the existing Shopee realtime endpoint with `event=confirmed`; labels describe confirmed sales. It follows the same selected shops as the monetary overview.
 - `DashboardMetrics` preserves per-metric and per-hour coverage. Missing values/timestamps do not become zero or now. The summary timestamp uses the oldest known included source; unknown source timestamps remain unknown. Product rows keep shop identity and do not merge identical names from different shops.
 - `/procDashboard/overview` scopes all operational data to the selected local shop IDs. Orders use creation dates with inclusive WIB boundaries converted to UTC storage. Missing dates are disclosed outside period counts. Product/stock/connection data are latest positions; customer membership is scoped but covers all stored time, explicitly labelled.
@@ -49,7 +49,7 @@ UI UX Pro Max searches were narrowed after off-topic first results. The applicab
 - Existing Ads tests verify 135 data assertions and 267 browser assertions. Generated CSS is rebuilt from source; finance/dashboard selectors are scoped to `#finance-page`.
 - Contrast checks use the skill's checker on browser-resolved colors: primary text 17.57:1 light and 15.60:1 dark; partial warning 8.31:1 light and 10.75:1 dark; primary action 6.62:1 in both themes.
 
-Existing importer gaps remain visible. This UI change does not backfill missing paid-GMV or advertising dates or reconcile Shopee overview/detail differences by assumption.
+Historical importer gaps remain visible. The follow-up now reads matching-period ad aggregates and verified same-day paid GMV; it does not fabricate historical dates or reconcile Shopee overview/detail differences by assumption. The latest compact ledger and responsive verification are documented in [the follow-up review](finance-completeness-20260929.md).
 
 ## Pending breakdown and advertising topups, 2026-09-29
 

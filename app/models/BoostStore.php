@@ -51,6 +51,11 @@ class BoostStore extends BaseModel {
     foreach($rows as &$row)$row['id']=(string)$row['id'];
     return ['products'=>$rows,'total'=>$total,'page'=>$page,'pages'=>max(1,(int)ceil($total/10))];
   }
+  public function recommendations(int $shop): array {
+    $rows=$this->rows('SELECT id,name,shop_id,status,total_stock,sold_count,cover_image,price_min FROM products WHERE shop_id=:shop AND status=1 AND deleted_at IS NULL AND total_stock>0 AND sold_count>0 ORDER BY sold_count DESC,id DESC LIMIT 5',['shop'=>$shop]);
+    foreach($rows as &$row)$row['id']=(string)$row['id'];
+    return $rows;
+  }
   public function save(int $shop, int $version, array $ids, int $actor): array {
     $ids=BoostPolicy::ids($ids,true);
     $this->db->begin();
