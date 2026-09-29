@@ -2,6 +2,8 @@
 
 Tanggal: 2026-09-29 (WIB). Baseline: `f75c9c8`. Branch: `audit/product-boost-automation`. Status: audit selesai, rancangan untuk pembahasan; implementasi dan aktivasi belum dilakukan.
 
+Pembaruan setelah pengguna meminta implementasi: perilaku yang sudah dibuat, verifikasi, instruksi runtime dan batas pilot dicatat di [kontrak implementasi Boost](boost-automation.md). Isi audit di bawah tetap merekam kondisi baseline, bukan status implementasi terkini.
+
 Keputusan pengguna: **ulangi produk pilihan per toko saat slot tersedia**. Pemilihan otomatis dari seluruh katalog dan penggantian produk lewat rotasi berada di luar cakupan.
 
 Arahan tambahan pengguna pada 2026-09-29: implementasi juga harus meningkatkan visual dan UX halaman Boost, menggunakan UI UX Pro Max serta antislop selama pengerjaan dan review akhir. Perbaikan UI menjadi bagian hasil implementasi, dengan lingkup tetap pada Boost dan komponen yang benar-benar diperlukan.
