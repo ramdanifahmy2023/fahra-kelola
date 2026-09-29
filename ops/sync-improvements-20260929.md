@@ -8,7 +8,7 @@
 - Each recent job also queues up to 100 oldest-due local active orders, independent of which index page contains them. Active detail freshness is three minutes; terminal orders use 24 hours. Fresh details already fetched by another job are skipped before making another request. History completion does not postpone the recent schedule.
 - Recent orders and chat receive priority, while jobs waiting at least two minutes are promoted to prevent history starvation. This is a scheduling policy, not a maximum delay guarantee: an in-flight request can still take time.
 - Packages run at most five items per turn with a durable order-ID cursor. Failures accumulate across turns and cause the final job to fail. Valid empty package responses get a one-hour cooldown; failed responses do not update `package_synced_at`. Package requests have a five-second connection timeout and a 15-second total timeout.
-- Ads schedules remain disabled on this installation. No new ads integration was implemented.
+- Ads and chat schedules are disabled for all seven shops on this installation, following the user's request to focus on orders and other shop data. No queued or running ads/chat jobs remained when this pause was verified. Orders, products, packages, promotions, performance, customers, and shop health schedules remain enabled. These are database settings; source checkout alone does not reproduce the pause.
 
 ## Verification
 
