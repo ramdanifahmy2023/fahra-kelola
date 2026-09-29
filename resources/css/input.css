@@ -1,4 +1,51 @@
 @import "tailwindcss";
+
+/* Chat panes retain independent scrolling while drafts stay visible. */
+.chat-shell { position: relative; display: grid; grid-template-columns: 200px minmax(240px, 320px) minmax(0, 1fr); height: min(780px, 85dvh); min-height: 560px; overflow: hidden; }
+.chat-shell > aside, .chat-shell > section { min-width: 0; min-height: 0; }
+.chat-shop-pane, .chat-list-pane { display: flex; flex-direction: column; border-right: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent); }
+.chat-scroll { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+#chat-shops, #chat-conversations { flex: 1; }
+.chat-shop-button { display: flex; gap: .6rem; align-items: center; width: 100%; min-height: 48px; padding: .6rem; text-align: left; border-radius: .5rem; font-size: .8rem; cursor: pointer; }
+.chat-shop-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.chat-shop-name small { display: block; margin-top: .25rem; font-size: .75rem; }
+.chat-shop-logo { display: grid; place-items: center; width: 24px; height: 24px; flex: 0 0 24px; }
+.chat-shop-logo img { width: 24px; height: 24px; object-fit: cover; border-radius: .25rem; }
+.chat-shop-logo .material-symbols-outlined { font-size: 24px; }
+.chat-conversation-button { display: block; width: 100%; min-height: 76px; padding: .75rem; border-radius: .5rem; text-align: left; font-size: .875rem; cursor: pointer; overflow-wrap: anywhere; }
+.chat-conversation-button > * { display: block; }
+.chat-conversation-button small { margin-top: .3rem; font-size: .75rem; }
+.chat-preview { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chat-shop-button:hover, .chat-conversation-button:hover { background: var(--color-base-200); }
+.chat-shop-button[aria-pressed="true"], .chat-conversation-button[aria-pressed="true"] { background: var(--color-primary); color: var(--color-primary-content); }
+#chat-page :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+#chat-page .btn:not(:disabled):not(.btn-primary) { color: var(--color-base-content); }
+#chat-detail:not(.hidden) { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+#chat-detail header { flex-shrink: 0; overflow-wrap: anywhere; }
+#chat-detail-buyer { overflow-wrap: anywhere; }
+#chat-messages { flex: 1; min-height: 100px; display: flex; flex-direction: column; gap: .75rem; }
+.chat-message { align-self: flex-start; max-width: 90%; padding: .6rem .75rem; border-radius: .6rem; background: var(--color-base-100); border: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .875rem; flex-shrink: 0; }
+.chat-message small { display: block; font-size: .75rem; margin-top: .35rem; }
+.chat-outgoing { align-self: flex-end; background: var(--color-primary); color: var(--color-primary-content); }
+#chat-compose { flex-shrink: 0; }
+#chat-message { resize: vertical; max-height: 200px; }
+.chat-popup-close, .chat-mobile-back { display: none; }
+.chat-popup-backdrop { position: fixed; inset: 0; z-index: 50; background: color-mix(in oklab, var(--color-base-content) 45%, transparent); }
+.chat-shell.is-popup { position: fixed; inset: 1rem; z-index: 60; height: calc(100dvh - 2rem); min-height: 0; padding-top: 52px; }
+.chat-shell.is-popup .chat-popup-close { display: inline-flex; position: absolute; right: .3rem; top: .2rem; }
+@media (max-width: 1199px) {
+  .chat-shell { grid-template-columns: 170px minmax(200px, 260px) minmax(0, 1fr); }
+}
+@media (max-width: 1023px) {
+  .chat-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); height: 750px; min-height: 0; }
+  .chat-shop-pane { max-height: 190px; border-right: 0; border-bottom: 1px solid color-mix(in oklab, var(--color-base-content) 15%, transparent); }
+  .chat-list-pane { border-right: 0; }
+  .chat-shell:not(.chat-detail-open) .chat-detail-pane { display: none; }
+  .chat-shell.chat-detail-open { grid-template-rows: minmax(0, 1fr); }
+  .chat-shell.chat-detail-open > :is(aside, .chat-list-pane) { display: none; }
+  .chat-mobile-back { display: inline-flex; margin-bottom: .25rem; }
+  .chat-shell.is-popup { inset: 0; height: 100dvh; border-radius: 0; padding-bottom: env(safe-area-inset-bottom); }
+}
 @plugin "daisyui";
 
 @source "../../app/views/**/*.php";

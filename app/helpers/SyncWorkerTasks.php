@@ -282,7 +282,7 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
   if ($type === 'promotions') return [(new PromotionMonitor())->syncShop($shop), null];
   if ($type === 'chat') {
     $result = (new ChatMonitor())->syncShop($shopId);
-    return [!empty($result['ok']), $result['message'] ?? null];
+    return [!empty($result['ok']), $result['message'] ?? null, $result['complete'] ?? true];
   }
   if ($type === 'customers') {
     $result = (new Customer())->syncFromOrders();

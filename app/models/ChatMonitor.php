@@ -3,8 +3,16 @@
 class ChatMonitor extends BaseModel {
   protected $table = 'chat_shop_snapshots';
   private $staleSeconds = 30;
+  private $schemaReady = false;
+  private $chatClient;
+
+  public function __construct($db = null, $client = null) {
+    $this->db = $db ?: new Database();
+    $this->chatClient = $client;
+  }
 
   public function ensureSchema() {
+    if ($this->schemaReady) return;
     $this->db->query("CREATE TABLE IF NOT EXISTS chat_shop_snapshots (
       shop_id INT NOT NULL,
       remote_shop_id BIGINT NULL,
@@ -75,17 +83,22 @@ class ChatMonitor extends BaseModel {
       KEY chat_messages_conversation (shop_id, remote_conversation_id, remote_created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $this->db->exe();
+    foreach (explode(';', file_get_contents(__DIR__ . '/../../database/migrations/20260929_chat_delivery.sql')) as $sql) {
+      if (trim($sql) === '') continue;
+      $this->db->query($sql); $this->db->exe();
+    }
+    $this->schemaReady = true;
   }
 
   private function client() {
     require_once __DIR__ . '/ShopeeChat.php';
-    return new ShopeeChat();
+    return $this->chatClient ?: new ShopeeChat();
   }
 
   private function shops($shopId = null) {
     $where = '';
     if ((int)$shopId > 0) $where = ' WHERE id = :shop_id';
-    $this->db->query("SELECT id, name, cookie, sync_status FROM shops{$where} ORDER BY name ASC");
+    $this->db->query("SELECT id, shop_id AS remote_shop_id, name, cookie, sync_status FROM shops{$where} ORDER BY name ASC");
     if ($where) $this->db->bind('shop_id', (int)$shopId);
     return $this->db->getAll();
   }
@@ -94,6 +107,19 @@ class ChatMonitor extends BaseModel {
     $this->db->query("SELECT * FROM {$this->table} WHERE shop_id = :shop_id LIMIT 1");
     $this->db->bind('shop_id', (int)$shopId);
     return $this->db->single() ?: null;
+  }
+
+  private function session(array $shop) {
+    $session = $this->client()->bootstrap($shop['cookie']);
+    if (!empty($session['ok']) && ((string)($shop['remote_shop_id'] ?? '') !== (string)$session['remote_shop_id'] || empty($shop['remote_shop_id']))) {
+      return ['ok' => false, 'message' => 'Identitas sesi chat tidak cocok dengan toko. Perbarui cookie toko yang dipilih.'];
+    }
+    return $session;
+  }
+
+  private function ownedSql($alias = 'c') {
+    // Old mixed-feed rows remain recoverable, but cannot be read or sent under the wrong shop.
+    return "JSON_VALID({$alias}.raw_payload) AND JSON_UNQUOTE(JSON_EXTRACT({$alias}.raw_payload, '$.shop_id')) = CAST(s.shop_id AS CHAR)";
   }
 
   private function utcDate($value) {
@@ -199,11 +225,12 @@ class ChatMonitor extends BaseModel {
     if ($cookie === '') return $this->saveError($shop, true, 'Cookie toko kosong. Perbarui cookie Shopee.');
 
     $client = $this->client();
-    $session = $client->bootstrap($cookie);
+    $session = $this->session($shop);
     if (empty($session['ok'])) return $this->saveError($shop, !empty($session['expired']), $session['message'] ?? 'Sesi chat Shopee tidak tersedia.');
 
     $snapshot = $this->snapshot($shopId) ?: [];
     $cursor = [
+      'direction' => empty($snapshot['last_message_id']) ? 'older' : 'latest',
       'last_message_id' => $snapshot['last_message_id'] ?? '',
       'last_message_region' => $snapshot['last_message_region'] ?? 'ID',
       'next_timestamp_nano' => $snapshot['next_timestamp_nano'] ?? '0'
@@ -212,7 +239,9 @@ class ChatMonitor extends BaseModel {
     if (empty($response['ok'])) return $this->saveError($shop, !empty($response['expired']), $response['message'] ?? 'Daftar percakapan tidak tersedia.');
     $data = is_array($response['data'] ?? null) ? $response['data'] : [];
     $conversations = is_array($data['conversations'] ?? null) ? $data['conversations'] : [];
-    foreach ($conversations as $conversation) $this->upsertConversation($shopId, $conversation);
+    foreach ($conversations as $conversation) {
+      if ((string)($conversation['shop_id'] ?? '') === (string)$session['remote_shop_id']) $this->upsertConversation($shopId, $conversation);
+    }
 
     $latestId = (string)($snapshot['last_message_id'] ?? '');
     $latestNano = (string)($snapshot['next_timestamp_nano'] ?? '0');
@@ -223,8 +252,8 @@ class ChatMonitor extends BaseModel {
       if ($candidateId !== '' && ($latestId === '' || strlen($candidateId) > strlen($latestId) || (strlen($candidateId) === strlen($latestId) && strcmp($candidateId, $latestId) > 0))) {
         $latestId = $candidateId;
         $latestRegion = (string)($conversation['last_message_region'] ?? $latestRegion);
+        $latestNano = $candidateNano ?: '0';
       }
-      if ($candidateNano !== '' && ($latestNano === '' || strlen($candidateNano) > strlen($latestNano) || (strlen($candidateNano) === strlen($latestNano) && strcmp($candidateNano, $latestNano) > 0))) $latestNano = $candidateNano;
     }
     $attributions = is_array($data['attributions'] ?? null) ? $data['attributions'] : [];
     $remoteShop = is_array($session['shop'] ?? null) ? $session['shop'] : [];
@@ -262,25 +291,90 @@ class ChatMonitor extends BaseModel {
       'last_message_id' => $latestId,
       'last_message_region' => $latestRegion,
       'next_timestamp_nano' => $latestNano,
-      'session_expires_at' => gmdate('Y-m-d H:i:s', (int)$session['access_token_expires_at']),
+      'session_expires_at' => !empty($session['access_token_expires_at']) ? gmdate('Y-m-d H:i:s', (int)$session['access_token_expires_at']) : null,
       'payload' => json_encode($payload, JSON_UNESCAPED_UNICODE)
     ];
     foreach ($values as $key => $value) $this->db->bind($key, $value);
     $this->db->exe();
-    $this->db->query("UPDATE shops SET sync_status = 'connected' WHERE id = :shop_id");
-    $this->db->bind('shop_id', (int)$shopId);
-    $this->db->exe();
-    return ['ok' => true, 'status' => 'ok', 'fetched_conversations' => count($conversations)];
+    $backfill = $this->backfill($shop, $session);
+    if (empty($backfill['ok'])) return $this->saveError($shop, false, $backfill['message']);
+    $details = $this->syncDetails($shop, $session);
+    if (empty($details['ok'])) return $this->saveError($shop, false, $details['message']);
+    return ['ok' => true, 'status' => 'ok', 'complete' => $backfill['complete'] && $details['complete'], 'fetched_conversations' => count($conversations)];
   }
 
   private function saveError(array $shop, $expired, $message) {
     $status = $expired && stripos((string)$message, 'forbidden') === false ? 'expired' : 'error';
-    $this->db->query("INSERT INTO {$this->table} (shop_id, status, last_sync_at, error_message) VALUES (:shop_id, :status, UTC_TIMESTAMP(), :error_message) ON DUPLICATE KEY UPDATE status = VALUES(status), last_sync_at = UTC_TIMESTAMP(), error_message = VALUES(error_message)");
+    $this->db->query("INSERT INTO {$this->table} (shop_id, status, error_message) VALUES (:shop_id, :status, :error_message) ON DUPLICATE KEY UPDATE status = VALUES(status), error_message = VALUES(error_message)");
     $this->db->bind('shop_id', (int)$shop['id']);
     $this->db->bind('status', $status);
     $this->db->bind('error_message', (string)$message);
     $this->db->exe();
     return ['ok' => false, 'status' => $status, 'message' => (string)$message];
+  }
+
+  private function backfill(array $shop, array $session) {
+    $this->db->query('INSERT IGNORE INTO chat_sync_progress (shop_id) VALUES (:id)');
+    $this->db->bind('id', (int)$shop['id']); $this->db->exe();
+    $this->db->query('SELECT * FROM chat_sync_progress WHERE shop_id = :id');
+    $this->db->bind('id', (int)$shop['id']); $progress = $this->db->single();
+    if ($progress['backfill_done']) return ['ok' => true, 'complete' => true];
+    $response = $this->client()->listConversations($session, $shop['cookie'], [
+      'direction' => 'older', 'last_message_id' => $progress['older_cursor'],
+      'last_message_region' => $progress['older_cursor'] ? $progress['older_region'] : $session['message_region'],
+      'next_timestamp_nano' => '0'
+    ]);
+    if (empty($response['ok'])) return $response;
+    $rows = $response['data']['conversations'];
+    $last = $rows ? $rows[count($rows) - 1] : [];
+    $cursor = (string)($last['latest_message_id'] ?? '');
+    if ($rows && ($cursor === '' || $cursor === $progress['older_cursor'])) return ['ok' => false, 'message' => 'Cursor daftar chat tidak maju. Sinkronisasi dihentikan agar tidak mengulang halaman.'];
+    foreach ($rows as $row) {
+      if ((string)($row['shop_id'] ?? '') === (string)$session['remote_shop_id']) $this->upsertConversation($shop['id'], $row);
+    }
+    $done = !$rows;
+    $this->db->query('UPDATE chat_sync_progress SET older_cursor = :cursor, older_region = :region, backfill_done = :done WHERE shop_id = :id');
+    foreach (['cursor' => $cursor, 'region' => $last['last_message_region'] ?? $session['message_region'], 'done' => (int)$done, 'id' => (int)$shop['id']] as $key => $value) $this->db->bind($key, $value);
+    $this->db->exe();
+    return ['ok' => true, 'complete' => $done];
+  }
+
+  private function syncDetails(array $shop, array $session) {
+    $this->db->query("SELECT c.* FROM chat_conversations c JOIN shops s ON s.id = c.shop_id LEFT JOIN chat_thread_sync t ON t.shop_id = c.shop_id AND t.conversation_id = c.remote_conversation_id WHERE c.shop_id = :id AND " . $this->ownedSql() . " AND (t.retry_at IS NULL OR t.retry_at <= UTC_TIMESTAMP()) AND (t.synced_at IS NULL OR t.requested_at IS NOT NULL OR c.latest_message_at > t.synced_at) ORDER BY t.requested_at IS NULL, t.requested_at DESC, c.latest_message_at DESC LIMIT 4");
+    $this->db->bind('id', (int)$shop['id']); $rows = $this->db->getAll();
+    $failure = null;
+    foreach (array_slice($rows, 0, 3) as $conversation) {
+      $started = gmdate('Y-m-d H:i:s');
+      $id = $conversation['remote_conversation_id'];
+      $response = $this->client()->getMessages($session, $shop['cookie'], $id, 100, 0);
+      if (!empty($response['ok'])) {
+        foreach ($response['data'] as $message) {
+          if (!is_array($message) || empty($message['id']) || (!empty($message['conversation_id']) && (string)$message['conversation_id'] !== $id)) continue;
+          $this->upsertMessage($shop['id'], $id, $message, (int)$session['remote_user_id']);
+          if (!empty($message['request_id'])) {
+            $this->db->query("UPDATE chat_outbox SET status = 'sent', remote_message_id = :message, error_message = NULL WHERE request_id = :request AND shop_id = :shop AND conversation_id = :conversation AND content_hash = :hash");
+            foreach (['message' => (string)$message['id'], 'request' => (string)$message['request_id'], 'shop' => (int)$shop['id'], 'conversation' => $id, 'hash' => hash('sha256', (string)($message['content']['text'] ?? ''))] as $key => $value) $this->db->bind($key, $value);
+            $this->db->exe();
+          }
+        }
+      } else $failure = $response['message'] ?? 'Riwayat pesan gagal diperbarui.';
+      $ok = !empty($response['ok']);
+      $this->db->query("INSERT INTO chat_thread_sync (shop_id, conversation_id, synced_at, retry_at, error_message, history_count) VALUES (:shop, :conversation, :synced, :retry, :error, :count) ON DUPLICATE KEY UPDATE synced_at = COALESCE(VALUES(synced_at), synced_at), requested_at = IF(requested_at <= :started, NULL, requested_at), retry_at = VALUES(retry_at), error_message = VALUES(error_message), history_count = IF(VALUES(synced_at) IS NULL, history_count, VALUES(history_count))");
+      foreach (['shop' => (int)$shop['id'], 'conversation' => $id, 'synced' => $ok ? $started : null, 'retry' => $ok ? null : gmdate('Y-m-d H:i:s', time() + 60), 'error' => $ok ? null : $failure, 'count' => $ok ? count($response['data']) : 0, 'started' => $started] as $key => $value) $this->db->bind($key, $value);
+      $this->db->exe();
+    }
+    return ['ok' => $failure === null, 'message' => $failure, 'complete' => count($rows) <= 3];
+  }
+
+  public function requestRefresh($shopId, $conversationId = '') {
+    $this->ensureSchema();
+    if (!$this->shops($shopId) || (int)$shopId < 1) return ['ok' => false, 'message' => 'Pilih toko yang akan diperbarui.'];
+    if ($conversationId !== '') {
+      if (!$this->conversation($shopId, $conversationId)) return ['ok' => false, 'message' => 'Percakapan tidak dimiliki toko ini.'];
+      $this->db->query('INSERT INTO chat_thread_sync (shop_id, conversation_id, requested_at) VALUES (:shop, :conversation, UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE requested_at = UTC_TIMESTAMP()');
+      $this->db->bind('shop', (int)$shopId); $this->db->bind('conversation', (string)$conversationId); $this->db->exe();
+    }
+    return ['ok' => true];
   }
 
   private function shouldRefresh($snapshot) {
@@ -289,18 +383,21 @@ class ChatMonitor extends BaseModel {
   }
 
   private function shopSummary(array $shop, $snapshot) {
-    $this->db->query("SELECT COUNT(*) AS conversation_count, COALESCE(SUM(unread_count), 0) AS unread_count, COALESCE(SUM(status = 'activated'), 0) AS active_count, COALESCE(SUM(status = 'closed'), 0) AS closed_count FROM chat_conversations WHERE shop_id = :shop_id");
+    $this->db->query("SELECT COUNT(*) AS conversation_count, COALESCE(SUM(c.unread_count), 0) AS unread_count, COALESCE(SUM(c.status = 'activated'), 0) AS active_count, COALESCE(SUM(c.status = 'closed'), 0) AS closed_count FROM chat_conversations c JOIN shops s ON s.id = c.shop_id WHERE c.shop_id = :shop_id AND " . $this->ownedSql());
     $this->db->bind('shop_id', (int)$shop['id']);
     $stats = $this->db->single() ?: [];
+    $this->db->query("SELECT enabled FROM sync_schedules WHERE shop_id = :shop_id AND sync_type = 'chat' LIMIT 1");
+    $this->db->bind('shop_id', (int)$shop['id']);
+    $schedule = $this->db->single();
     $status = $snapshot['status'] ?? 'pending';
-    $expired = $status === 'expired' || ($shop['sync_status'] ?? '') === 'expired';
+    $expired = $status === 'expired' || ($status === 'pending' && ($shop['sync_status'] ?? '') === 'expired');
     return [
       'shop_id' => (int)$shop['id'],
       'shop_name' => $shop['name'] ?? '',
       'remote_shop_id' => !empty($snapshot['remote_shop_id']) ? (int)$snapshot['remote_shop_id'] : null,
       'remote_shop_name' => $snapshot['remote_shop_name'] ?? null,
       'status' => $status,
-      'session_status' => $expired ? 'expired' : ($shop['sync_status'] ?? 'unknown'),
+      'session_status' => $expired ? 'expired' : ($status === 'ok' ? 'connected' : 'unknown'),
       'session_expired' => $expired,
       'error_message' => $snapshot['error_message'] ?? null,
       'last_sync_at' => $snapshot['last_sync_at'] ?? null,
@@ -308,7 +405,8 @@ class ChatMonitor extends BaseModel {
       'conversation_count' => (int)($stats['conversation_count'] ?? 0),
       'active_count' => (int)($stats['active_count'] ?? 0),
       'closed_count' => (int)($stats['closed_count'] ?? 0),
-      'stale' => $this->shouldRefresh($snapshot)
+      'stale' => $this->shouldRefresh($snapshot),
+      'sync_enabled' => !empty($schedule['enabled'])
     ];
   }
 
@@ -343,7 +441,7 @@ class ChatMonitor extends BaseModel {
         if ($this->shouldRefresh($this->snapshot($shop['id']))) $this->syncShop($shop['id']);
       }
     }
-    $where = ['1 = 1'];
+    $where = [$this->ownedSql()];
     if ((int)$shopId > 0) { $where[] = 'c.shop_id = :shop_id'; }
     if ($search !== '') $where[] = '(c.buyer_name LIKE :search OR c.latest_message_text LIKE :search OR c.remote_conversation_id = :conversation_id)';
     if ($status !== '') $where[] = 'c.status = :status';
@@ -359,82 +457,92 @@ class ChatMonitor extends BaseModel {
   }
 
   private function conversation($shopId, $conversationId) {
-    $this->db->query('SELECT * FROM chat_conversations WHERE shop_id = :shop_id AND (id = :id OR remote_conversation_id = :remote_id) LIMIT 1');
+    $this->db->query('SELECT c.* FROM chat_conversations c JOIN shops s ON s.id = c.shop_id WHERE c.shop_id = :shop_id AND c.remote_conversation_id = :remote_id AND ' . $this->ownedSql() . ' LIMIT 1');
     $this->db->bind('shop_id', (int)$shopId);
-    $this->db->bind('id', (int)$conversationId);
     $this->db->bind('remote_id', (string)$conversationId);
     return $this->db->single() ?: null;
   }
 
-  public function messages($shopId, $conversationId, $refresh = true) {
+  public function messages($shopId, $conversationId, $refresh = false) {
     $this->ensureSchema();
     $conversation = $this->conversation($shopId, $conversationId);
     if (!$conversation) return ['ok' => false, 'status' => 'error', 'message' => 'Percakapan tidak ditemukan.'];
-    if ($refresh) {
-      $shop = $this->shops($shopId)[0] ?? null;
-      if ($shop && !empty($shop['cookie'])) {
-        $client = $this->client();
-        $session = $client->bootstrap($shop['cookie']);
-        if (!empty($session['ok'])) {
-          $response = $client->getMessages($session, $shop['cookie'], $conversation['remote_conversation_id'], 100, 0);
-          if (!empty($response['ok'])) {
-            foreach ((array)($response['data'] ?? []) as $message) $this->upsertMessage($shopId, $conversation['remote_conversation_id'], $message, (int)($session['remote_user_id'] ?? 0));
-          } elseif (!empty($response['expired'])) {
-            $this->saveError($shop, true, $response['message']);
-          }
-        } else {
-          $this->saveError($shop, !empty($session['expired']), $session['message']);
-        }
-      }
-    }
-    $this->db->query('SELECT id, remote_message_id, sender_id, receiver_id, sender_name, message_type, direction, content_text, content_json, remote_created_at, remote_status FROM chat_messages WHERE shop_id = :shop_id AND remote_conversation_id = :conversation_id ORDER BY COALESCE(remote_created_at, created_at) ASC LIMIT 200');
+    $this->db->query('SELECT id, remote_message_id, sender_id, receiver_id, sender_name, message_type, direction, content_text, content_json, remote_created_at, remote_status FROM chat_messages WHERE shop_id = :shop_id AND remote_conversation_id = :conversation_id ORDER BY COALESCE(remote_created_at, created_at) DESC, id DESC LIMIT 200');
     $this->db->bind('shop_id', (int)$shopId);
     $this->db->bind('conversation_id', $conversation['remote_conversation_id']);
-    return ['ok' => true, 'conversation' => $conversation, 'messages' => $this->db->getAll()];
+    $messages = array_reverse($this->db->getAll());
+    $this->db->query('SELECT synced_at, requested_at, error_message, history_count FROM chat_thread_sync WHERE shop_id = :shop AND conversation_id = :conversation');
+    $this->db->bind('shop', (int)$shopId); $this->db->bind('conversation', (string)$conversationId);
+    $sync = $this->db->single() ?: null;
+    $this->db->query('SELECT request_id, status, remote_message_id, error_message FROM chat_outbox WHERE shop_id = :shop AND conversation_id = :conversation ORDER BY created_at DESC LIMIT 20');
+    $this->db->bind('shop', (int)$shopId); $this->db->bind('conversation', (string)$conversationId);
+    unset($conversation['raw_payload']);
+    return ['ok' => true, 'conversation' => $conversation, 'messages' => $messages, 'sync' => $sync, 'outbox' => $this->db->getAll()];
   }
 
-  public function send($shopId, $conversationId, $text) {
+  public function send($shopId, $conversationId, $text, $requestId = '') {
     $this->ensureSchema();
+    $text = trim((string)$text);
+    if (!preg_match('/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i', $requestId) || $text === '' || mb_strlen($text) > 2000) return ['ok' => false, 'message' => 'ID pengiriman atau isi pesan tidak valid.'];
     $conversation = $this->conversation($shopId, $conversationId);
     $shop = $this->shops($shopId)[0] ?? null;
     if (!$conversation || !$shop || empty($shop['cookie'])) return ['ok' => false, 'status' => 'error', 'message' => 'Toko atau percakapan tidak ditemukan.'];
     $client = $this->client();
-    $session = $client->bootstrap($shop['cookie']);
+    $this->db->query('SELECT * FROM chat_outbox WHERE request_id = :request');
+    $this->db->bind('request', $requestId); $existing = $this->db->single();
+    if ($existing) return $this->outboxResult($existing, $shopId, $conversationId, $text);
+    $session = $this->session($shop);
     if (empty($session['ok'])) return $this->saveError($shop, !empty($session['expired']), $session['message']);
-    $requestId = bin2hex(random_bytes(16));
-    $response = $client->sendMessage($session, $shop['cookie'], $conversation, $text, $requestId);
-    if (empty($response['ok']) && !empty($response['expired'])) {
-      $retrySession = $client->bootstrap($shop['cookie']);
-      if (!empty($retrySession['ok'])) {
-        $session = $retrySession;
-        $response = $client->sendMessage($session, $shop['cookie'], $conversation, $text, $requestId);
-      }
+    $open = $client->openConversation($session, $shop['cookie'], $conversation);
+    if (empty($open['ok'])) return $open;
+    if (!empty($conversation['is_blocked']) || empty($open['data']['is_chat_availiable']) || !empty($open['data']['conv_is_closed'])) return ['ok' => false, 'message' => 'Percakapan belum dapat dibalas. Gunakan Chat Lagi atau periksa izin di Shopee.'];
+    $uid = ShopeeChat::uuid();
+    $this->db->query("INSERT IGNORE INTO chat_outbox (request_id, shop_id, conversation_id, content_hash, content_uid) VALUES (:request, :shop, :conversation, :hash, :uid)");
+    foreach (['request' => $requestId, 'shop' => (int)$shopId, 'conversation' => (string)$conversationId, 'hash' => hash('sha256', $text), 'uid' => $uid] as $key => $value) $this->db->bind($key, $value);
+    $this->db->exe();
+    if (!$this->db->row()) {
+      $this->db->query('SELECT * FROM chat_outbox WHERE request_id = :request'); $this->db->bind('request', $requestId);
+      return $this->outboxResult($this->db->single(), $shopId, $conversationId, $text);
     }
-    if (empty($response['ok'])) {
-      if (!empty($response['expired'])) $this->saveError($shop, true, $response['message']);
-      return ['ok' => false, 'status' => 'error', 'message' => $response['message'] ?? 'Pesan gagal dikirim.'];
+    try { $response = $client->sendMessage($session, $shop['cookie'], $conversation, $text, $requestId, $uid); }
+    catch (Throwable $error) { $response = ['ok' => false, 'ambiguous' => true, 'message' => 'Koneksi terputus. Periksa riwayat sebelum mencoba pesan baru.']; }
+    $remoteId = $response['remote_message_id'] ?? null;
+    $status = !empty($response['ok']) && $remoteId ? 'sent' : (!empty($response['ambiguous']) ? 'ambiguous' : 'failed');
+    $this->db->query('UPDATE chat_outbox SET status = :status, remote_message_id = :remote, error_message = :error WHERE request_id = :request');
+    foreach (['status' => $status, 'remote' => $remoteId, 'error' => $response['message'] ?? null, 'request' => $requestId] as $key => $value) $this->db->bind($key, $value);
+    $this->db->exe();
+    if ($status === 'sent') {
+      $this->upsertMessage($shopId, $conversationId, $response['data'], (int)$session['remote_user_id'], 'outgoing');
+      $this->db->query("UPDATE chat_conversations SET latest_message_id = :message, latest_message_type = 'text', latest_message_text = :text, latest_message_at = :at WHERE shop_id = :shop AND remote_conversation_id = :conversation");
+      foreach (['message' => $remoteId, 'text' => $text, 'at' => $this->utcDate($response['data']['created_at'] ?? null) ?: gmdate('Y-m-d H:i:s'), 'shop' => (int)$shopId, 'conversation' => (string)$conversationId] as $key => $value) $this->db->bind($key, $value);
+      $this->db->exe();
     }
-    $message = is_array($response['data'] ?? null) ? $response['data'] : [];
-    $remoteMessageId = (string)($response['remote_message_id'] ?? $message['id'] ?? '');
-    if ($remoteMessageId === '') return ['ok' => false, 'status' => 'error', 'message' => 'Shopee tidak mengembalikan ID pesan. Balasan tidak ditandai terkirim.'];
-    $this->upsertMessage($shopId, $conversation['remote_conversation_id'], $message, (int)($session['user_id'] ?? 0), 'outgoing');
-    return ['ok' => true, 'message' => 'Pesan berhasil dikirim ke Shopee.', 'remote_message_id' => $remoteMessageId];
+    $this->requestRefresh($shopId, $conversationId);
+    return ['ok' => $status === 'sent', 'ambiguous' => $status === 'ambiguous', 'delivery_status' => $status, 'request_id' => $requestId, 'remote_message_id' => $remoteId, 'message' => $status === 'sent' ? 'Terkirim dan dikonfirmasi Shopee.' : ($response['message'] ?? 'Pesan belum terkonfirmasi.')];
   }
 
-  public function markRead($shopId, $conversationId) {
+  private function outboxResult(array $row, $shopId, $conversationId, $text) {
+    if ((int)$row['shop_id'] !== (int)$shopId || $row['conversation_id'] !== (string)$conversationId || $row['content_hash'] !== hash('sha256', $text)) return ['ok' => false, 'message' => 'ID pengiriman sudah digunakan untuk pesan lain.'];
+    $sent = $row['status'] === 'sent';
+    return ['ok' => $sent, 'ambiguous' => in_array($row['status'], ['sending', 'ambiguous'], true), 'delivery_status' => $row['status'], 'request_id' => $row['request_id'], 'remote_message_id' => $row['remote_message_id'], 'message' => $sent ? 'Pesan sudah terkirim; tidak dikirim ulang.' : ($row['error_message'] ?: 'Pengiriman belum terkonfirmasi. Perbarui riwayat; jangan kirim ulang.')];
+  }
+
+  public function markRead($shopId, $conversationId, $reopen = false) {
     $this->ensureSchema();
     $conversation = $this->conversation($shopId, $conversationId);
     $shop = $this->shops($shopId)[0] ?? null;
     if (!$conversation || !$shop || empty($shop['cookie'])) return ['ok' => false, 'message' => 'Toko atau percakapan tidak ditemukan.'];
     $client = $this->client();
-    $session = $client->bootstrap($shop['cookie']);
+    if (!$reopen && $conversation['status'] === 'closed') return ['ok' => false, 'message' => 'Gunakan Chat Lagi untuk mengaktifkan percakapan tertutup.'];
+    if (!empty($conversation['is_blocked'])) return ['ok' => false, 'message' => 'Percakapan diblokir di Shopee.'];
+    $session = $this->session($shop);
     if (empty($session['ok'])) return $this->saveError($shop, !empty($session['expired']), $session['message']);
     $response = $client->markRead($session, $shop['cookie'], $conversation['remote_conversation_id']);
     if (empty($response['ok'])) return ['ok' => false, 'message' => $response['message'] ?? 'Status pesan gagal diperbarui.'];
-    $this->db->query('UPDATE chat_conversations SET unread_count = 0 WHERE id = :id AND shop_id = :shop_id');
+    $this->db->query("UPDATE chat_conversations SET unread_count = 0, status = 'activated' WHERE id = :id AND shop_id = :shop_id");
     $this->db->bind('id', (int)$conversation['id']);
     $this->db->bind('shop_id', (int)$shopId);
     $this->db->exe();
-    return ['ok' => true, 'message' => 'Percakapan ditandai sudah dibaca.'];
+    return ['ok' => true, 'message' => $reopen ? 'Percakapan diaktifkan. Izin balas akan diperiksa kembali saat kirim.' : 'Percakapan ditandai sudah dibaca.'];
   }
 }

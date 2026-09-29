@@ -62,6 +62,8 @@ Passing counts above are historical, not a promise about the current revision. R
 
 ## Things that must be rechecked each session
 
+- Live Chat task branch `audit/shopee-live-chat` (2026-09-29): ownership guards, queued details/backfill and protected send intents implemented/tested. A real PHP send was rejected with `90309999`; integrated replies are **not verified working**. Read [implementation and remaining transport blocker](ops/live-chat-implementation-20260929.md) before rollout. Do not enable paused schedules or deploy a second worker checkout automatically.
+
 - Working tree changes, intended branch, remote, available browser connection, and local service availability.
 - Current queue backlog, detail completion rate, failed tasks, schedule enabled flags, and upstream access state.
 - Ads/chat access restrictions described in older notes may have changed. Do not reapply a historical pause automatically.

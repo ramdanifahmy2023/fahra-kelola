@@ -12,6 +12,7 @@ Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior
 | Boost product eligibility | `php tests/boost-products.php` |
 | Customer shop scoping | `php tests/customer-shop-filter.php` |
 | Queue recovery | `php tests/sync-recovery.php` |
+| Live Chat | `php tests/chat.php`, `node tests/chat-ui.cjs` (`CHAT_TEST_URL`, default 8147); temporary tables and mocked chat mutations. Live transport limits: [implementation](live-chat-implementation-20260929.md). |
 | Order/product/package sync | `php tests/order-sync.php`, `php tests/product-sync.php`, `php tests/package-sync.php` |
 | Ads metric mapping | `php tests/ads-performance.php` |
 | Ads campaign traversal | `php tests/ads-campaign-reports.php` |

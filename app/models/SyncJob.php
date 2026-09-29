@@ -222,6 +222,19 @@ class SyncJob extends BaseModel {
    * the stable idempotency key prevents duplicate scheduler ticks.
    */
   public function enqueueType($shopId, $syncType, $mode = 'diff') {
+    if (strtolower(trim((string)$syncType)) !== 'chat') return $this->enqueueTypeUnit($shopId, $syncType, $mode);
+    $lock = 'shopdash:chat:enqueue:' . (int)$shopId;
+    $this->db->query('SELECT GET_LOCK(:name, 5) AS acquired');
+    $this->db->bind('name', $lock);
+    if (empty($this->db->single()['acquired'])) return 0;
+    try { return $this->enqueueTypeUnit($shopId, $syncType, $mode); }
+    finally {
+      $this->db->query('SELECT RELEASE_LOCK(:name)');
+      $this->db->bind('name', $lock); $this->db->single();
+    }
+  }
+
+  private function enqueueTypeUnit($shopId, $syncType, $mode) {
     $this->ensureSchema();
     $shopId = (int)$shopId;
     $syncType = strtolower(trim((string)$syncType));
@@ -241,6 +254,7 @@ class SyncJob extends BaseModel {
     $channelId = (int)($shop['channel_id'] ?? 1);
     $bucket = (int)floor(time() / 60);
     $idempotency = $syncType . ':' . $shopId . ':' . $mode . ':' . $bucket;
+    if ($syncType === 'chat') $idempotency .= ':' . bin2hex(random_bytes(8));
     $this->db->query("INSERT INTO sync_jobs (shop_id, channel_id, sync_type, idempotency_key, mode, status) VALUES (:shop_id, :channel_id, :sync_type, :idempotency_key, :mode, 'queued') ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)");
     $this->db->bind('shop_id', $shopId);
     $this->db->bind('channel_id', $channelId);

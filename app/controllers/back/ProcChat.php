@@ -4,6 +4,7 @@ class ProcChat extends Controller {
   private function json($payload, $code = 200) {
     http_response_code($code);
     header('Content-Type: application/json');
+    header('Cache-Control: no-store');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;
   }
@@ -19,11 +20,28 @@ class ProcChat extends Controller {
     return $monitor;
   }
 
+  private function requirePost() {
+    $this->requireAjax();
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') $this->json(['status' => 'error', 'message' => 'Gunakan POST.'], 405);
+    if (!authVerifyCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) $this->json(['status' => 'error', 'message' => 'Sesi formulir berakhir. Muat ulang halaman.'], 403);
+    session_write_close();
+  }
+
+  public function refresh() {
+    $this->requirePost();
+    $shopId = (int)($_POST['shop_id'] ?? 0);
+    $conversationId = trim((string)($_POST['conversation_id'] ?? ''));
+    $result = $this->monitor()->requestRefresh($shopId, $conversationId);
+    if (empty($result['ok'])) $this->json(['status' => 'error', 'message' => $result['message']], 422);
+    $jobId = $this->m('SyncJob')->enqueueType($shopId, 'chat');
+    if (!$jobId) $this->json(['status' => 'error', 'message' => 'Pembaruan belum masuk antrean.'], 503);
+    $this->json(['status' => 'success', 'job_id' => $jobId, 'message' => 'Pembaruan masuk antrean. Menunggu sinkronisasi selesai.']);
+  }
+
   public function overview() {
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? 0);
-    $refresh = isset($_GET['refresh']) && $_GET['refresh'] === '1';
-    $result = $this->monitor()->overview($shopId > 0 ? $shopId : null, $refresh);
+    $result = $this->monitor()->overview($shopId > 0 ? $shopId : null, false);
     $this->json(['status' => 'success'] + $result);
   }
 
@@ -35,7 +53,7 @@ class ProcChat extends Controller {
       trim((string)($_GET['search'] ?? '')),
       trim((string)($_GET['status'] ?? '')),
       !empty($_GET['unread_only']),
-      isset($_GET['refresh']) && $_GET['refresh'] === '1'
+      false
     );
     $this->json(['status' => 'success', 'conversations' => $rows, 'refreshed_at' => date('c')]);
   }
@@ -51,28 +69,24 @@ class ProcChat extends Controller {
   }
 
   public function send() {
-    $this->requireAjax();
-    if ($_SERVER['REQUEST_METHOD'] !== 'POST') $this->json(['status' => 'error', 'message' => 'Metode tidak diizinkan.'], 405);
+    $this->requirePost();
     $shopId = (int)($_POST['shop_id'] ?? 0);
     $conversationId = trim((string)($_POST['conversation_id'] ?? ''));
     $message = trim((string)($_POST['message'] ?? ''));
     if ($shopId < 1 || $conversationId === '' || $message === '') $this->json(['status' => 'error', 'message' => 'Toko, percakapan, dan pesan wajib diisi.'], 422);
     if (mb_strlen($message) > 2000) $this->json(['status' => 'error', 'message' => 'Pesan maksimal 2.000 karakter.'], 422);
-    $result = $this->monitor()->send($shopId, $conversationId, $message);
-    if (empty($result['ok'])) $this->json(['status' => 'error', 'message' => $result['message'] ?? 'Pesan gagal dikirim.'], 502);
-    $this->json([
-      'status' => 'success',
-      'message' => $result['message'] ?? 'Pesan berhasil dikirim.',
-      'remote_message_id' => $result['remote_message_id'] ?? null
-    ]);
+    $result = $this->monitor()->send($shopId, $conversationId, $message, trim((string)($_POST['request_id'] ?? '')));
+    $result['attempted'] = !empty($result['request_id']);
+    if (!empty($result['request_id'])) $this->m('SyncJob')->enqueueType($shopId, 'chat');
+    $this->json(['status' => !empty($result['ok']) ? 'success' : 'error'] + $result, !empty($result['ok']) ? 200 : (!empty($result['ambiguous']) ? 409 : 502));
   }
 
   public function mark_read() {
-    $this->requireAjax();
-    $shopId = (int)($_POST['shop_id'] ?? $_GET['shop_id'] ?? 0);
-    $conversationId = trim((string)($_POST['conversation_id'] ?? $_GET['conversation_id'] ?? ''));
+    $this->requirePost();
+    $shopId = (int)($_POST['shop_id'] ?? 0);
+    $conversationId = trim((string)($_POST['conversation_id'] ?? ''));
     if ($shopId < 1 || $conversationId === '') $this->json(['status' => 'error', 'message' => 'Toko dan percakapan wajib dipilih.'], 422);
-    $result = $this->monitor()->markRead($shopId, $conversationId);
+    $result = $this->monitor()->markRead($shopId, $conversationId, !empty($_POST['reopen']));
     if (empty($result['ok'])) $this->json(['status' => 'error', 'message' => $result['message'] ?? 'Status pesan gagal diperbarui.'], 502);
     $this->json(['status' => 'success', 'message' => $result['message'] ?? 'Percakapan diperbarui.']);
   }
