@@ -79,6 +79,10 @@ The follow-up passed Finance/ Dashboard PHP tests, 135 Ads data checks, the Fina
 
 Integrated concurrent Automation UI commit `4210d75` without modifying its source. The only generated-file conflict was resolved by rebuilding CSS from both sets of source styles. Breakdown, Dashboard, Automation, and AI connection browser tests passed on the combined revision. The separate test server used the existing runtime `AI_CONNECTION_KEY_FILE`; no key file or shared service was replaced.
 
+## Saldo Penjual follow-up, 30 September 2026
+
+Dashboard and Finance now share a third balance, **Saldo Penjual**, from the exact Saldo field on Shopee Saldo Saya. It follows the latest successful source read and selected shops, independently of report dates. Six figures per store form two compact rows at medium content widths. Source restrictions preserve the full amount and explain their reason only inside the existing disclosure. See [source, implementation, responsive checks and current antislop gate](finance-wallet-implementation-20260930.md). Historical evidence below remains scoped to its original change.
+
 ## Final antislop delivery gate
 
 All results below concern the changed Dashboard/Finance surfaces. Browser suites, the Finance and Dashboard PHP suites, the Ads data/browser suites, source build, syntax checks, and whitespace review passed at delivery.

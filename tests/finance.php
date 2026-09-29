@@ -12,7 +12,8 @@ function financeCheck($value,$message) { if (!$value) throw new RuntimeException
 function financeThrows(callable $fn,$code=null) { try { $fn(); } catch(Throwable $e) { if($code!==null)financeCheck($e->getCode()===$code,'Expected error code '.$code.', got '.$e->getMessage()); return; } throw new RuntimeException('Expected rejection'); }
 function financeEntry($id,$amount,$release=null) { return ['local_income_detail'=>['order_income_info'=>['order_id'=>$id,'order_sn'=>'TEST-'.$id,'item_name'=>'Test product'],'income_amount'=>$amount,'net_income_amount'=>0,'adjustment_income_amount'=>0,'income_released_time'=>$release]]; }
 class FinanceSourceFixture {
-  public $calls=0,$verifyCalls=0,$fail=false,$repeat=false,$wrong=false,$missingStatuses=false;
+  public $calls=0,$verifyCalls=0,$fail=false,$repeat=false,$wrong=false,$missingStatuses=false,$walletFail=false;
+  public function wallet($shop) { if($this->walletFail)throw new RuntimeException('Wallet fixture unavailable'); return ['amount'=>0,'withdrawal_restricted'=>null,'notice'=>null]; }
   public function verify($shop) { $this->verifyCalls++; if($this->wrong)throw new RuntimeException('Cookie tidak cocok'); }
   public function overview($shop) { return ['pending'=>3000000,'week'=>5000000,'month'=>6000000,'all'=>7000000]; }
   public function pendingStates($shop,$ids,$rateMs) { return $this->missingStatuses ? [] : array_fill_keys($ids,['state'=>'shipping','synced_at'=>gmdate('Y-m-d H:i:s')]); }
@@ -32,12 +33,15 @@ try {
     $schema=preg_replace('/^\s*CONSTRAINT.*\n/m','',$schema);
     $f->execute(str_replace(",\n)","\n)",$schema));
   }
+  $f->execute(str_replace('CREATE TABLE IF NOT EXISTS','CREATE TEMPORARY TABLE',file_get_contents('../database/migrations/20260930_finance_wallet.sql')));
+  $tables[]='finance_wallet';
   $f->execute("INSERT INTO shops (id,shop_id,name) VALUES (1,101,'First'),(2,202,'Second')");
   $f->execute("INSERT INTO products (id,shop_id,name,parent_sku) VALUES (10,1,'One','SAME'),(20,2,'Two','SAME'),(30,1,'Variants','PARENT')");
   $f->execute("INSERT INTO product_models (id,product_id,name,sku) VALUES (31,30,'Red','SAME'),(32,30,'Blue','SAME')");
   $f->execute("INSERT INTO orders (id,shop_id,order_sn,created_at) VALUES (1,1,'O1','2026-09-01 16:59:59'),(2,1,'O2','2026-09-01 17:00:00'),(3,2,'O3','2026-09-01 17:00:00'),(4,1,'O4','2026-09-03 17:00:00')");
   $f->execute("INSERT INTO order_items (order_id,product_id,model_id,quantity) VALUES (1,10,0,1),(2,10,0,2),(3,20,0,5),(4,10,0,3)");
   $shops=$f->shops(); $range=FinancePolicy::range('2026-09-01','2026-09-02');
+  require __DIR__.'/finance-wallet-cases.php';
   financeCheck(count($f->shops('1,2'))===2,'Multiple shops'); financeThrows(fn()=>$f->shops('999'));
   financeCheck(count(FinancePolicy::windows(FinancePolicy::range('2026-08-31','2026-09-02')))===2,'Split calendar months');
   financeThrows(fn()=>FinancePolicy::range('2026-09-31','2026-09-31'));
@@ -57,7 +61,10 @@ try {
   $source=new FinanceSourceFixture(); $f->requestImports([$shops[0]],$range);
   financeCheck($f->work($shops[0],$source,1)===[true,null,false],'First page checkpoints');
   financeCheck(!$f->one('SELECT * FROM finance_current'),'Partial pages not published');
+  financeCheck($f->summary([$shops[0]],$range)['stores'][0]['wallet']['amount']===0,'Wallet published before income pagination completes');
+  $f->execute('UPDATE finance_wallet SET last_attempt_at=UTC_TIMESTAMP()-INTERVAL 11 MINUTE');$source->walletFail=true;
   financeCheck($f->work($shops[0],$source,2)===[true,null,true],'Last pages publish');
+  financeCheck($f->summary([$shops[0]],$range)['stores'][0]['wallet']['failed'],'Wallet failure does not prevent income publication');$source->walletFail=false;
   $summary=$f->summary($shops,$range)['stores'];
   financeCheck($summary[0]['pending']==30 && $summary[0]['pending_orders']===2,'Pending uses income, deduplicates order');
   financeCheck($summary[0]['released']==40 && $summary[0]['released_days']===2,'Release includes empty covered days');

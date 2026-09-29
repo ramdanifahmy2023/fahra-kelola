@@ -1,10 +1,8 @@
 const assert=require('node:assert/strict');
-const {execFileSync}=require('node:child_process');
 const fs=require('node:fs'),path=require('node:path');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root=path.resolve(__dirname,'..'),base=process.env.FINANCE_TEST_URL || 'http://127.0.0.1:8133';
-const php=code=>execFileSync('php',['-r',code],{cwd:root,encoding:'utf8'}).trim();
-const sid=php("chdir('public');require '../app/init.php';$d=new Database;$d->query('SELECT id,name,email FROM accounts LIMIT 1');session_id(bin2hex(random_bytes(24)));session_start();$_SESSION['auth_user']=$d->single();echo session_id();session_write_close();");
+const session=require('./panel-test-session.cjs')(root),sid=session.sid;
 const output=path.join(root,'tmp/finance-completeness-ui');fs.mkdirSync(output,{recursive:true});
 (async()=>{let browser;try{
   browser=await chromium.launch({headless:true});
@@ -158,4 +156,4 @@ const output=path.join(root,'tmp/finance-completeness-ui');fs.mkdirSync(output,{
   }
   assert.deepEqual(errors,[]);
   console.log('PASS: compact ledger, actual container widths, expanded source details, long names/amounts, date controls, HPP, 200% reflow, status links and coverage copy');
-}finally{await browser?.close();php("session_id('"+sid+"');session_start();$_SESSION=[];session_destroy();");}})().catch(e=>{console.error(e);process.exitCode=1;});
+}finally{await browser?.close();session.cleanup();}})().catch(e=>{console.error(e);process.exitCode=1;});

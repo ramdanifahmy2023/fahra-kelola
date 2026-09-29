@@ -5,6 +5,11 @@ class FinanceApi {
   private $api;
   public function __construct($api = null) { $this->api = $api ?? new ShopeeCurl(); }
 
+  public function wallet(array $shop): array {
+    require_once __DIR__.'/FinanceWalletApi.php';
+    return (new FinanceWalletApi())->read($shop);
+  }
+
   public function verify(array $shop): void {
     $identity = $this->api->check((string)$shop['cookie']);
     if (empty($identity['shop']['id'])) throw new RuntimeException('Cookie belum dapat diverifikasi. Perbarui koneksi toko atau coba lagi.');

@@ -1,10 +1,8 @@
 const assert=require('node:assert/strict');
-const {execFileSync}=require('node:child_process');
 const fs=require('node:fs'),path=require('node:path');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root=path.resolve(__dirname,'..'),base=process.env.FINANCE_TEST_URL || 'http://127.0.0.1:8133';
-const php=code=>execFileSync('php',['-r',code],{cwd:root,encoding:'utf8'}).trim();
-const sid=php("chdir('public');require '../app/init.php';$d=new Database;$d->query('SELECT id,name,email FROM accounts LIMIT 1');session_id(bin2hex(random_bytes(24)));session_start();$_SESSION['auth_user']=$d->single();echo session_id();session_write_close();");
+const session=require('./panel-test-session.cjs')(root),sid=session.sid;
 const output=path.join(root,'tmp/dashboard-ui');fs.mkdirSync(output,{recursive:true});
 const realtime=(ids=['1','2'])=>({status:'success',selected_shop_count:ids.length,shop_count:ids.length,failures:[],metrics:{key_metrics:{uv:0,pv:100,product_clicks:20,orders:4,buyers:3,sales:Number(ids[0])*100},metric_coverage:{uv:ids.length,pv:ids.length,product_clicks:ids.length,orders:ids.length,buyers:ids.length,sales:ids.length},top_sales_items:ids.map(id=>({shop_id:Number(id),shop_name:'Toko uji '+id,item_name:'Produk uji dengan nama panjang untuk pemeriksaan tata letak di layar kecil',sales:12345678})),product_shop_count:ids.length,sales_hourly:[0,null,100,200,300,0,30,40,500,200,10,20,40,600,50,60,400,200,500,100,200,150],hourly_coverage:Array.from({length:22},(_,i)=>i===1 ? 0 : ids.length),time:1790686800}});
 (async()=>{let browser;try{
@@ -108,4 +106,4 @@ const realtime=(ids=['1','2'])=>({status:'success',selected_shop_count:ids.lengt
   await rolling.clock.fastForward(86400000);assert.equal(await rolling.inputValue('#finance-start'),'2026-09-01');assert.equal(await rolling.inputValue('#finance-end'),'2026-09-02');
   await rolling.reload();await rolling.locator('.finance-store').waitFor();assert.equal(await rolling.inputValue('#finance-period'),'custom');assert.equal(await rolling.inputValue('#finance-end'),'2026-09-02');assert.deepEqual(rollingErrors,[]);
   console.log('PASS: dashboard/finance defaults, global scopes, partial/null/zero, race rejection, custom dates, WIB month rollover, sync scope, failure recovery, responsive themes, chart controls and keyboard');
-}finally{await browser?.close();php("session_id('"+sid+"');session_start();$_SESSION=[];session_destroy();");}})().catch(e=>{console.error(e);process.exitCode=1;});
+}finally{await browser?.close();session.cleanup();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -1,6 +1,6 @@
 # Audit dan rencana Saldo Penjual, 30 September 2026
 
-Status: **rencana, belum diimplementasikan**. Arahan terbaru pengguna: fokus pada angka **Saldo** di Shopee, tampilkan sebagai **Saldo Penjual** pada Dashboard dan Keuangan, dan abaikan Saldo Aktif. Informasi ditahan atau dapat ditarik boleh menjadi keterangan tambahan jika makna dan alasannya benar-benar dijelaskan oleh Shopee. Tidak menghitung estimasi dana yang dapat ditarik.
+Status: **diimplementasikan 30 September 2026**; lihat [hasil implementasi dan verifikasi](finance-wallet-implementation-20260930.md). Dokumen ini menyimpan bukti audit dan rencana yang disetujui. Arahan pengguna: fokus pada angka **Saldo** di Shopee, tampilkan sebagai **Saldo Penjual** pada Dashboard dan Keuangan, dan abaikan Saldo Aktif. Informasi pembatasan hanya menjadi keterangan tambahan dari status/pesan eksplisit Shopee. Tidak menghitung estimasi dana yang dapat ditarik.
 
 Koreksi audit: penafsiran sebelumnya tentang nominal `wallet_blocked_balance` sebagai uang yang ditahan tidak cukup terverifikasi dan ditarik kembali. Nama field maupun selisih antara dua saldo tidak membuktikan arti bisnis atau alasan penahanan. Jangan membawa asumsi tersebut ke implementasi.
 
@@ -39,7 +39,7 @@ Tambahkan kartu **Saldo Penjual** pada komponen bersama Dashboard/Keuangan. Kete
 - Desktop: tiga angka utama dapat berbagi baris jika lebar konten cukup. HP: susun vertikal, nominal dominan, satu keterangan status singkat, detail panjang dalam disclosure yang sudah ada. Verifikasi berdasarkan lebar konten setelah sidebar, bukan lebar layar saja.
 - Gunakan ikon dompet dengan label teks, existing shop logos, tema Shopdash dan warna status yang sudah ada. Jangan menambah tombol untuk menjalankan penarikan dalam fitur ini.
 
-Design direction tetap ENERGY 1 / RHYTHM 2 / MOTION 1. Antislop menjaga bahasa singkat, arti uang yang berbeda, dan metadata tidak membanjiri ringkasan. Pencarian UI UX Pro Max pertama tidak menemukan padanan; hasil pencarian lanjutan tidak menyediakan pola khusus saldo penjual. Rekomendasi layout di sini mengikuti brief pengguna dan pola aplikasi yang sudah ada, bukan klaim pola terverifikasi dari database skill. Tidak ada visual baru yang dinyatakan sudah lolos uji.
+Design direction tetap ENERGY 1 / RHYTHM 2 / MOTION 1. Antislop menjaga bahasa singkat, arti uang yang berbeda, dan metadata tidak membanjiri ringkasan. Pencarian UI UX Pro Max saat audit tidak menyediakan pola khusus saldo penjual. Saat implementasi, pencarian UX `responsive grid reflow` memberi panduan text reflow dan overflow; penerapan dan hasil uji tercatat pada dokumen implementasi. Layout tetap mengikuti brief pengguna dan pola aplikasi yang sudah ada.
 
 ## Urutan implementasi
 
@@ -60,4 +60,4 @@ Design direction tetap ENERGY 1 / RHYTHM 2 / MOTION 1. Antislop menjaga bahasa s
 - Dashboard dan Keuangan memberikan angka yang sama untuk filter sama. Rincian per toko memakai angka Saldo asli dan keterangan sumber opsional. Hilangnya informasi penarikan tidak menghapus saldo yang valid.
 - Uji 320/500/999/1600px, lebar konten 684px, tema terang/gelap, nama panjang, nominal besar, zoom, keyboard dan pergantian filter. Semua endpoint bisnis mutasi dimock; tes tidak menarik dana.
 
-Tahap audit sudah membuktikan akses field Saldo server untuk semua toko. Penyimpanan wallet, keterangan sumber, agregasi baru dan UI masih pekerjaan implementasi. Tidak ada implementasi Saldo Aktif atau perhitungan kelayakan/estimasi penarikan dalam lingkup ini. Jangan menyajikan rencana ini sebagai fitur yang sudah live.
+Tahap audit membuktikan akses field Saldo server untuk semua toko. Penyimpanan wallet, keterangan sumber, agregasi dan UI kemudian diimplementasikan sesuai kontrak di atas. Hasil pengujian dan runtime dicatat terpisah pada dokumen implementasi. Saldo Aktif dan perhitungan kelayakan/estimasi penarikan tetap di luar lingkup.
