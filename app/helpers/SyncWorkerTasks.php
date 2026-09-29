@@ -250,20 +250,9 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
   return true;
 }
 
-function enrichPackage(Database $db, ShopeeCurl $shopee, int $orderId, string $cookie): void {
-  $package = $shopee->getPackage($cookie, $orderId);
-  $first = $package['order_info']['package_list'][0] ?? null;
-  if (!$first) {
-    $db->query("UPDATE orders SET package_synced_at = NOW() WHERE id = :order_id AND package_synced_at IS NULL");
-    $db->bind('order_id', $orderId);
-    $db->exe();
-    return;
-  }
-  $cargo = $first['channel_id'] ?? null;
-  $tracking = $first['third_party_tn'] ?? null;
-  $db->query("UPDATE orders SET shipping_cargo = COALESCE(NULLIF(:cargo, ''), shipping_cargo), tracking_number = COALESCE(NULLIF(:tracking, ''), tracking_number), package_synced_at = NOW() WHERE id = :order_id");
-  bindAll($db, ['cargo' => (string)$cargo, 'tracking' => (string)$tracking, 'order_id' => $orderId]);
-  $db->exe();
+function enrichPackage(Database $db, ShopeeCurl $shopee, int $orderId, string $cookie): bool {
+  require_once __DIR__ . '/PackageSynchronizer.php';
+  return (new PackageSynchronizer($db, $shopee))->refresh($orderId, $cookie);
 }
 
 function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $shopee, int $rateMs, int $packageLimit): array {
@@ -301,14 +290,8 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
     return [$ok, $ok ? null : 'Sesi Shopee toko tidak valid.'];
   }
   if ($type === 'packages') {
-    $db->query("SELECT id FROM orders WHERE shop_id = :shop_id AND deleted_at IS NULL AND detail_synced_at IS NOT NULL AND (package_synced_at IS NULL OR shipping_cargo IS NULL OR shipping_cargo = '' OR tracking_number IS NULL OR tracking_number = '') ORDER BY id ASC LIMIT {$packageLimit}");
-    $db->bind('shop_id', $shopId);
-    $rows = $db->getAll();
-    foreach ($rows as $row) {
-      enrichPackage($db, $shopee, (int)$row['id'], (string)$shop['cookie']);
-      usleep($rateMs * 1000);
-    }
-    return [true, null];
+    require_once __DIR__ . '/PackageSynchronizer.php';
+    return (new PackageSynchronizer($db, $shopee))->run($job, $shop, min(5, $packageLimit), $rateMs);
   }
   return [false, 'Tipe sinkronisasi tidak dikenali.'];
 }
