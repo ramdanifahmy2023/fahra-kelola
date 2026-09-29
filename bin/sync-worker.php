@@ -95,7 +95,13 @@ do {
     continue;
   }
   if ((int)$job['page_number'] > 0) {
-    if (!processIndex($db, $sync, $shopee, $job, $shop)) {
+    try {
+      $indexOk = processIndex($db, $sync, $shopee, $job, $shop);
+    } catch (Throwable $error) {
+      $sync->releaseJob($jobId, 'queued', 'Worker order index error: ' . get_class($error));
+      $indexOk = false;
+    }
+    if (!$indexOk) {
       $loops++;
       continue;
     }
@@ -114,15 +120,19 @@ do {
     recordRun($db, $jobId, 'api_requests', $requestCount);
     usleep($rateMs * 1000);
   }
-  $db->query("SELECT COUNT(*) AS c FROM sync_job_orders WHERE job_id = :job_id AND status IN ('queued','retry','running')");
+  $db->query("SELECT COALESCE(SUM(status IN ('queued','retry','running')),0) AS c,
+    COALESCE(SUM(status = 'failed'),0) AS failed FROM sync_job_orders WHERE job_id = :job_id");
   $db->bind('job_id', $jobId);
-  $remaining = (int)($db->single()['c'] ?? 0);
+  $detailState = $db->single();
+  $remaining = (int)($detailState['c'] ?? 0);
   $db->query("SELECT page_number FROM sync_jobs WHERE id = :job_id");
   $db->bind('job_id', $jobId);
   $pageState = (int)($db->single()['page_number'] ?? 0);
   if ($remaining === 0 && $pageState === 0) {
-    (new BackgroundSync())->markResult((int)$job['shop_id'], 'orders', true, null, (string)($job['mode'] ?? 'diff'));
-    $sync->releaseJob($jobId, 'completed');
+    $ok = empty($detailState['failed']);
+    $error = $ok ? null : 'Sebagian detail pesanan gagal diperbarui.';
+    (new BackgroundSync())->markResult((int)$job['shop_id'], 'orders', $ok, $error, (string)($job['mode'] ?? 'diff'));
+    $sync->releaseJob($jobId, $ok ? 'completed' : 'failed', $error);
   } else {
     $db->query("UPDATE sync_jobs SET lease_until = NULL WHERE id = :job_id");
     $db->bind('job_id', $jobId);
