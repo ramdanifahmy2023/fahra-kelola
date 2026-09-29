@@ -39,3 +39,12 @@ git push
 ```
 
 The local `.env`, dependencies, macOS metadata, and captured session payloads are intentionally excluded from version control.
+
+## Performa iklan
+
+Mapping harian, mingguan, bulanan, rincian per tanggal, dan batasan akses Seller Centre
+didokumentasikan di [ops/ads-data-mapping.md](ops/ads-data-mapping.md).
+Jalankan `php tests/ads-performance.php` untuk memeriksa konversi metrik terhadap capture Sniper.
+Halaman `/panel/ads` menyediakan filter periode, jenis iklan, toko, serta rincian harian.
+Uji browser: `node tests/ads-ui.cjs` dengan Playwright tersedia di lingkungan pengujian
+(atau arahkan `PLAYWRIGHT_MODULE` ke modul Playwright yang sudah terpasang).

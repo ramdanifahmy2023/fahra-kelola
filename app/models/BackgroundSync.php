@@ -56,7 +56,7 @@ class BackgroundSync extends BaseModel {
     $this->db->query('SELECT id FROM shops ORDER BY id ASC');
     foreach ($this->db->getAll() as $shop) {
       foreach ($this->definitions as $type => $definition) {
-        $this->db->query("INSERT INTO sync_schedules (shop_id, sync_type, interval_seconds, full_interval_seconds, mode, next_run_at) VALUES (:shop_id, :sync_type, :interval_seconds, :full_interval_seconds, :mode, NOW()) ON DUPLICATE KEY UPDATE interval_seconds = VALUES(interval_seconds), full_interval_seconds = VALUES(full_interval_seconds), mode = VALUES(mode)");
+      $this->db->query("INSERT INTO sync_schedules (shop_id, sync_type, interval_seconds, full_interval_seconds, mode, next_run_at) VALUES (:shop_id, :sync_type, :interval_seconds, :full_interval_seconds, :mode, NOW()) ON DUPLICATE KEY UPDATE full_interval_seconds = VALUES(full_interval_seconds)");
         $this->db->bind('shop_id', (int)$shop['id']);
         $this->db->bind('sync_type', $type);
         $this->db->bind('interval_seconds', (int)$definition['interval']);
@@ -85,7 +85,7 @@ class BackgroundSync extends BaseModel {
         ? $sync->enqueue((int)$row['shop_id'], $mode)
         : $sync->enqueueType((int)$row['shop_id'], $type, $mode);
       if ($jobId > 0) {
-        $this->db->query("UPDATE sync_schedules SET last_enqueued_at = NOW(), next_run_at = DATE_ADD(NOW(), INTERVAL interval_seconds SECOND), last_error = NULL WHERE shop_id = :shop_id AND sync_type = :sync_type");
+        $this->db->query("UPDATE sync_schedules SET last_enqueued_at = NOW(), next_run_at = DATE_ADD(NOW(), INTERVAL interval_seconds SECOND) WHERE shop_id = :shop_id AND sync_type = :sync_type");
         $this->db->bind('shop_id', (int)$row['shop_id']);
         $this->db->bind('sync_type', $type);
         $this->db->exe();
@@ -104,7 +104,10 @@ class BackgroundSync extends BaseModel {
 
   public function markResult($shopId, $syncType, $ok, $error = null, $mode = 'diff') {
     $this->ensureSchema();
-    $this->db->query("UPDATE sync_schedules SET last_success_at = CASE WHEN :ok = 1 THEN NOW() ELSE last_success_at END, last_full_at = CASE WHEN :ok2 = 1 AND :mode = 'full' THEN NOW() ELSE last_full_at END, last_error = CASE WHEN :ok3 = 1 THEN NULL ELSE :error END WHERE shop_id = :shop_id AND sync_type = :sync_type");
+    require_once __DIR__ . '/../helpers/SyncOutcome.php';
+    if (!$ok && !$error) $error = 'Sinkronisasi gagal; data sumber belum berhasil diperbarui.';
+    $this->db->query("UPDATE sync_schedules SET last_success_at = CASE WHEN :ok = 1 THEN NOW() ELSE last_success_at END, last_full_at = CASE WHEN :ok2 = 1 AND :mode = 'full' THEN NOW() ELSE last_full_at END, last_error = CASE WHEN :ok3 = 1 THEN NULL ELSE :error END, next_run_at = DATE_ADD(NOW(), INTERVAL GREATEST(interval_seconds, :retry_delay) SECOND) WHERE shop_id = :shop_id AND sync_type = :sync_type");
+    $this->db->bind('retry_delay', $ok ? 0 : SyncOutcome::retryDelay($error));
     $this->db->bind('ok', $ok ? 1 : 0);
     $this->db->bind('ok2', $ok ? 1 : 0);
     $this->db->bind('ok3', $ok ? 1 : 0);

@@ -1,0 +1,414 @@
+{
+  "code": 0,
+  "msg": "OK",
+  "debug_detail": "",
+  "validation_error_list": null,
+  "data": {
+    "key": "live_stream_homepage",
+    "report_aggregate": {
+      "impression": 0,
+      "click": 0,
+      "ctr": 0,
+      "checkout": 0,
+      "broad_order": 0,
+      "broad_order_amount": 0,
+      "broad_gmv": 0,
+      "cost": 0,
+      "broad_roi": 0
+    },
+    "report_by_time": [
+      {
+        "key": "1788195600",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788282000",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788368400",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788454800",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788541200",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788627600",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788714000",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788800400",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788886800",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788973200",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789059600",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789146000",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789232400",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789318800",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789405200",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789491600",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789578000",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789664400",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789750800",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789837200",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789923600",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790010000",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790096400",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790182800",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790269200",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790355600",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790442000",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790528400",
+        "metrics": {
+          "impression": 0,
+          "click": 0,
+          "ctr": 0,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 0,
+          "broad_roi": 0
+        }
+      }
+    ]
+  }
+}

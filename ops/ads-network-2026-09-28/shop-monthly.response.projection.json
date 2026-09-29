@@ -1,0 +1,414 @@
+{
+  "code": 0,
+  "msg": "OK",
+  "debug_detail": "",
+  "validation_error_list": null,
+  "data": {
+    "key": "shop_homepage",
+    "report_aggregate": {
+      "impression": 44931,
+      "click": 1981,
+      "ctr": 0.044089826623044226,
+      "checkout": 21,
+      "broad_order": 31,
+      "broad_order_amount": 41,
+      "broad_gmv": 205687799997,
+      "cost": 70493557486,
+      "broad_roi": 2.917824086801826
+    },
+    "report_by_time": [
+      {
+        "key": "1788195600",
+        "metrics": {
+          "impression": 3478,
+          "click": 77,
+          "ctr": 0.022139160437032776,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788282000",
+        "metrics": {
+          "impression": 2076,
+          "click": 80,
+          "ctr": 0.038535645472061654,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 320000000,
+          "cost": 2500000000,
+          "broad_roi": 0.128
+        }
+      },
+      {
+        "key": "1788368400",
+        "metrics": {
+          "impression": 1831,
+          "click": 74,
+          "ctr": 0.040415073730202075,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 320000000,
+          "cost": 2500000000,
+          "broad_roi": 0.128
+        }
+      },
+      {
+        "key": "1788454800",
+        "metrics": {
+          "impression": 1694,
+          "click": 77,
+          "ctr": 0.045454545454545456,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788541200",
+        "metrics": {
+          "impression": 1574,
+          "click": 76,
+          "ctr": 0.048284625158831,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1788627600",
+        "metrics": {
+          "impression": 1721,
+          "click": 81,
+          "ctr": 0.04706565950029053,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 320000000,
+          "cost": 2500000000,
+          "broad_roi": 0.128
+        }
+      },
+      {
+        "key": "1788714000",
+        "metrics": {
+          "impression": 1231,
+          "click": 75,
+          "ctr": 0.060926076360682375,
+          "checkout": 2,
+          "broad_order": 2,
+          "broad_order_amount": 2,
+          "broad_gmv": 5696200000,
+          "cost": 2500000000,
+          "broad_roi": 2.27848
+        }
+      },
+      {
+        "key": "1788800400",
+        "metrics": {
+          "impression": 1289,
+          "click": 78,
+          "ctr": 0.060512024825446084,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 2906700000,
+          "cost": 2500000000,
+          "broad_roi": 1.16268
+        }
+      },
+      {
+        "key": "1788886800",
+        "metrics": {
+          "impression": 2069,
+          "click": 78,
+          "ctr": 0.037699371677138716,
+          "checkout": 4,
+          "broad_order": 4,
+          "broad_order_amount": 6,
+          "broad_gmv": 21150499999,
+          "cost": 2500000000,
+          "broad_roi": 8.4601999996
+        }
+      },
+      {
+        "key": "1788973200",
+        "metrics": {
+          "impression": 1514,
+          "click": 79,
+          "ctr": 0.05217965653896962,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789059600",
+        "metrics": {
+          "impression": 1580,
+          "click": 78,
+          "ctr": 0.049367088607594936,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789146000",
+        "metrics": {
+          "impression": 1808,
+          "click": 75,
+          "ctr": 0.041482300884955754,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 599900000,
+          "cost": 2500000000,
+          "broad_roi": 0.23996
+        }
+      },
+      {
+        "key": "1789232400",
+        "metrics": {
+          "impression": 1704,
+          "click": 73,
+          "ctr": 0.04284037558685446,
+          "checkout": 2,
+          "broad_order": 2,
+          "broad_order_amount": 2,
+          "broad_gmv": 640000000,
+          "cost": 2500000000,
+          "broad_roi": 0.256
+        }
+      },
+      {
+        "key": "1789318800",
+        "metrics": {
+          "impression": 1886,
+          "click": 82,
+          "ctr": 0.043478260869565216,
+          "checkout": 2,
+          "broad_order": 2,
+          "broad_order_amount": 2,
+          "broad_gmv": 640000000,
+          "cost": 2500000000,
+          "broad_roi": 0.256
+        }
+      },
+      {
+        "key": "1789405200",
+        "metrics": {
+          "impression": 1607,
+          "click": 78,
+          "ctr": 0.04853764779091475,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789491600",
+        "metrics": {
+          "impression": 1501,
+          "click": 79,
+          "ctr": 0.05263157894736842,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789578000",
+        "metrics": {
+          "impression": 1786,
+          "click": 82,
+          "ctr": 0.04591265397536394,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789664400",
+        "metrics": {
+          "impression": 1730,
+          "click": 78,
+          "ctr": 0.04508670520231214,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789750800",
+        "metrics": {
+          "impression": 2050,
+          "click": 84,
+          "ctr": 0.04097560975609756,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1789837200",
+        "metrics": {
+          "impression": 1939,
+          "click": 80,
+          "ctr": 0.041258380608561115,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 320000000,
+          "cost": 2500000000,
+          "broad_roi": 0.128
+        }
+      },
+      {
+        "key": "1789923600",
+        "metrics": {
+          "impression": 3022,
+          "click": 140,
+          "ctr": 0.04632693580410324,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 4417506611,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790010000",
+        "metrics": {
+          "impression": 1447,
+          "click": 66,
+          "ctr": 0.04561161022805805,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 1699936453,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790096400",
+        "metrics": {
+          "impression": 1477,
+          "click": 81,
+          "ctr": 0.05484089370345294,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 5430000000,
+          "cost": 1876114422,
+          "broad_roi": 2.8942797605123896
+        }
+      },
+      {
+        "key": "1790182800",
+        "metrics": {
+          "impression": 952,
+          "click": 48,
+          "ctr": 0.05042016806722689,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790269200",
+        "metrics": {
+          "impression": 888,
+          "click": 41,
+          "ctr": 0.04617117117117117,
+          "checkout": 3,
+          "broad_order": 13,
+          "broad_order_amount": 21,
+          "broad_gmv": 164060899998,
+          "cost": 2500000000,
+          "broad_roi": 65.6243599992
+        }
+      },
+      {
+        "key": "1790355600",
+        "metrics": {
+          "impression": 514,
+          "click": 17,
+          "ctr": 0.033073929961089495,
+          "checkout": 1,
+          "broad_order": 1,
+          "broad_order_amount": 1,
+          "broad_gmv": 3283600000,
+          "cost": 2500000000,
+          "broad_roi": 1.31344
+        }
+      },
+      {
+        "key": "1790442000",
+        "metrics": {
+          "impression": 414,
+          "click": 15,
+          "ctr": 0.036231884057971016,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      },
+      {
+        "key": "1790528400",
+        "metrics": {
+          "impression": 149,
+          "click": 9,
+          "ctr": 0.06040268456375839,
+          "checkout": 0,
+          "broad_order": 0,
+          "broad_order_amount": 0,
+          "broad_gmv": 0,
+          "cost": 2500000000,
+          "broad_roi": 0
+        }
+      }
+    ]
+  }
+}

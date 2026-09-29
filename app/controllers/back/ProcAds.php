@@ -17,8 +17,13 @@ class ProcAds extends Controller {
 
   public function summary() {
     $this->requireAjax();
+    $period = $_GET['period'] ?? 'daily';
+    $channel = $_GET['channel'] ?? 'product';
+    if (!in_array($period, ['daily', 'weekly', 'monthly'], true) || !in_array($channel, ['product', 'shop', 'live'], true)) {
+      $this->json(['status' => 'error', 'message' => 'Periode atau channel iklan tidak valid.'], 422);
+    }
     $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
-    $shops = $this->m('AdsMonitor')->summary($shopId > 0 ? $shopId : null, false);
-    $this->json(['status' => 'success', 'shops' => $shops, 'refreshed_at' => date('c')]);
+    $shops = $this->m('AdsMonitor')->summary($shopId > 0 ? $shopId : null, false, $period, $channel);
+    $this->json(['status' => 'success', 'period' => $period, 'channel' => $channel, 'shops' => $shops, 'refreshed_at' => date('c')]);
   }
 }

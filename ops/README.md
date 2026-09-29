@@ -9,6 +9,9 @@ Shopdash now separates page rendering from Shopee synchronization:
 - Product cursors are checkpointed in `sync_checkpoints`, so an interrupted page run resumes.
 - Products run a full reconciliation every 24 hours; orders run a full reconciliation every 12 hours.
 - The `/panel/sync` page shows per-toko health and lets the operator change intervals or pause a schedule.
+- Scheduler initialization preserves saved intervals and pause settings.
+- The worker recovers expired order-detail leases and rotates runnable jobs between shops. A process lock prevents overlapping local workers.
+- Access failures use a minimum 15-minute retry interval. Failed ads reports remain failed even when account metadata was saved; chat failures do not change overall shop health.
 
 On macOS, install or reload the agents with:
 
@@ -22,3 +25,5 @@ The web server runs on `127.0.0.1:8123` and is managed by
 Logs are written to `/tmp/shopdash-sync-scheduler.log` and
 `/tmp/shopdash-sync-worker.log`. The current intervals are stored in
 `sync_schedules`, so each toko can be inspected through `/procsync/status`.
+
+Recovery verification for September 29, 2026 is recorded in [sync-recovery-20260929.md](sync-recovery-20260929.md).

@@ -1,136 +1,82 @@
-<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
-  <div>
-    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">campaign</span>Ads operations</div>
-    <h2 class="text-2xl font-black tracking-tight text-base-content">Monitoring iklan</h2>
-    <p class="mt-1 max-w-2xl text-sm text-base-content/60">Ringkasan performa dan status iklan setiap toko. Data disegarkan berkala dari Seller Centre.</p>
+<section id="ads-monitor" data-endpoint="<?= htmlspecialchars(burl . '/procads/summary', ENT_QUOTES, 'UTF-8'); ?>" aria-labelledby="ads-title">
+  <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <h2 id="ads-title" class="text-2xl font-black tracking-tight text-base-content">Monitoring iklan</h2>
+      <p class="mt-1 max-w-2xl text-sm text-base-content">Performa iklan per toko, dari ringkasan periode hingga rincian setiap tanggal.</p>
+    </div>
+    <button id="ads-refresh" type="button" class="btn btn-sm min-h-11 rounded-lg">Muat ulang data</button>
   </div>
-  <button id="ads-refresh" type="button" class="btn btn-sm min-h-11 gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">refresh</span>Perbarui</button>
-</div>
-
-<div id="ads-state" class="mb-5 rounded-xl border border-base-content/10 bg-base-100 p-4 text-sm text-base-content/60">Memuat ringkasan iklan setiap toko…</div>
-<div id="ads-session-warning" class="mb-5 hidden rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning-content" role="alert"></div>
-<div id="ads-grid" class="grid grid-cols-1 gap-5 xl:grid-cols-2"></div>
-
-<template id="ads-card-template">
-  <article class="overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
-    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-content/10 p-5">
-      <div class="min-w-0"><div class="truncate text-base font-black" data-shop-name></div><div class="mt-1 text-xs text-base-content/50" data-shop-sync></div></div>
-      <span class="badge badge-ghost badge-sm" data-status></span>
-    </div>
-    <div class="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-      <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Kredit iklan</div><div class="mt-1 text-lg font-black" data-credit>-</div></div>
-      <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Biaya hari ini</div><div class="mt-1 text-lg font-black" data-expense>-</div></div>
-      <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Iklan aktif</div><div class="mt-1 text-lg font-black" data-active>-</div></div>
-      <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Campaign day</div><div class="mt-1 text-lg font-black" data-campaign-day>-</div></div>
-    </div>
-    <div class="border-t border-base-content/10 p-5">
-      <div class="mb-3 flex items-center justify-between"><h3 class="text-sm font-black">Ringkasan performa hari ini</h3><span class="text-[11px] text-base-content/45" data-performance-period></span></div>
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 lg:grid-cols-8">
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Iklan dilihat</div><div class="mt-1 text-lg font-black" data-impressions>-</div></div>
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Jumlah klik</div><div class="mt-1 text-lg font-black" data-clicks>-</div></div>
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Persentase klik</div><div class="mt-1 text-lg font-black" data-ctr>-</div></div>
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Pesanan</div><div class="mt-1 text-lg font-black" data-orders>-</div></div>
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Produk terjual</div><div class="mt-1 text-lg font-black" data-items-sold>-</div></div>
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Penjualan</div><div class="mt-1 text-lg font-black" data-sales>-</div></div>
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Biaya iklan</div><div class="mt-1 text-lg font-black" data-ad-cost>-</div></div>
-        <div><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">ROAS</div><div class="mt-1 text-lg font-black" data-roas>-</div></div>
+  <div class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div>
+        <label for="ads-period" class="mb-2 block text-sm font-bold">Periode laporan</label>
+        <select id="ads-period" class="select min-h-11 w-full">
+          <option value="daily">Harian · hari ini</option>
+          <option value="weekly">Mingguan · minggu berjalan</option>
+          <option value="monthly">Bulanan · bulan berjalan</option>
+        </select>
+      </div>
+      <div>
+        <label for="ads-channel" class="mb-2 block text-sm font-bold">Jenis iklan</label>
+        <select id="ads-channel" class="select min-h-11 w-full">
+          <option value="product">Iklan produk</option>
+          <option value="shop">Iklan toko</option>
+          <option value="live">Iklan live</option>
+        </select>
+      </div>
+      <div>
+        <label for="ads-shop" class="mb-2 block text-sm font-bold">Toko</label>
+        <select id="ads-shop" class="select min-h-11 w-full"><option value="">Semua toko</option></select>
       </div>
     </div>
-    <div class="border-t border-base-content/10 p-5">
-      <div class="mb-3 flex items-center justify-between"><h3 class="text-sm font-black">Status channel iklan</h3><span class="text-[11px] text-base-content/45" data-source>Meta iklan Shopee</span></div>
-      <div class="flex flex-wrap gap-2 text-xs" data-channels></div>
-      <div class="mt-4 rounded-lg bg-base-200/60 p-3 text-xs text-base-content/55" data-note>Detail campaign per produk memerlukan discovery campaign dari payload Shopee.</div>
+    <p id="ads-period-help" class="mt-3 text-sm text-base-content"></p>
+    <p class="mt-2 text-xs text-base-content">Sinkronisasi berjalan di latar belakang. Muat ulang menampilkan hasil tersimpan terbaru. <a href="<?= burl; ?>/panel/sync" class="ads-inline-link">Lihat sinkronisasi</a></p>
+  </div>
+  <div id="ads-state" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan iklan…</div>
+  <div id="ads-session-warning" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" hidden>
+    <p data-session-message></p>
+    <a class="ads-inline-link" href="<?= burl; ?>/panel/shops">Perbarui cookie toko</a>
+  </div>
+  <div id="ads-grid" class="grid min-w-0 grid-cols-1 gap-5" aria-busy="true"></div>
+  <p class="mt-4 text-xs text-base-content">Jumlah pesanan mengikuti kartu Pesanan Seller Centre. Penjualan memakai atribusi total Shopee. Nilai antarjenis iklan tidak dijumlahkan. Tanda - berarti metrik belum tersedia, belum terverifikasi untuk jenis iklan ini, atau rasio tidak dapat dihitung.</p>
+</section>
+<template id="ads-card-template">
+  <article class="min-w-0 overflow-hidden rounded-xl border border-base-content/20 bg-base-100 text-base-content">
+    <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-content/20 p-5">
+      <div class="min-w-0">
+        <h3 class="break-words text-lg font-black" data-shop-name></h3>
+        <p class="mt-1 text-sm" data-performance-period></p>
+        <p class="mt-2 text-xs" data-shop-sync></p>
+      </div>
+      <span class="ads-report-status" data-status></span>
+    </div>
+    <dl class="ads-metrics p-5">
+      <div><dt>Iklan dilihat</dt><dd data-impressions>-</dd></div>
+      <div><dt>Jumlah klik</dt><dd data-clicks>-</dd></div>
+      <div><dt>Persentase klik</dt><dd data-ctr>-</dd></div>
+      <div><dt>Pesanan</dt><dd data-orders>-</dd></div>
+      <div><dt>Produk terjual</dt><dd data-items-sold>-</dd></div>
+      <div><dt>Penjualan</dt><dd data-sales>-</dd></div>
+      <div><dt>Biaya iklan</dt><dd data-ad-cost>-</dd></div>
+      <div><dt>ROAS</dt><dd data-roas>-</dd></div>
+    </dl>
+    <div class="mx-5 mb-5 rounded-lg bg-base-200 p-3 text-sm" data-note></div>
+    <details class="ads-detail border-t border-base-content/20" data-detail>
+      <summary class="min-h-11 cursor-pointer px-5 py-3 text-sm font-bold">Rincian per tanggal <span class="font-normal" data-detail-count></span></summary>
+      <p class="px-5 pb-4 text-sm" data-detail-empty></p>
+      <div class="ads-table-scroll" data-table-region role="region" tabindex="0" hidden>
+        <table class="ads-table">
+          <caption class="sr-only" data-table-caption></caption>
+          <thead><tr><th scope="col">Tanggal (WIB)</th><th scope="col">Iklan dilihat</th><th scope="col">Jumlah klik</th><th scope="col">Persentase klik</th><th scope="col">Pesanan</th><th scope="col">Produk terjual</th><th scope="col">Penjualan</th><th scope="col">Biaya iklan</th><th scope="col">ROAS</th></tr></thead>
+          <tbody data-daily-rows></tbody>
+        </table>
+      </div>
+    </details>
+    <div class="border-t border-base-content/20 px-5 py-4 text-xs">
+      <p data-session-status></p>
+      <p class="mt-2" data-meta></p>
+      <p class="mt-2" data-channels></p>
     </div>
   </article>
 </template>
-
-<script>
-(() => {
-  const grid = document.getElementById('ads-grid');
-  const state = document.getElementById('ads-state');
-  const refresh = document.getElementById('ads-refresh');
-  const template = document.getElementById('ads-card-template');
-  if (!grid || !state || !template) return;
-  const number = value => new Intl.NumberFormat('id-ID').format(Number(value || 0));
-  const money = value => 'Rp ' + number(value);
-  const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
-  const channelLabels = {shop_auto:'Shop auto', shop:'Shop ads', product_manual:'Produk manual', live_stream:'Live stream'};
-  let inFlight = false;
-  async function loadAds() {
-    if (inFlight) return;
-    inFlight = true;
-    refresh.disabled = true;
-    state.textContent = 'Memuat ringkasan iklan setiap toko…';
-    state.className = 'mb-5 rounded-xl border border-base-content/10 bg-base-100 p-4 text-sm text-base-content/60';
-    try {
-      const response = await fetch('<?= burl; ?>/procads/summary', {headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}, cache:'no-store'});
-      const payload = await response.json();
-      if (!response.ok || payload.status !== 'success') throw new Error(payload.message || 'Ringkasan iklan gagal dimuat.');
-      grid.innerHTML = '';
-      const shops = payload.shops || [];
-      if (!shops.length) {
-        state.textContent = 'Belum ada toko terhubung untuk dipantau.';
-        return;
-      }
-      const expiredShops = shops.filter(shop => shop.session_expired || shop.session_status === 'expired' || shop.status === 'expired');
-      const warning = document.getElementById('ads-session-warning');
-      if (warning) {
-        if (expiredShops.length) {
-          warning.className = 'mb-5 rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning-content';
-          warning.innerHTML = '<div class="flex flex-wrap items-start gap-3"><span class="material-symbols-outlined text-xl">warning</span><div><strong>Sesi Shopee perlu diperbarui</strong><div class="mt-1">Cookie atau sesi toko berikut sudah tidak valid: <strong>' + expiredShops.map(shop => escapeHtml(shop.shop_name || ('Toko #' + shop.shop_id))).join(', ') + '</strong>.</div><a class="mt-2 inline-flex min-h-11 items-center font-bold underline underline-offset-2" href="<?= burl; ?>/panel/shops">Perbarui cookie toko</a></div></div>';
-        } else {
-          warning.className = 'mb-5 hidden rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning-content';
-          warning.textContent = '';
-        }
-      }
-      shops.forEach(shop => {
-        const node = template.content.cloneNode(true);
-        const metrics = shop.metrics || {};
-        const credit = metrics.ads_credit || {};
-        const hasAds = metrics.has_ads || {};
-      const campaignDay = metrics.campaign_day || {};
-        const performance = metrics.performance || null;
-        node.querySelector('[data-shop-name]').textContent = shop.shop_name || 'Toko tanpa nama';
-        node.querySelector('[data-shop-sync]').textContent = shop.synced_at ? 'Diperbarui ' + new Date(shop.synced_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'Belum pernah disinkronkan';
-        const status = node.querySelector('[data-status]');
-        if (shop.session_expired || shop.session_status === 'expired' || shop.status === 'expired') { status.textContent = 'Sesi habis'; status.className = 'badge badge-warning badge-sm'; }
-        else if (shop.status === 'ok' && !shop.stale) { status.textContent = 'Tersedia'; status.className = 'badge badge-success badge-sm text-white'; }
-        else if (shop.status === 'ok') { status.textContent = 'Stale'; status.className = 'badge badge-warning badge-sm'; }
-        else if (shop.status === 'error') { status.textContent = 'Gagal'; status.className = 'badge badge-error badge-sm text-white'; }
-        else { status.textContent = 'Menunggu'; }
-        node.querySelector('[data-credit]').textContent = money(credit.total);
-        node.querySelector('[data-expense]').textContent = money(metrics.ads_expense_today);
-        const activeChannels = Object.keys(channelLabels).filter(key => hasAds[key]);
-        node.querySelector('[data-active]').textContent = number(activeChannels.length);
-        node.querySelector('[data-campaign-day]').textContent = campaignDay.is_campaign_day ? 'Ya' : 'Tidak';
-        const performanceAvailable = performance && performance.available;
-        node.querySelector('[data-performance-period]').textContent = performanceAvailable ? performance.period : 'Metrik report belum tersedia';
-        node.querySelector('[data-impressions]').textContent = performanceAvailable ? number(performance.impressions) : '—';
-        node.querySelector('[data-clicks]').textContent = performanceAvailable ? number(performance.clicks) : '—';
-        node.querySelector('[data-ctr]').textContent = performanceAvailable ? number(performance.ctr) + '%' : '—';
-        node.querySelector('[data-orders]').textContent = performanceAvailable ? number(performance.orders) : '—';
-        node.querySelector('[data-items-sold]').textContent = performanceAvailable ? number(performance.items_sold) : '—';
-        node.querySelector('[data-sales]').textContent = performanceAvailable ? money(performance.sales) : '—';
-        node.querySelector('[data-ad-cost]').textContent = performanceAvailable ? money(performance.ad_cost) : money(metrics.ads_expense_today);
-        node.querySelector('[data-roas]').textContent = performanceAvailable && performance.roas !== null ? Number(performance.roas).toLocaleString('id-ID', {maximumFractionDigits:2}) + 'x' : '—';
-        const channels = node.querySelector('[data-channels]');
-        channels.innerHTML = activeChannels.length ? activeChannels.map(key => '<span class="badge badge-outline badge-sm">' + channelLabels[key] + '</span>').join('') : '<span class="text-base-content/45">Tidak ada channel iklan aktif pada payload.</span>';
-        if (shop.session_expired || shop.session_status === 'expired' || shop.status === 'expired') node.querySelector('[data-note]').textContent = escapeHtml(shop.error_message || 'Sesi Shopee toko habis. Perbarui cookie toko.');
-        else if (shop.status === 'error') node.querySelector('[data-note]').textContent = escapeHtml(shop.error_message || 'Data iklan toko tidak tersedia. Periksa sesi toko.');
-        else if (!performanceAvailable) node.querySelector('[data-note]').textContent = 'Biaya iklan memakai ringkasan harian. Metrik impression, klik, pesanan, penjualan, dan ROAS menunggu response report Seller Centre.';
-        grid.appendChild(node);
-      });
-      state.textContent = 'Ringkasan per toko diperbarui ' + new Date().toLocaleTimeString('id-ID');
-    } catch (error) {
-      state.textContent = error.message || 'Ringkasan iklan gagal dimuat.';
-      state.className = 'mb-5 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-error';
-    } finally {
-      inFlight = false;
-      refresh.disabled = false;
-    }
-  }
-  refresh.addEventListener('click', loadAds);
-  loadAds();
-  window.setInterval(loadAds, 300000);
-})();
-</script>
+<script src="<?= assets; ?>/js/ads.js" defer></script>

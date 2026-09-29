@@ -274,15 +274,11 @@ class ChatMonitor extends BaseModel {
   }
 
   private function saveError(array $shop, $expired, $message) {
-    $status = $expired ? 'expired' : 'error';
+    $status = $expired && stripos((string)$message, 'forbidden') === false ? 'expired' : 'error';
     $this->db->query("INSERT INTO {$this->table} (shop_id, status, last_sync_at, error_message) VALUES (:shop_id, :status, UTC_TIMESTAMP(), :error_message) ON DUPLICATE KEY UPDATE status = VALUES(status), last_sync_at = UTC_TIMESTAMP(), error_message = VALUES(error_message)");
     $this->db->bind('shop_id', (int)$shop['id']);
     $this->db->bind('status', $status);
     $this->db->bind('error_message', (string)$message);
-    $this->db->exe();
-    $this->db->query("UPDATE shops SET sync_status = :sync_status WHERE id = :shop_id");
-    $this->db->bind('sync_status', $expired ? 'expired' : 'connected');
-    $this->db->bind('shop_id', (int)$shop['id']);
     $this->db->exe();
     return ['ok' => false, 'status' => $status, 'message' => (string)$message];
   }

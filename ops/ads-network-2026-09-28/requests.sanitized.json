@@ -1,0 +1,209 @@
+[
+  {
+    "period": "daily",
+    "channel": "product",
+    "evidence_request_id": "61308.6792",
+    "observation": "observed browser request",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "product_homepage_v2",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "new_cpc_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "weekly",
+    "channel": "product",
+    "evidence_request_id": "61308.6792",
+    "observation": "same date range as daily; weekly equivalence derived because today is Monday",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "product_homepage_v2",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "new_cpc_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "monthly",
+    "channel": "product",
+    "evidence_request_id": "61308.6833",
+    "observation": "observed browser request",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 96,
+      "campaign_type": "product_homepage_v2",
+      "start_time": 1788195600,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "new_cpc_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "daily",
+    "channel": "shop",
+    "evidence_request_id": "61308.6891",
+    "observation": "observed browser request",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "shop_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "shop_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "weekly",
+    "channel": "shop",
+    "evidence_request_id": "61308.6891",
+    "observation": "same date range as daily; weekly equivalence derived because today is Monday",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "shop_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "shop_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "monthly",
+    "channel": "shop",
+    "evidence_request_id": "61308.6884",
+    "observation": "observed browser request",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 96,
+      "campaign_type": "shop_homepage",
+      "start_time": 1788195600,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "shop_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "daily",
+    "channel": "live",
+    "evidence_request_id": "61308.6907",
+    "observation": "observed browser request",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "live_stream_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "live_stream_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "weekly",
+    "channel": "live",
+    "evidence_request_id": "61308.6907",
+    "observation": "same date range as daily; weekly equivalence derived because today is Monday",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "live_stream_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "live_stream_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  },
+  {
+    "period": "monthly",
+    "channel": "live",
+    "evidence_request_id": "61308.6914",
+    "observation": "observed browser request",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/",
+    "query": {
+      "SPC_CDS": "<SPC_CDS_SESI_TOKO>",
+      "SPC_CDS_VER": "2"
+    },
+    "body": {
+      "agg_interval": 96,
+      "campaign_type": "live_stream_homepage",
+      "start_time": 1788195600,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "live_stream_homepage"
+      },
+      "device_sz_fingerprint": "<FINGERPRINT_SESI_TOKO>"
+    }
+  }
+]

@@ -2,6 +2,9 @@
 
 declare(strict_types=1);
 
+$workerLock = fopen(sys_get_temp_dir() . '/shopdash-worker-' . sha1(dirname(__DIR__)) . '.lock', 'c');
+if (!$workerLock || !flock($workerLock, LOCK_EX | LOCK_NB)) exit(0);
+
 chdir(__DIR__ . '/../public');
 require_once '../app/init.php';
 require_once '../app/models/SyncJob.php';
@@ -177,7 +180,7 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
   $orderId = (int)$task['order_id'];
   $detail = $shopee->getOneOrder($shop['cookie'], $orderId);
   if (!$detail) {
-    $db->query("UPDATE orders SET sync_status = 'failed', sync_attempts = sync_attempts + 1, sync_next_retry_at = DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, sync_attempts)) MINUTE), sync_last_error = 'Shopee order detail failed' WHERE id = :order_id");
+    $db->query("UPDATE orders SET sync_status = 'failed', sync_attempts = sync_attempts + 1, sync_next_retry_at = DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, LEAST(sync_attempts, 6))) MINUTE), sync_last_error = 'Shopee order detail failed' WHERE id = :order_id");
     $db->bind('order_id', $orderId);
     $db->exe();
     $sync->finishOrder((int)$task['id'], 'retry', 'Shopee order detail failed');
@@ -297,7 +300,11 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
     $result = (new ProductSync())->run($shop, (string)($job['mode'] ?? 'diff'), 100, $rateMs);
     return [!empty($result['ok']), $result['message'] ?? null];
   }
-  if ($type === 'ads') return [(new AdsMonitor())->syncShop($shop), null];
+  if ($type === 'ads') {
+    $monitor = new AdsMonitor();
+    $ok = $monitor->syncShop($shop);
+    return [$ok, $monitor->lastSyncError()];
+  }
   if ($type === 'performance') {
     $result = (new ShopPerformance())->syncShop($shop);
     return [!empty($result['ok']), $result['message'] ?? null];
@@ -358,8 +365,8 @@ if ($packageMode) {
   exit(0);
 }
 do {
-  $job = $sync->claimJob($requestedJob);
-  if (!$job || ($requestedShop && (int)$job['shop_id'] !== $requestedShop)) {
+  $job = $sync->claimJob($requestedJob, $requestedShop);
+  if (!$job) {
     break;
   }
   $db->query("SELECT * FROM shops WHERE id = :shop_id LIMIT 1");
@@ -385,11 +392,20 @@ do {
     continue;
   }
   if ((int)$job['page_number'] > 0) {
-    processIndex($db, $sync, $shopee, $job, $shop);
+    if (!processIndex($db, $sync, $shopee, $job, $shop)) {
+      $loops++;
+      continue;
+    }
   }
   $tasks = $sync->claimOrders($jobId, $batchSize);
   foreach ($tasks as $task) {
-    $orderOk = processOrder($db, $sync, $shopee, $task, $shop, false);
+    $sync->heartbeat($jobId, array_column($tasks, 'id'));
+    try {
+      $orderOk = processOrder($db, $sync, $shopee, $task, $shop, false);
+    } catch (Throwable $error) {
+      $sync->finishOrder((int)$task['id'], 'retry', 'Worker order detail error: ' . get_class($error));
+      $orderOk = false;
+    }
     recordRun($db, $jobId, $orderOk ? 'detail_success' : 'detail_failed');
     recordRun($db, $jobId, 'api_requests');
     usleep($rateMs * 1000);

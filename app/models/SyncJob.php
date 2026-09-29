@@ -292,31 +292,14 @@ class SyncJob extends BaseModel {
     return $row;
   }
 
-  public function claimJob($jobId = null) {
+  public function claimJob($jobId = null, $shopId = null) {
     $this->ensureSchema();
-    if ($jobId) {
-      $this->db->query("SELECT * FROM sync_jobs WHERE id = :job_id AND status IN ('queued','running') AND (lease_until IS NULL OR lease_until < NOW()) LIMIT 1");
-      $this->db->bind('job_id', (int)$jobId);
-    } else {
-      $this->db->query("SELECT * FROM sync_jobs WHERE status IN ('queued','running') AND (next_retry_at IS NULL OR next_retry_at <= NOW()) AND (lease_until IS NULL OR lease_until < NOW()) ORDER BY CASE WHEN status = 'queued' THEN 0 ELSE 1 END, id ASC LIMIT 1");
-    }
-    $job = $this->db->single();
-    if (!$job) {
-      return null;
-    }
-    $this->db->query("UPDATE sync_jobs SET status = 'running', lease_until = DATE_ADD(NOW(), INTERVAL 5 MINUTE), started_at = COALESCE(started_at, NOW()), attempts = attempts + 1 WHERE id = :job_id");
-    $this->db->bind('job_id', (int)$job['id']);
-    $this->db->exe();
-    $this->db->query("UPDATE sync_runs SET status = 'running', started_at = COALESCE(started_at, NOW()) WHERE job_id = :job_id OR sync_job_id = :job_id2");
-    $this->db->bind('job_id', (int)$job['id']);
-    $this->db->bind('job_id2', (int)$job['id']);
-    $this->db->exe();
-    $job['status'] = 'running';
-    return $job;
+    require_once __DIR__ . '/../helpers/SyncQueue.php';
+    return (new SyncQueue($this->db))->claimJob($jobId, $shopId);
   }
 
   public function releaseJob($jobId, $status = 'completed', $error = null) {
-    $this->db->query("UPDATE sync_jobs SET status = :status, lease_until = NULL, last_error = :error, next_retry_at = CASE WHEN :status3 = 'queued' THEN DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, attempts)) MINUTE) ELSE NULL END, completed_at = CASE WHEN :status2 IN ('completed','failed') THEN NOW() ELSE completed_at END WHERE id = :job_id");
+    $this->db->query("UPDATE sync_jobs SET status = :status, lease_until = NULL, last_error = :error, next_retry_at = CASE WHEN :status3 = 'queued' THEN DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, LEAST(attempts, 6))) MINUTE) ELSE NULL END, completed_at = CASE WHEN :status2 IN ('completed','failed') THEN NOW() ELSE completed_at END WHERE id = :job_id");
     $this->db->bind('status', $status);
     $this->db->bind('status2', $status);
     $this->db->bind('status3', $status);
@@ -354,21 +337,18 @@ class SyncJob extends BaseModel {
   }
 
   public function claimOrders($jobId, $limit = 10) {
-    $limit = max(1, min(50, (int)$limit));
-    $this->db->query("SELECT * FROM sync_job_orders WHERE job_id = :job_id AND status IN ('queued','retry') AND (next_retry_at IS NULL OR next_retry_at <= NOW()) AND (lease_until IS NULL OR lease_until < NOW()) ORDER BY id ASC LIMIT {$limit}");
-    $this->db->bind('job_id', (int)$jobId);
-    $rows = $this->db->getAll();
-    foreach ($rows as $row) {
-      $this->db->query("UPDATE sync_job_orders SET status = 'running', attempts = attempts + 1, lease_until = DATE_ADD(NOW(), INTERVAL 5 MINUTE) WHERE id = :id");
-      $this->db->bind('id', (int)$row['id']);
-      $this->db->exe();
-    }
-    return $rows;
+    require_once __DIR__ . '/../helpers/SyncQueue.php';
+    return (new SyncQueue($this->db))->claimOrders($jobId, $limit);
+  }
+
+  public function heartbeat($jobId, array $taskIds) {
+    require_once __DIR__ . '/../helpers/SyncQueue.php';
+    (new SyncQueue($this->db))->heartbeat($jobId, $taskIds);
   }
 
   public function finishOrder($taskId, $status, $error = null) {
     $retry = $status === 'retry';
-    $this->db->query("UPDATE sync_job_orders SET status = :status, lease_until = NULL, last_error = :error, next_retry_at = CASE WHEN :retry = 1 THEN DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, attempts)) MINUTE) ELSE NULL END, completed_at = CASE WHEN :retry = 0 THEN NOW() ELSE completed_at END WHERE id = :id");
+    $this->db->query("UPDATE sync_job_orders SET status = :status, lease_until = NULL, last_error = :error, next_retry_at = CASE WHEN :retry = 1 THEN DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, LEAST(attempts, 6))) MINUTE) ELSE NULL END, completed_at = CASE WHEN :retry = 0 THEN NOW() ELSE completed_at END WHERE id = :id");
     $this->db->bind('status', $status);
     $this->db->bind('error', $error);
     $this->db->bind('retry', $retry ? 1 : 0);

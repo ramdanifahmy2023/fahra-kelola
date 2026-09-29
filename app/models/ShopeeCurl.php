@@ -1,6 +1,11 @@
 <?php
 
 class ShopeeCurl {
+  private $lastRequestDiagnostics = [];
+
+  public function getLastRequestDiagnostics() {
+    return $this->lastRequestDiagnostics;
+  }
 
     // Base URL Seller Shopee (bisa disesuaikan versi API-nya)
     private $baseUrl = 'https://seller.shopee.co.id/api';
@@ -31,6 +36,18 @@ class ShopeeCurl {
         
         // Gabungkan dengan header tambahan jika ada
         $headers = array_merge($defaultHeaders, $customHeaders);
+
+        $this->lastRequestDiagnostics = [
+          'method' => strtoupper($method),
+          'endpoint' => parse_url($url, PHP_URL_PATH),
+          'requested_at' => gmdate('c'),
+          'header_names' => array_values(array_unique(array_map(static function ($header) { return strtolower(trim(explode(':', $header, 2)[0])); }, $headers))),
+          'cookie_present' => trim($cookie) !== '',
+          'fingerprint_present' => is_array($data) && !empty($data['device_sz_fingerprint']),
+          'http_status' => null,
+          'api_code' => null,
+          'api_error' => null
+        ];
 
         $method = strtoupper($method);
 
@@ -69,6 +86,8 @@ class ShopeeCurl {
         $response = curl_exec($ch);
         $err = curl_error($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $this->lastRequestDiagnostics['http_status'] = $httpCode;
+        $this->lastRequestDiagnostics['transport_error'] = $err !== '';
         
         // curl_close($ch); // Deprecated and throws a warning that corrupts JSON output
 
@@ -90,6 +109,10 @@ class ShopeeCurl {
             ];
         }
 
+        if (is_array($decoded)) {
+          $this->lastRequestDiagnostics['api_code'] = is_numeric($decoded['code'] ?? $decoded['errcode'] ?? null) ? (int)($decoded['code'] ?? $decoded['errcode']) : null;
+          $this->lastRequestDiagnostics['api_error'] = is_numeric($decoded['error'] ?? null) ? (int)$decoded['error'] : null;
+        }
         return $decoded;
     }
 
@@ -246,7 +269,7 @@ class ShopeeCurl {
 
         $credit = is_array($data['ads_credit'] ?? null) ? $data['ads_credit'] : [];
         $expense = is_array($data['ads_expense'] ?? null) ? $data['ads_expense'] : [];
-        $performance = $this->getAdsPerformanceSummary($cookie);
+        $reports = $this->getAdsPerformanceReports($cookie);
         return [
             'ads_credit' => [
                 'total' => $toMoney($credit['total'] ?? 0),
@@ -260,60 +283,55 @@ class ShopeeCurl {
             'ads_toggle' => is_array($data['ads_toggle'] ?? null) ? $data['ads_toggle'] : [],
             'incentive' => is_array($data['incentive'] ?? null) ? $data['incentive'] : [],
             'live_stream_account' => is_array($data['live_stream_account'] ?? null) ? $data['live_stream_account'] : [],
-            'performance' => $performance
+            'performance' => $reports['daily']['product'],
+            'performance_reports' => $reports
         ];
     }
 
-    /**
-     * Mengambil aggregate performa iklan harian dari report_time_graph.
-     */
-    private function getAdsPerformanceSummary($cookie) {
-        preg_match('/SPC_CDS=([^;]+)/', $cookie, $matches);
-        $spcCds = $matches[1] ?? '';
-        if ($spcCds === '') {
-            return null;
-        }
-
-        $day = new DateTimeImmutable('today', new DateTimeZone('Asia/Jakarta'));
-        $endpoint = 'https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=' . urlencode($spcCds) . '&SPC_CDS_VER=2';
-        $response = $this->request('POST', $endpoint, $cookie, [
-            'agg_interval' => 1,
-            'campaign_type' => 'product_homepage_v2',
-            'start_time' => $day->getTimestamp(),
-            'end_time' => $day->modify('+1 day')->getTimestamp() - 1,
-            'need_roi_target_setting' => false,
-            'filter_params' => ['campaign_type' => 'new_cpc_homepage']
-        ], [
+  public function getAdsPerformanceReports($cookie, ?DateTimeImmutable $now = null) {
+    require_once __DIR__ . '/../helpers/AdsPerformance.php';
+    preg_match('/SPC_CDS=([^;]+)/', $cookie, $matches);
+    $spcCds = $matches[1] ?? '';
+    $endpoint = 'https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=' . urlencode($spcCds) . '&SPC_CDS_VER=2';
+    $reports = [];
+    $blockedResponse = $spcCds === '' ? [] : null;
+    $now = $now ?? new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta'));
+    $responses = [];
+    foreach (['daily', 'weekly', 'monthly'] as $period) {
+      $range = AdsPerformance::range($period, $now);
+      foreach (AdsPerformance::CHANNELS as $channel => $config) {
+        $body = AdsPerformance::requestBody($range, $channel);
+        $key = json_encode($body);
+        $state = 'sent';
+        $diagnostics = null;
+        if (isset($responses[$key])) {
+          [$response, $diagnostics] = $responses[$key];
+          $state = 'reused';
+        } elseif ($blockedResponse !== null) {
+          $response = $blockedResponse;
+          $state = 'skipped';
+        } else {
+          $response = $this->request('POST', $endpoint, $cookie, $body, [
             'Origin: https://seller.shopee.co.id',
             'Referer: https://seller.shopee.co.id/portal/marketing/pas/index'
-        ]);
-
-        $aggregate = $response['data']['report_aggregate'] ?? null;
-        if (!is_array($aggregate)) {
-            return null;
+          ]);
+          $diagnostics = $this->getLastRequestDiagnostics();
+          $responses[$key] = [$response, $diagnostics];
         }
-
-        $money = static function ($value) {
-            return (int)round(((float)$value) / 100000);
-        };
-        $orders = (int)($aggregate['direct_order'] ?? $aggregate['broad_order'] ?? 0);
-        $items = (int)($aggregate['direct_order_amount'] ?? $aggregate['broad_order_amount'] ?? 0);
-        $salesRaw = $aggregate['direct_gmv'] ?? $aggregate['broad_gmv'] ?? 0;
-        $roas = $aggregate['direct_roi'] ?? $aggregate['broad_roi'] ?? null;
-
-        return [
-            'available' => true,
-            'period' => $day->format('Y-m-d'),
-            'impressions' => (int)($aggregate['impression'] ?? 0),
-            'clicks' => (int)($aggregate['click'] ?? 0),
-            'ctr' => round(((float)($aggregate['ctr'] ?? 0)) * 100, 2),
-            'orders' => $orders,
-            'items_sold' => $items,
-            'sales' => $money($salesRaw),
-            'ad_cost' => $money($aggregate['cost'] ?? 0),
-            'roas' => $roas === null ? null : round((float)$roas, 2)
-        ];
+        $reports[$period][$channel] = AdsPerformance::normalize(is_array($response) ? $response : [], $range, $channel);
+        $reports[$period][$channel]['request_state'] = $state;
+        $reports[$period][$channel]['diagnostics'] = $diagnostics;
+        if ($state === 'skipped') {
+          $reports[$period][$channel]['attempted_at'] = null;
+          $reports[$period][$channel]['error_message'] = $spcCds === '' ? 'Request laporan dilewati karena sesi toko tidak lengkap.' : 'Request laporan ini dilewati setelah request sebelumnya ditolak Shopee (90309999).';
+        } elseif ($state === 'reused') {
+          $reports[$period][$channel]['attempted_at'] = $diagnostics['requested_at'] ?? null;
+        }
+        if ((int)($response['error'] ?? 0) === 90309999) $blockedResponse = $response;
+      }
     }
+    return $reports;
+  }
 
     /**
      * Method untuk mengambil data produk dari toko

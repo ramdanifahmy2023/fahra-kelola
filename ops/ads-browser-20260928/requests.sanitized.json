@@ -1,0 +1,164 @@
+[
+  {
+    "period": "daily",
+    "channel": "product",
+    "evidence": "Browser successful response code=0",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "product_homepage_v2",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "new_cpc_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "daily",
+    "channel": "shop",
+    "evidence": "Browser successful response code=0",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "shop_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "shop_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "daily",
+    "channel": "live",
+    "evidence": "Browser successful response code=0",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "live_stream_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "live_stream_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "weekly",
+    "channel": "product",
+    "evidence": "Browser today; weekly shares same Monday date range",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "product_homepage_v2",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "new_cpc_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "weekly",
+    "channel": "shop",
+    "evidence": "Browser today; weekly shares same Monday date range",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "shop_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "shop_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "weekly",
+    "channel": "live",
+    "evidence": "Browser today; weekly shares same Monday date range",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 1,
+      "campaign_type": "live_stream_homepage",
+      "start_time": 1790528400,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "live_stream_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "monthly",
+    "channel": "product",
+    "evidence": "Browser successful response code=0",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 96,
+      "campaign_type": "product_homepage_v2",
+      "start_time": 1788195600,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "new_cpc_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "monthly",
+    "channel": "shop",
+    "evidence": "Browser successful response code=0",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 96,
+      "campaign_type": "shop_homepage",
+      "start_time": 1788195600,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "shop_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  },
+  {
+    "period": "monthly",
+    "channel": "live",
+    "evidence": "Browser successful response code=0",
+    "method": "POST",
+    "url": "https://seller.shopee.co.id/api/pas/v1/report/get_time_graph/?SPC_CDS=<SESSION_SAME_SHOP>&SPC_CDS_VER=2",
+    "body": {
+      "agg_interval": 96,
+      "campaign_type": "live_stream_homepage",
+      "start_time": 1788195600,
+      "end_time": 1790614799,
+      "need_roi_target_setting": false,
+      "filter_params": {
+        "campaign_type": "live_stream_homepage"
+      },
+      "device_sz_fingerprint": "<SAME_SESSION_BROWSER_GENERATED>"
+    }
+  }
+]
