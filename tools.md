@@ -38,6 +38,7 @@ For configuration keys and example values, read `config/.env.example`. Do not pa
 | `rg -n 'pattern' app public/assets/js resources/css` | Search readable sources; avoid minified CSS noise |
 | `npm ci` | Installs dependencies and changes local `node_modules`; not a read-only check |
 | `npm run build` | Regenerates tracked `public/assets/css/style.css` from `resources/css/input.css` |
+| `php bin/finance-sync.php --schema-only` | Creates additive finance tables only; [finance operations](ops/finance.md) documents scoped import and pending-only options. |
 | `npm run dev` | Long-running CSS watcher; stop when no longer needed |
 | `php bin/release-extension.php --notes=tmp/release-notes.json` | Publishes a new extension ZIP and named changelog from the source manifest version; refuses to overwrite existing versions. Read `ops/sellerio-extension.md` first. |
 | `php -l path/to/file.php` | PHP syntax check without executing the file |

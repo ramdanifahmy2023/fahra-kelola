@@ -45,13 +45,20 @@ window.enhanceShopSelect = select => {
     const selected = select.selectedOptions[0] || select.options[0];
     if (!selected) return;
     content(selected, trigger);
+    if (select.multiple) {
+      const count = select.selectedOptions.length;
+      if (count !== 1) {
+        window.renderShopLogo(trigger.children[0], '0');
+        trigger.children[1].textContent = count === 0 || count === select.options.length ? 'Semua toko' : count + ' toko dipilih';
+      }
+    }
     trigger.children[1].classList.add('truncate');
     const arrow = document.createElement('span');
     arrow.className = 'material-symbols-outlined';
     arrow.setAttribute('aria-hidden', 'true');
     arrow.textContent = 'expand_more';
     trigger.append(arrow);
-    trigger.setAttribute('aria-label', (label?.textContent || 'Toko') + ': ' + selected.text);
+    trigger.setAttribute('aria-label', (label?.textContent || 'Toko') + ': ' + trigger.children[1].textContent);
     menu.replaceChildren();
     Array.from(select.options).forEach(option => {
       const row = document.createElement('li');
@@ -64,12 +71,14 @@ window.enhanceShopSelect = select => {
         button.classList.add('bg-base-200');
         button.setAttribute('aria-current', 'true');
       }
+      if (select.multiple) button.setAttribute('aria-pressed', String(option.selected));
       button.addEventListener('click', () => {
-        select.value = option.value;
-        setOpen(false);
-        trigger.focus();
+        if (select.multiple) option.selected = !option.selected;
+        else select.value = option.value;
+        if (!select.multiple) { setOpen(false); trigger.focus(); }
         sync();
         select.dispatchEvent(new Event('change', {bubbles: true}));
+        if (select.multiple) menu.querySelector('[data-shop-value="' + option.value + '"]')?.focus();
       });
       row.append(button);
       menu.append(row);

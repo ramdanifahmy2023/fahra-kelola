@@ -258,6 +258,11 @@ function enrichPackage(Database $db, ShopeeCurl $shopee, int $orderId, string $c
 function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $shopee, int $rateMs, int $packageLimit): array {
   $type = (string)($job['sync_type'] ?? '');
   $shopId = (int)$job['shop_id'];
+  if ($type === 'finance') {
+    require_once __DIR__.'/../models/Finance.php';
+    require_once __DIR__.'/FinanceApi.php';
+    return (new Finance())->work($shop,new FinanceApi($shopee),3,$rateMs);
+  }
   if ($type === 'products') {
     $result = (new ProductSync())->run($shop, (string)($job['mode'] ?? 'diff'), 2, $rateMs);
     return [!empty($result['ok']), $result['message'] ?? null, $result['complete'] ?? true];

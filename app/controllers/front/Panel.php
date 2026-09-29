@@ -1,6 +1,14 @@
 <?php
 
 class Panel extends Controller {
+  public function finance() {
+    $data=['judul'=>'Keuangan - '.app_name,'active_menu'=>'finance'];
+    $data['shops']=$this->m('Finance')->shops();
+    $this->v('panel/templates/header',$data);
+    $this->v('panel/finance',$data);
+    $this->v('panel/templates/footer',$data);
+  }
+
   public function automation() {
     $data = ['judul'=>'Automation Engine - ' . app_name, 'active_menu'=>'automation'];
     $data['shops'] = $this->m('Shop')->findAll();

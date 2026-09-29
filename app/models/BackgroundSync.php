@@ -8,6 +8,7 @@ class BackgroundSync extends BaseModel {
   private $schemaReady = false;
 
   private $definitions = [
+    'finance' => ['interval' => 600, 'full_interval' => 0, 'mode' => 'diff'],
     'orders' => ['interval' => 180, 'full_interval' => 43200, 'mode' => 'diff'],
     'chat' => ['interval' => 30, 'full_interval' => 0, 'mode' => 'diff'],
     'products' => ['interval' => 900, 'full_interval' => 86400, 'mode' => 'diff'],
@@ -132,7 +133,7 @@ class BackgroundSync extends BaseModel {
 
   public function configure($shopId, $syncType, $intervalSeconds, $enabled = 1) {
     $this->ensureSchema();
-    $allowed = ['orders', 'chat', 'products', 'promotions', 'ads', 'ads_topups', 'performance', 'customers', 'shops', 'packages'];
+    $allowed = ['orders', 'chat', 'products', 'promotions', 'ads', 'ads_topups', 'performance', 'customers', 'shops', 'packages', 'finance'];
     if (!in_array($syncType, $allowed, true)) return false;
     $intervalSeconds = max(30, min(86400, (int)$intervalSeconds));
     $this->db->query("UPDATE sync_schedules SET interval_seconds = :interval_seconds, enabled = :enabled, next_run_at = CASE WHEN :enabled2 = 1 THEN NOW() ELSE next_run_at END WHERE shop_id = :shop_id AND sync_type = :sync_type");

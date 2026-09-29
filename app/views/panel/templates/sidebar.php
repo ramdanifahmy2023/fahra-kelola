@@ -27,6 +27,7 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
       <a href="<?= burl; ?>/panel/chat" class="<?= $navItemClass; ?> <?= ($active == 'chat') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">chat</span><span>Live Chat</span></a>
       <a href="<?= burl; ?>/panel/sync" class="<?= $navItemClass; ?> <?= ($active == 'sync') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">sync</span><span>Sinkronisasi</span></a>
       <a href="<?= burl; ?>/panel/reports" class="<?= $navItemClass; ?> <?= ($active == 'reports') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">monitoring</span><span>Laporan</span></a>
+      <a href="<?= burl; ?>/panel/finance" class="<?= $navItemClass; ?> min-h-11 <?= $active === 'finance' ? $activeClass : $inactiveClass; ?>" <?= $active === 'finance' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">account_balance_wallet</span><span>Keuangan</span></a>
     </div>
 
     <div class="my-5 h-px bg-neutral-content/10"></div>

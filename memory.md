@@ -30,6 +30,7 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 | Background sync | Durable scheduler/worker queue; ordinary data pages read local data, not a new full upstream sync |
 | Runtime settings | Database schedule rows and queue state are authoritative; old incident notes are historical evidence |
 | Extension downloads | `/panel/extensions`; `ExtensionRelease.php` reads per-version JSON in `resources/extensions/releases/`; immutable ZIPs live in `public/downloads/extensions/` |
+| Finance / HPP | `/panel/finance`; pending/latest overview, released overview or custom-date details with explicit reconciliation, multi-shop filters, dated per-variant cost and signed impact preview. See [finance contract](ops/finance.md). |
 
 ## Decision history and evidence
 

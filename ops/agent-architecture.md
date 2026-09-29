@@ -30,6 +30,7 @@ This is not Laravel or a Node backend. Do not introduce framework commands or an
 | Shops/session management | `shops.php`, `Shop.php`, `ProcShops.php` |
 | Chat | `chat.php`, `ChatMonitor.php`, `ShopeeChat.php`, `ProcChat.php` |
 | Automation configuration | `automation.php`, `public/assets/js/automation.js`, `AutomationProfile.php`, `app/helpers/AutomationPolicy.php`, `ProcAutomation.php` |
+| Finance / product cost | `finance.php`, `public/assets/js/finance.js`, `Finance.php`, `FinanceCost.php`, `FinanceApi.php`, `FinancePolicy.php`, `ProcFinance.php`; [contract](finance.md) |
 | Extension downloads | `extensions.php`, `ExtensionRelease.php`; filesystem release catalog in `resources/extensions/releases/`, ZIPs in `public/downloads/extensions/` |
 
 View paths in the table are under `app/views/panel/`, model paths under `app/models/`, and back controllers under `app/controllers/back/` unless otherwise specified.
