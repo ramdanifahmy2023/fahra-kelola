@@ -73,7 +73,7 @@
       set('performance-period', (report.channel_label || channel.selectedOptions[0].text) + ' · ' + range);
       set('shop-sync', report.fetched_at ? 'Diperbarui ' + timestamp(report.fetched_at) : 'Belum diperbarui');
       const status = node.querySelector('[data-status]');
-      status.textContent = expired(shop) ? 'Sesi habis' : available ? (report.stale ? 'Belum diperbarui' : 'Tersedia') : (report.error_code ? 'Gagal dimuat' : 'Belum tersedia');
+      status.textContent = expired(shop) ? 'Sesi habis' : available ? (report.stale ? 'Belum diperbarui' : 'Tersedia') : (report.request_state === 'skipped' ? 'Belum diambil' : report.error_code ? 'Gagal dimuat' : 'Belum tersedia');
       status.dataset.state = available && !report.stale && !expired(shop) ? 'ready' : 'pending';
       fields.forEach((field, index) => set(selectors[index], available ? metric(field, report[field]) : '-'));
       const notes = [];

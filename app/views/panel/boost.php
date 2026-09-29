@@ -20,7 +20,7 @@
       <div class="col-span-2"><div class="text-[10px] font-bold uppercase tracking-wide text-base-content/45">Status berikutnya</div><div class="mt-1 text-sm font-bold" data-cooldown>Siap digunakan</div></div>
     </div>
     <div class="border-t border-base-content/10 p-5">
-      <div class="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-sm font-black">Pilih produk</h3><p class="mt-1 text-[11px] text-base-content/50" data-selection-help>Pilih maksimal 5 produk.</p></div><div class="join"><input data-search class="input input-sm join-item w-40 border-base-content/10 bg-base-200" placeholder="Cari produk" /><button data-search-button class="btn btn-sm join-item">Cari</button></div></div>
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-3"><div><h3 class="text-sm font-black">Pilih produk</h3><p class="mt-1 text-sm" data-selection-count role="status">0/5 dipilih</p><p class="mt-1 text-sm" data-selection-help hidden></p></div><div class="join"><input data-search aria-label="Cari produk" class="input input-sm join-item w-40 border-base-content/10 bg-base-200" placeholder="Cari produk" /><button data-search-button class="btn btn-sm join-item">Cari</button></div></div>
       <div data-products class="space-y-2"></div>
       <div class="mt-4 flex flex-wrap items-center justify-between gap-3"><button data-more class="btn btn-ghost btn-sm min-h-10">Muat produk lain</button><button data-boost class="btn btn-primary btn-sm min-h-10 gap-2"><span class="material-symbols-outlined text-base">north</span>Naikkan terpilih</button></div>
       <div class="mt-3 hidden rounded-lg border border-base-content/10 p-3 text-xs" data-action-result role="status"></div>
@@ -76,7 +76,9 @@
     else { session.textContent = 'Sesi tersedia'; session.className = 'badge badge-success badge-sm text-white'; }
     const button = card.querySelector('[data-boost]');
     button.disabled = sessionExpired || !!summary.batch_active || quotaEmpty;
-    card.querySelector('[data-selection-help]').textContent = sessionExpired ? 'Perbarui cookie toko sebelum menjalankan boost.' : (summary.batch_active ? 'Batch toko sedang diproses, tunggu sampai selesai.' : (quotaEmpty ? 'Kuota 5 produk sudah terpakai. Tunggu sampai kuota kembali.' : 'Pilih maksimal ' + Math.min(5, Number(summary.remaining_count || 0)) + ' produk di toko ini.'));
+    const help = card.querySelector('[data-selection-help]');
+    help.textContent = sessionExpired ? 'Perbarui koneksi toko untuk menaikkan produk.' : (summary.batch_active ? 'Produk sedang diproses. Tunggu sampai selesai.' : (quotaEmpty ? 'Kuota habis. Tunggu sampai kuota kembali.' : (Number(summary.remaining_count) < 5 ? 'Sisa kuota: ' + number(summary.remaining_count) + ' produk.' : '')));
+    help.hidden = !help.textContent;
   }
 
   function renderProducts(card, products, append) {
@@ -98,7 +100,7 @@
       row.dataset.nextBoost = boostCooldown.next_boost_at || '';
       container.appendChild(row);
     });
-    container.querySelectorAll('input[data-product-id]').forEach(input => input.addEventListener('change', () => enforceSelection(card)));
+    container.querySelectorAll('input[data-product-id]').forEach(input => input.onchange = () => enforceSelection(card, input));
     updateProductCooldowns(card);
   }
 
@@ -129,11 +131,11 @@
     });
   }
 
-  function enforceSelection(card) {
+  function enforceSelection(card, changedInput) {
     const checked = [...card.querySelectorAll('input[data-product-id]:checked')];
     const max = 5;
-    if (checked.length > max) checked[checked.length - 1].checked = false;
-    card.querySelector('[data-selection-help]').textContent = checked.length + '/5 dipilih';
+    if (checked.length > max) changedInput.checked = false;
+    card.querySelector('[data-selection-count]').textContent = card.querySelectorAll('input[data-product-id]:checked').length + '/5 dipilih';
   }
 
   function renderHistory(card, history) {
@@ -151,6 +153,7 @@
     if (!response.ok || payload.status !== 'success') throw new Error(payload.message || 'Data produk gagal dimuat.');
     stateByShop.set(shopId, {page, products: append ? (local.products || []).concat(payload.products || []) : (payload.products || [])});
     renderSummary(card, payload); renderProducts(card, payload.products || [], append); renderHistory(card, payload.history || []);
+    card.querySelector('[data-selection-count]').textContent = card.querySelectorAll('input[data-product-id]:checked').length + '/5 dipilih';
     card.querySelector('[data-shop-status]').textContent = number(payload.total) + ' produk aktif';
     card.querySelector('[data-more]').classList.toggle('hidden', (page * 12) >= Number(payload.total || 0));
   }
@@ -175,6 +178,6 @@
   shops.forEach(createCard);
   if (!shops.length) { state.textContent = 'Belum ada toko terhubung.'; return; }
   setInterval(() => grid.querySelectorAll('[data-card]').forEach(updateProductCooldowns), 1000);
-  Promise.all(shops.map(shop => loadShop(shop.id))).then(() => { state.textContent = 'Status naikkan produk setiap toko siap digunakan.'; }).catch(error => { state.className = 'mb-5 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-error'; state.textContent = error.message || 'Data naikkan produk gagal dimuat.'; });
+  Promise.all(shops.map(shop => loadShop(shop.id))).then(() => { state.hidden = true; }).catch(error => { state.className = 'mb-5 rounded-xl border border-error/20 bg-error/5 p-4 text-sm text-error'; state.textContent = error.message || 'Data naikkan produk gagal dimuat.'; });
 })();
 </script>

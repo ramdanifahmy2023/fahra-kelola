@@ -68,6 +68,10 @@ const ready = page => page.waitForFunction(() => document.querySelector('#ads-gr
     check(await page.locator('[data-sales]').innerText() === 'Rp 686.482,15', 'Currency precision');
     check(await page.locator('[data-ad-cost]').innerText() === 'Rp 104.739,52', 'Period cost');
     check(await page.locator('[data-roas]').innerText() === '6,55x', 'ROAS ratio');
+    check(!await page.locator('[data-source-detail]').evaluate(el => el.open), 'Secondary details start collapsed');
+    await page.locator('[data-source-detail] summary').focus();
+    await page.keyboard.press('Enter');
+    check(await page.locator('[data-source-detail]').evaluate(el => el.open), 'Keyboard opens source details');
     await page.locator('[data-detail] summary').focus();
     await page.keyboard.press('Enter');
     check(await page.locator('[data-detail]').evaluate(el => el.open), 'Keyboard opens daily detail');
@@ -77,6 +81,7 @@ const ready = page => page.waitForFunction(() => document.querySelector('#ads-gr
     check(await page.locator('[data-table-region]').evaluate(el => getComputedStyle(el).outlineStyle !== 'none'), 'Keyboard focus visible');
     await reload();
     check(await page.locator('[data-detail]').evaluate(el => el.open), 'Reload preserves expanded details');
+    check(await page.locator('[data-source-detail]').evaluate(el => el.open), 'Reload preserves source details');
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({width, height: 1000});
       for (const theme of ['light', 'dark']) {
@@ -100,7 +105,7 @@ const ready = page => page.waitForFunction(() => document.querySelector('#ads-gr
     payload.shops[0].metrics.performance = liveReport;
     await page.selectOption('#ads-channel', 'live'); await ready(page);
     check(await page.locator('[data-impressions]').innerText() === '-' && await page.locator('[data-orders]').innerText() === '-', 'Live unsupported metrics are not shown as zeros');
-    check((await page.locator('[data-note]').innerText()).includes('belum terverifikasi'), 'Live mapping limitation visible');
+    check((await page.locator('[data-source-note]').innerText()).includes('belum terverifikasi'), 'Live mapping limitation available in source details');
     check(await page.locator('[data-sales]').innerText() === 'Rp 0', 'Verified Live currency zero retained');
     const zero = {impressions: 0, clicks: 0, ctr: null, orders: 0, items_sold: 0, sales: 0, ad_cost: 0, roas: null};
     payload.shops[0].metrics.performance = {...report, ...zero, daily: [{date: '2026-09-26', ...zero}]};
@@ -110,21 +115,24 @@ const ready = page => page.waitForFunction(() => document.querySelector('#ads-gr
     check(await page.locator('[data-ctr]').innerText() === '-', 'Undefined CTR stays missing');
     payload.shops[0].metrics.performance = {...report, stale: true, error_message: 'Uji: pembaruan gagal.', error_code: 90309999};
     await reload();
-    check((await page.locator('[data-status]').innerText()).includes('belum diperbarui'), 'Stale report visible');
-    check((await page.locator('[data-note]').innerText()).includes('hasil sukses terakhir'), 'Stale values explained');
+    check(await page.locator('[data-status]').innerText() === 'Belum diperbarui', 'Stale report visible');
+    check(await page.locator('[data-warning]').isVisible(), 'Stale warning stays outside collapsed details');
+    check((await page.locator('[data-note]').innerText()).includes('data terakhir yang berhasil diambil'), 'Stale values explained');
     payload.shops[0].metrics.performance = {...report, available: false, error_code: 90309999, error_message: 'Laporan iklan ditolak Shopee (kode 90309999).'};
     payload.shops[0].metrics.ads_expense_today = 123;
     await reload();
     check(await page.locator('[data-ad-cost]').innerText() === '-', 'Unavailable report never uses meta cost');
-    check((await page.locator('[data-status]').innerText()).includes('ditolak'), 'Access rejection distinct from connected shop');
+    check(await page.locator('[data-status]').innerText() === 'Gagal dimuat', 'Access rejection distinct from connected shop');
+    check((await page.locator('[data-source-note]').innerText()).includes('90309999'), 'Technical error retained in details');
     check(await page.locator('[data-daily-rows] tr').count() === 0, 'Unavailable report never shows old detail');
     payload.shops[0].metrics.performance.request_state = 'skipped';
     await reload();
-    check(await page.locator('[data-status]').innerText() === 'Request laporan dilewati', 'Skipped request distinct from an actual rejection');
+    check(await page.locator('[data-status]').innerText() === 'Belum diambil', 'Skipped request distinct from an actual rejection');
     payload.shops[0].session_status = 'expired';
     payload.shops[0].shop_name = '<img src=x onerror=alert(1)> (uji keamanan)';
     await reload();
     check(await page.locator('#ads-session-warning').isVisible(), 'Expired session warning');
+    check((await page.locator('[data-recovery]').getAttribute('href')).endsWith('/panel/shops'), 'Expired shop recovery points to connection settings');
     check(await page.locator('#ads-grid img').count() === 0, 'Shop names treated as text');
     for (const href of ['/panel/shops', '/panel/sync']) check((await context.request.get(base + href)).status() === 200, 'Help link works: ' + href);
     payload.shops = []; await reload();

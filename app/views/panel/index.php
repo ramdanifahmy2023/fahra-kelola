@@ -198,7 +198,7 @@ $statusClass = static function ($status) {
     <div class="flex items-start gap-3">
       <span class="material-symbols-outlined text-warning">sync_problem</span>
       <div class="min-w-0 flex-1">
-        <h3 class="font-bold text-base-content">Data order masih dalam proses sinkronisasi detail</h3>
+        <h3 class="font-bold text-base-content">Detail pesanan sedang disinkronkan</h3>
         <p class="mt-1 text-sm text-base-content/65"><?= number_format($pendingOrderDetails); ?> pesanan belum lengkap.</p>
       </div>
       <a href="<?= burl; ?>/panel/orders" class="btn btn-sm btn-warning shrink-0">Buka pesanan</a>
@@ -221,9 +221,8 @@ $statusClass = static function ($status) {
     <p class="mt-1 text-xs text-base-content/55"><?= number_format((int)($summary['completed_orders'] ?? 0)); ?> selesai</p>
   </div>
   <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
-    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Nilai order selesai</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-success/10 text-success"><span class="material-symbols-outlined">payments</span></span></div>
+    <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Nilai pesanan selesai</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-success/10 text-success"><span class="material-symbols-outlined">payments</span></span></div>
     <div class="mt-4 truncate text-2xl font-black tracking-tight" title="<?= htmlspecialchars($formatMoney($completedOrderValue)); ?>"><?= htmlspecialchars($formatMoney($completedOrderValue)); ?></div>
-    <p class="mt-1 text-xs text-base-content/55">Total pesanan selesai</p>
   </div>
 </div>
 
@@ -300,7 +299,7 @@ $statusClass = static function ($status) {
 <section class="mt-6 rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
   <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Pesanan terbaru</h3></div><a href="<?= burl; ?>/panel/orders" class="btn btn-ghost btn-sm">Buka pesanan</a></div>
   <?php if (!$recentOrders): ?>
-    <div class="p-8 text-center text-sm text-base-content/50">Belum ada order detail untuk ditampilkan.</div>
+    <div class="p-8 text-center text-sm text-base-content/50">Detail pesanan belum tersedia.</div>
   <?php else: ?>
     <div class="flex items-center gap-2 border-b border-base-content/10 px-5 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div><div class="overflow-x-auto"><table class="table w-full"><thead><tr><th>Order</th><th>Toko</th><th>Status</th><th>Tanggal</th><th class="text-right">Total</th></tr></thead><tbody>
       <?php foreach ($recentOrders as $order): ?>
