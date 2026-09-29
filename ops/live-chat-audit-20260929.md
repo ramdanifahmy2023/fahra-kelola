@@ -2,6 +2,8 @@
 
 Tanggal observasi: 29 September 2026, sekitar 22:58–23:02 WIB. Audit kode pada `b06b25b`, worktree `fahra-kelola-chat-audit`, branch `audit/shopee-live-chat`. Dokumen ini adalah hasil audit dan rencana, bukan implementasi perbaikan.
 
+**Pembaruan:** [rekaman browser langsung 23:09–23:15 WIB](live-chat-browser-capture-20260929.md) melengkapi audit ini. Pengguna kemudian mengizinkan satu pesan uji dengan penerima/teks bebas; kirim lewat mini chat berhasil dan responsnya diambil melalui MCP. Pagination daftar halaman kedua juga terverifikasi. Pernyataan “tidak mengirim pesan” dan batas bukti pagination di bawah merujuk pada audit awal, sebelum follow-up tersebut. Sender Shopdash sendiri tetap belum diperbaiki atau diuji kirim.
+
 ## Kesimpulan
 
 Chat tidak masuk mempunyai beberapa penyebab yang terbukti: seluruh jadwal chat nonaktif, worker tidak mengisi riwayat pesan, dan empat toko ditolak endpoint daftar chat walaupun bootstrap berhasil. Balasan terhambat oleh penguncian UI berdasarkan `closed`; request kirim juga berbeda dari capture berhasil. Ada masalah lebih mendasar: daftar lintas toko disimpan tanpa memeriksa identitas toko pada setiap percakapan.
