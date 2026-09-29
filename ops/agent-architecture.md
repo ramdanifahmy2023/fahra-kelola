@@ -29,6 +29,7 @@ This is not Laravel or a Node backend. Do not introduce framework commands or an
 | Sync | `sync.php`, `BackgroundSync.php`, `SyncJob.php`, `ProcSync.php` |
 | Shops/session management | `shops.php`, `Shop.php`, `ProcShops.php` |
 | Chat | `chat.php`, `ChatMonitor.php`, `ShopeeChat.php`, `ProcChat.php` |
+| Automation configuration | `automation.php`, `public/assets/js/automation.js`, `AutomationProfile.php`, `app/helpers/AutomationPolicy.php`, `ProcAutomation.php` |
 
 View paths in the table are under `app/views/panel/`, model paths under `app/models/`, and back controllers under `app/controllers/back/` unless otherwise specified.
 
@@ -57,5 +58,7 @@ View paths in the table are under `app/views/panel/`, model paths under `app/mod
 Use [operations](agent-operations.md) for progress measurement and recovery, and the dated [recovery](sync-recovery-20260929.md) / [improvements](sync-improvements-20260929.md) notes for rationale. Their runtime observations are historical.
 
 ## Database evolution
+
+Automation currently persists per-shop profiles and version audit events only. `/procAutomation/save` requires authentication/CSRF and rejects stale versions; `/procAutomation/preview` evaluates example data locally. No rating worker or sender exists. See [foundation contract](automation-foundation.md) before extending it.
 
 `database/schema.sql` is schema-only bootstrap, not a safe incremental update. `database/migrations/` contains explicit SQL changes; some models also ensure their schemas. Inspect both before changing structure. Keep migration review, backups, and runtime application separate from Git publication. Never commit a data dump or run fresh-install bootstrap as a migration shortcut.

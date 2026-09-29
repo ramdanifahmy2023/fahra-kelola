@@ -40,15 +40,17 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 
 Passing counts above are historical, not a promise about the current revision. Record new test results only after running them.
 
-## Planned work: Automation Engine
+## Automation Engine foundation
 
-- On 2026-09-29 the user requested audit/planning only for a new Automation Engine page, initially for rating replies.
-- Confirmed preference: AI automatically replies under rules for all star ratings, with different rules per star. This is a future feature decision, not permission to send replies during the audit.
+- On 2026-09-29 the user initially requested an audit, then requested the foundation for rating automation. Users choose target stars and scope themselves; do not hard-code all stars or automatically exclude low ratings.
+- `/panel/automation` stores independent per-shop target filters, persona, support policy, model ID, and actions/instructions for stars 1–5. Actions are AI draft, manual review, or skip. These are saved intentions, not an active worker.
 - Provider selected by the user: 9Router, OpenAI-compatible. Base URL, model, credentials, capabilities, and budget still need verification/configuration. No provider connection or review submission has been performed.
-- Proposed sidebar grouping: **AI Agent > Automation**, separate from **Manajemen > Toko / Ekstensi**. Keep page title **Automation Engine** and rating replies as its first module. Planning only; do not create placeholder navigation before implementing the page.
-- See [API capture audit](ops/rating-api-audit-20260929.md) and [implementation proposal](ops/automation-engine-plan.md). The proposed worker, tables, UI, provider, and schedules are not implemented.
+- Sidebar: **AI Agent > Automation**, separate from **Manajemen > Toko / Ekstensi**. Page title: **Automation Engine**.
+- The local rule preview evaluates filters and constructs messages without calling AI or Shopee. New-only scope cannot be resolved until a future activation timestamp exists. Saves use optimistic versions to reject stale concurrent edits.
+- Server-only configuration keys: `NINE_ROUTER_BASE_URL`, `NINE_ROUTER_API_KEY`, `NINE_ROUTER_MODEL`. Configured status does not mean the connection has been verified.
+- See [foundation](ops/automation-foundation.md), [API capture audit](ops/rating-api-audit-20260929.md), and [future implementation proposal](ops/automation-engine-plan.md). Rating discovery, AI transport, sending, queues, and schedules remain unimplemented.
 - XYZ Sniper MCP was used read-only to inspect project 1. Never persist its authentication token or captured credentials. Pagination beyond page 1 and backend write transport remain unverified.
-- Next discussion: 9Router connection/model/budget, tone and support policies, backlog start date, operating limits, and content exceptions.
+- Next phase: verify 9Router capabilities and rating pagination/transport, then implement discovery and AI drafts before an explicitly enabled sender. Users configure tone, support policies, target dates, and per-star handling in the foundation page.
 
 ## Things that must be rechecked each session
 

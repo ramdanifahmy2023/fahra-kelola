@@ -1,19 +1,19 @@
 # Rencana Automation Engine
 
-Tanggal: 2026-09-29. Status: **rencana untuk diskusi; belum diimplementasikan atau diaktifkan**.
+Tanggal: 2026-09-29. Status: **pondasi konfigurasi sudah diimplementasikan; AI, worker, dan pengiriman belum aktif**. Lihat [fitur yang tersedia dan pengujiannya](automation-foundation.md).
 
 ## Kebutuhan yang sudah diputuskan
 
-- Halaman baru bernama **Automation Engine**, usulan route `/panel/automation`.
+- Halaman baru bernama **Automation Engine**, route `/panel/automation`.
 - Provider AI dipilih pengguna: **9Router dengan antarmuka OpenAI-compatible**. Model, base URL, credential, dan batas biaya belum ditentukan.
 - Susunan sidebar yang diusulkan pengguna dan direkomendasikan: grup **AI Agent** dengan menu **Automation**. Grup ini terpisah dari **Manajemen** (Toko, Ekstensi); judul halaman tetap **Automation Engine**.
 - Modul pertama adalah membalas **rating/ulasan pesanan**, bukan chat atau pesan status pesanan.
-- Pengguna memilih **AI membalas otomatis berdasarkan aturan**, untuk **semua bintang dengan aturan berbeda**.
+- Pengguna memilih **AI membalas otomatis berdasarkan aturan**. Target bintang, cakupan tanggal, dan tindakan tiap bintang ditentukan pengguna di UI; semua bintang didukung.
 - Tetap mendukung banyak toko dengan aturan dan identitas masing-masing.
-- Tahap saat ini hanya audit dan perencanaan. Tidak membuat halaman, tabel, scheduler, worker, atau mengirim reply baru.
+- Tahap pondasi menyediakan halaman, penyimpanan konfigurasi per toko, dan pemeriksaan aturan lokal. Belum ada scheduler, worker, panggilan AI, atau pengiriman reply.
 - UI mengikuti UI UX Pro Max dan antislop serta gaya Shopdash yang sudah disepakati. Dokumentasi rencana dipush sesuai instruksi Git yang berlaku.
 
-Bukti endpoint, field, dan keterbatasan ada di [audit API](rating-api-audit-20260929.md). Semua nama file, tabel, route, interval, dan batas operasional di bawah adalah **usulan**, bukan fitur yang sudah tersedia.
+Bukti endpoint, field, dan keterbatasan ada di [audit API](rating-api-audit-20260929.md). Arsitektur worker, tabel antrean, interval, dan batas operasional di bawah tetap **usulan untuk tahap berikutnya**; sumber aktual tahap pondasi dijelaskan terpisah.
 
 ## Rekomendasi arsitektur
 

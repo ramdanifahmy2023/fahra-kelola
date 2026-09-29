@@ -1,6 +1,27 @@
 <?php
 
 class Panel extends Controller {
+  public function automation() {
+    $data = ['judul'=>'Automation Engine - ' . app_name, 'active_menu'=>'automation'];
+    $data['shops'] = $this->m('Shop')->findAll();
+    $shopIds = array_map('intval', array_column($data['shops'], 'id'));
+    $requested = (int)($_GET['shop_id'] ?? 0);
+    $data['active_shop_id'] = in_array($requested, $shopIds, true) ? $requested : ($shopIds[0] ?? 0);
+    $data['automation_error'] = false;
+    $data['automation_profile'] = null;
+    require_once __DIR__ . '/../../helpers/AutomationPolicy.php';
+    $data['automation_provider'] = AutomationPolicy::providerStatus();
+    if ($data['active_shop_id']) {
+      try {
+        $model = $this->m('AutomationProfile'); $model->ensureSchema();
+        $data['automation_profile'] = $model->forShop($data['active_shop_id']);
+      } catch (Throwable $error) { $data['automation_error'] = true; }
+    }
+    $this->v('panel/templates/header', $data);
+    $this->v('panel/automation', $data);
+    $this->v('panel/templates/footer', $data);
+  }
+
   // Index
   public function index() {
     $data['judul'] = 'Panel - ' . app_name;

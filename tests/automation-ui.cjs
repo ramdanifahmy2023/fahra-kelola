@@ -1,0 +1,101 @@
+const assert = require('node:assert/strict');
+const {execFileSync} = require('node:child_process');
+const path = require('node:path');
+const fs = require('node:fs');
+const {chromium} = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
+const root = path.resolve(__dirname, '..');
+const base = process.env.AUTOMATION_TEST_URL || 'http://127.0.0.1:8131';
+const php = code => execFileSync('php', ['-r', code], {cwd:root,encoding:'utf8'}).trim();
+const sid=php("chdir('public'); require '../app/init.php'; $d=new Database(); $d->query('SELECT id,name,email FROM accounts LIMIT 1'); $a=$d->single(); session_id(bin2hex(random_bytes(24))); session_start(); $_SESSION['auth_user']=$a; echo session_id(); session_write_close();");
+(async()=>{
+  let browser;
+  try {
+    browser=await chromium.launch({headless:true});
+    const context=await browser.newContext({viewport:{width:1440,height:1008}});
+    await context.addCookies([{name:'PHPSESSID',value:sid,url:base}]);
+    const page=await context.newPage();
+    const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    let writes=0, conflict=false, unavailable=false;
+    await page.route('**/procAutomation/save', async route=>{
+      writes++; const body=route.request().postDataJSON();
+      assert.ok(route.request().headers()['x-csrf-token']);
+      if(conflict) return route.fulfill({status:409,json:{status:'error',message:'Konfigurasi berubah di tab lain. Muat ulang halaman.'}});
+      if(unavailable) return route.fulfill({status:500,json:{status:'error',message:'Konfigurasi gagal disimpan. Coba lagi.'}});
+      return route.fulfill({json:{status:'success',profile:{version:body.version+1,config:body.config,updated_at:'2026-09-29 00:00:00'}}});
+    });
+    await page.goto(base+'/panel/automation');
+    assert.ok(await page.locator('h1').innerText()==='Automation Engine');
+    assert.ok(await page.locator('nav a[aria-current="page"]').filter({hasText:'Automation'}).count());
+    const boot=JSON.parse(await page.locator('#automation-bootstrap').textContent());
+    assert.equal(await page.locator('[name="target-star"]:checked').count(),5);
+    await page.selectOption('#automation-scope','date_range');
+    await page.locator('#automation-start').fill('2026-09-01');
+    await page.locator('#automation-end').fill('2026-09-30');
+    await page.locator('#automation-persona-name').fill('Persona uji <script>');
+    await page.selectOption('#automation-action-1','review');
+    await page.locator('#automation-save-button').click();
+    await page.waitForFunction(()=>document.querySelector('#automation-save-status').textContent.includes('tersimpan'));
+    assert.equal(writes,1);
+    await page.locator('#automation-sample-date').fill('2026-09-10');
+    await page.locator('#automation-preview-button').click();
+    await page.locator('#automation-preview-result').waitFor({state:'visible'});
+    assert.equal(await page.locator('#automation-preview-action').innerText(),'Tinjau dahulu');
+    await page.selectOption('#automation-action-1','ai');
+    await page.locator('#automation-sample-text').fill('<script>alert(1)</script>');
+    await page.locator('#automation-preview-button').click();
+    await page.locator('#automation-preview-result').waitFor({state:'visible'});
+    assert.equal(await page.locator('#automation-preview-action').innerText(),'Balasan AI');
+    assert.ok((await page.locator('#automation-preview-prompt').textContent()).includes('<script>'));
+    await page.locator('#automation-sample-replied').check();
+    await page.locator('#automation-preview-button').click();
+    await page.locator('#automation-preview-result').waitFor({state:'visible'});
+    assert.equal(await page.locator('#automation-preview-action').innerText(),'Lewati');
+    conflict=true;
+    await page.locator('#automation-save-button').click();
+    await page.locator('#automation-error').waitFor({state:'visible'});
+    assert.match(await page.locator('#automation-error').innerText(),/tab lain/);
+    assert.match(await page.locator('#automation-save-status').innerText(),/belum disimpan/);
+    conflict=false; unavailable=true;
+    await page.locator('#automation-save-button').click();
+    await page.waitForFunction(()=>document.querySelector('#automation-error').textContent.includes('gagal disimpan'));
+    assert.equal(await page.inputValue('#automation-persona-name'),'Persona uji <script>');
+    unavailable=false;
+    await page.locator('#automation-save-button').click();
+    await page.waitForFunction(()=>document.querySelector('#automation-save-status').textContent.includes('tersimpan'));
+    const csrf=await page.locator('#automation-page').getAttribute('data-csrf');
+    const body={shop_id:boot.shop_id,version:0,config:boot.profile.config};
+    const denied=await context.request.post(base+'/procAutomation/save',{data:body});
+    assert.equal(denied.status(),403);
+    const invalid=await context.request.post(base+'/procAutomation/save',{headers:{'X-CSRF-Token':csrf},data:{...body,config:{...body.config,stars:[]}}});
+    assert.equal(invalid.status(),422);
+    const missing=await context.request.post(base+'/procAutomation/preview',{headers:{'X-CSRF-Token':csrf},data:{...body,shop_id:2147483647}});
+    assert.equal(missing.status(),404);
+    const output=path.join(root,'tmp/automation-ui'); fs.mkdirSync(output,{recursive:true});
+    for(const width of [320,500,999,1600]){
+      await page.setViewportSize({width,height:1008});
+      for(const theme of ['light','dark']){
+        await page.evaluate(t=>window.shopdashTheme.setMode(t),theme);
+        await page.evaluate(()=>window.scrollTo(0,0));
+        assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'No page overflow');
+        const title=await page.locator('h1').boundingBox(); assert.ok(title.width>0);
+        await page.screenshot({path:path.join(output,`${width}-${theme}.png`),animations:'disabled'});
+        await page.locator('#selectedShopDisplay').click();
+        const menu=page.locator('.shop-picker-list'); await menu.waitFor({state:'visible'});
+        assert.ok(await menu.evaluate(el=>el.scrollWidth<=el.clientWidth));
+        const rows=await menu.locator('li').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().x));
+        assert.ok(rows.every(x=>Math.abs(x-rows[0])<1));
+        await page.locator('h1').click();
+      }
+    }
+    await page.locator('#selectedShopDisplay').click();
+    const next=page.locator('.shop-picker-list a:not([aria-current])').first();
+    if(await next.count()){
+      const id=await next.getAttribute('data-product-shop');
+      await next.focus();
+      await Promise.all([page.waitForURL(url=>url.searchParams.get('shop_id')===id),page.keyboard.press('Enter')]);
+      assert.notEqual(await page.inputValue('#automation-persona-name'),'Persona uji <script>');
+    }
+    assert.deepEqual(errors,[]);
+    console.log('PASS: Automation form, local preview, CSRF, validation, conflicts, failure recovery, independent shops, responsive themes and keyboard');
+  } finally {await browser?.close();php("session_id('"+sid+"'); session_start(); $_SESSION=[]; session_destroy();");}
+})().catch(e=>{console.error(e);process.exitCode=1;});

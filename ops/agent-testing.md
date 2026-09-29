@@ -16,6 +16,7 @@ Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior
 | Ads metric mapping | `php tests/ads-performance.php` |
 | Ads campaign traversal | `php tests/ads-campaign-reports.php` |
 | Browser report import | `php tests/ads-browser-import.php` |
+| Automation profiles and rules | `php tests/automation-profile.php`, `node tests/automation-ui.cjs` |
 
 Also run syntax checks on changed PHP/JS files, `npm run build` for CSS/template class changes, and `git diff --check`. Do not assume an `npm test` command exists; package scripts currently provide CSS dev/build.
 
@@ -30,6 +31,8 @@ Also run syntax checks on changed PHP/JS files, `npm run build` for CSS/template
 - Screenshots/artifacts belong under ignored `tmp/`. They may contain real shop/customer information; do not commit them.
 
 ## UI verification
+
+Automation browser tests use `AUTOMATION_TEST_URL` (default `http://127.0.0.1:8131`), mock saves, and exercise the real read-only preview. The PHP suite uses connection-local temporary profile tables. Neither test calls AI or sends Shopee replies. See [foundation verification](automation-foundation.md).
 
 1. Check loading, empty, failure, disabled, and selected states relevant to the change.
 2. Check 320px, 500px, 999px, and 1600px where layout changes apply, both themes, and long names. Open menus and scroll to the final option; a closed menu screenshot is insufficient.

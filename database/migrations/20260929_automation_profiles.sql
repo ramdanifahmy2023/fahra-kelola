@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS automation_profiles (
+  shop_id INT NOT NULL PRIMARY KEY,
+  version INT UNSIGNED NOT NULL DEFAULT 1,
+  config_json LONGTEXT NOT NULL,
+  updated_by INT NOT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS automation_profile_events (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  shop_id INT NOT NULL,
+  version INT UNSIGNED NOT NULL,
+  actor_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY automation_profile_events_shop (shop_id, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

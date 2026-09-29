@@ -31,6 +31,11 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
 
     <div class="my-5 h-px bg-neutral-content/10"></div>
 
+    <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">AI Agent</p>
+    <div class="space-y-1">
+      <a href="<?= burl; ?>/panel/automation" class="<?= $navItemClass; ?> min-h-11 <?= $active === 'automation' ? $activeClass : $inactiveClass; ?>" <?= $active === 'automation' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">rule</span><span>Automation</span></a>
+    </div>
+    <div class="my-5 h-px bg-neutral-content/10"></div>
     <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">Manajemen</p>
     <div class="space-y-1">
       <a href="<?= burl; ?>/panel/shops" class="<?= $navItemClass; ?> <?= ($active == 'shops') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">storefront</span><span>Toko</span></a>
