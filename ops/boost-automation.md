@@ -95,6 +95,12 @@ Bukti pada 2026-09-29:
 
 Review antislop: PASS untuk hierarki/identitas (komponen Shopdash, aksen tindakan dan alasan komposisi di atas), status/fungsi (tes alur dan mutasi mocked), keterbacaan/keyboard/mobile/tema (assertion dan screenshot), serta kejujuran informasi (slot perkiraan, accepted versus unknown, tanpa klaim performa). Review ini mencakup halaman Boost yang berubah; tidak mengklaim seluruh aplikasi atau pengiriman live sudah tervalidasi.
 
+## Penyiapan runtime pada 2026-09-29
+
+Setelah pengguna menyimpan pilihan rekomendasi, runtime utama `shopdash` telah disiapkan untuk aktivasi dari panel. Sakelar lokal `BOOST_SEND_ENABLED=1` diaktifkan dan service terpisah `com.fahra.shopdash.boost` dipasang dari checkout utama, dengan interval 60 detik dan maksimal lima toko per pemeriksaan. Worker AI/finance/sinkronisasi tidak diubah. Konfigurasi lokal tetap tidak dilacak Git.
+
+Verifikasi pada 23:51 WIB: worker menghasilkan heartbeat `sender_enabled=1`, `alive=1`, dan exit code 0. Dua profil masing-masing berisi lima produk; kedua profil tetap nonaktif. Tidak ada run Boost dalam lima menit terakhir saat pemeriksaan. Penyiapan ini tidak mengaktifkan profil atau menguji POST Boost nyata. Pengguna memulai pengulangan melalui tombol **Aktifkan pengulangan** per toko, atau mengirim manual melalui **Naikkan sekali**. Angka/status ini merupakan catatan pemeriksaan, bukan status runtime yang selalu berlaku.
+
 ## Batas sebelum pilot produksi
 
-GET yang berhasil belum membuktikan jumlah slot remote secara menyeluruh atau bahwa respons POST yang ada di baseline masih sama. Implementasi menggunakan preflight per produk dan gagal tertutup jika flags tidak dikenali; slot eksternal yang berubah dapat menghasilkan penolakan saat POST. Pilot produksi masih diperlukan pada toko/produk yang ditentukan pengguna, untuk respons accepted/rejected, slot penuh, dan setidaknya satu pengulangan. Pengiriman otomatis tetap default off sampai operator menyiapkan runtime dan pengguna mengaktifkan profilnya.
+GET yang berhasil belum membuktikan jumlah slot remote secara menyeluruh atau bahwa respons POST yang ada di baseline masih sama. Implementasi menggunakan preflight per produk dan gagal tertutup jika flags tidak dikenali; slot eksternal yang berubah dapat menghasilkan penolakan saat POST. Pilot produksi masih diperlukan pada toko/produk yang ditentukan pengguna, untuk respons accepted/rejected, slot penuh, dan setidaknya satu pengulangan. Instalasi baru tetap default off; runtime yang dicatat di atas sudah menyiapkan sakelar server, sementara aktivasi profil tetap tindakan pengguna.
