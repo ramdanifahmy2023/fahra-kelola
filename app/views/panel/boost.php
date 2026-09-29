@@ -22,20 +22,20 @@
     <a class="mx-5 mb-4 inline-flex min-h-11 items-center underline" data-reconnect hidden>Perbarui koneksi toko</a>
     <details class="border-t border-base-content/20" data-product-detail>
       <summary class="min-h-11 cursor-pointer px-5 py-3 text-sm font-bold">Lihat 10 produk terlaris <span class="font-normal" data-collapsed-count></span></summary>
-      <div class="px-5 pb-5">
+      <div class="px-3 pb-4 sm:px-5 sm:pb-5">
         <p class="mb-3 text-sm">Rekomendasi berdasarkan jumlah terjual, stok, dan status naikkan produk.</p>
-        <div class="mb-4 flex flex-wrap items-center gap-2">
-          <button type="button" class="btn btn-sm min-h-11 rounded-lg" data-recommend disabled>Pilih rekomendasi</button>
-          <button type="button" class="btn btn-ghost btn-sm min-h-11 rounded-lg" data-clear disabled>Hapus pilihan</button>
+        <div class="boost-primary-actions">
+          <button type="button" class="btn btn-sm rounded-lg" data-recommend disabled>Pilih rekomendasi</button>
+          <button type="button" class="btn btn-primary btn-sm rounded-lg" data-boost disabled>Naikkan produk</button>
+        </div>
+        <div class="mb-3 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
           <span class="text-sm" data-selection-count role="status">0 dipilih</span>
+          <button type="button" class="btn btn-ghost btn-sm min-h-11 rounded-lg" data-clear disabled>Hapus pilihan</button>
+          <button type="button" class="btn btn-ghost btn-sm min-h-11 rounded-lg" data-refresh>Muat ulang status</button>
         </div>
         <p class="mb-3 text-sm" data-recommendation-note role="status" hidden></p>
+        <div class="mb-3 rounded-lg border border-base-content/20 p-3 text-sm" data-action-result role="status" hidden></div>
         <div data-products class="space-y-2"></div>
-        <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <button type="button" class="btn btn-ghost btn-sm min-h-11 rounded-lg" data-refresh>Muat ulang status</button>
-          <button type="button" class="btn btn-primary btn-sm min-h-11 rounded-lg" data-boost disabled>Naikkan produk</button>
-        </div>
-        <div class="mt-3 rounded-lg border border-base-content/20 p-3 text-sm" data-action-result role="status" hidden></div>
         <details class="mt-4 border-t border-base-content/20 pt-2"><summary class="min-h-11 cursor-pointer py-3 text-sm font-bold">Riwayat toko</summary><div class="space-y-2 text-sm" data-history></div></details>
       </div>
     </details>

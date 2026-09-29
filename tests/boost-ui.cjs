@@ -133,12 +133,21 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); 
     const output = path.join(root, 'tmp/boost-ui');
     fs.mkdirSync(output, {recursive: true});
     assert.equal(await card.locator('.boost-product-row').first().evaluate(el => getComputedStyle(el).display), 'grid');
-    for (const width of [320, 390, 768, 1440]) {
+    await card.locator('[data-recommend]').click();
+    for (const width of [320, 375, 390, 768, 1408, 1440]) {
       await page.setViewportSize({width, height: 900});
       for (const theme of ['light', 'dark']) {
         await page.evaluate(theme => window.shopdashTheme.setMode(theme), theme);
         await page.evaluate(() => window.scrollTo(0, 0));
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No overflow at ' + width + '/' + theme);
+        const recommendBox = await card.locator('[data-recommend]').boundingBox();
+        const boostBox = await card.locator('[data-boost]').boundingBox();
+        const productsBox = await card.locator('[data-products]').boundingBox();
+        assert.ok(Math.abs(recommendBox.y - boostBox.y) < 1, 'Primary actions share a row');
+        assert.ok(boostBox.x >= recommendBox.x + recommendBox.width + 7, 'Boost sits beside recommendation with a touch gap');
+        assert.ok(recommendBox.height >= 44 && boostBox.height >= 44, 'Touch targets meet 44px minimum');
+        assert.ok(boostBox.y + boostBox.height < productsBox.y, 'Boost action appears above products');
+        assert.ok(await card.locator('[data-boost]').evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight), 'Dynamic action label is not clipped');
         await page.screenshot({path: path.join(output, width + '-' + theme + '.png'), animations: 'disabled'});
       }
     }

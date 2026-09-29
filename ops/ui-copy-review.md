@@ -61,3 +61,7 @@ Verifikasi lingkup perubahan:
 - Pemeriksaan model tersedia melalui `php tests/boost-products.php` menggunakan tabel sementara: urutan sepuluh terlaris, pemisahan toko, pengecualian produk tidak aktif/dihapus, jumlah produk, dan toko kosong.
 
 Pemeriksaan dilakukan secara lokal. Deployment produksi dan keberhasilan permintaan boost nyata belum diverifikasi.
+
+Penyesuaian tata letak: tombol “Naikkan N produk” dipindahkan tepat di samping “Pilih rekomendasi”, sebelum daftar produk. Keduanya memakai dua kolom dengan jarak 8 px dan tinggi minimal 44 px; label boleh membungkus. Penghitung, hapus pilihan, dan muat ulang status berada di baris berikutnya. Hasil tindakan muncul dekat tombol agar tidak perlu menggulir ke akhir daftar. Padding konten lebih kecil pada mobile.
+
+PASS: tes browser memeriksa posisi kedua tombol dalam satu baris, urutan sebelum daftar, jarak antartombol, tinggi sentuh, label dinamis tanpa pemotongan, dan tanpa overflow halaman pada 320, 375, 390, 768, 1408, serta 1440 px dalam kedua tema. Screenshot 320 px terang dan 1408 px gelap diperiksa. Build Tailwind dan lint PHP lulus.
