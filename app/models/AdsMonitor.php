@@ -287,6 +287,7 @@ class AdsMonitor extends BaseModel {
         $status = strtolower(trim((string)($row['status'] ?? 'completed')));
         if ($status !== '' && !in_array($status, ['completed', 'complete', '4'], true)) continue;
         $oldestTime = min($oldestTime, $createdAt);
+        if ($createdAt < $cutoff) continue;
         $payment = is_array($row['payment'] ?? null) ? $row['payment'] : [];
         $rowHash = hash('sha256', json_encode([
           'order_id' => $orderId,
