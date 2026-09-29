@@ -42,3 +42,22 @@ Temuan: `selectShop()` mengganti label toko, ID tersembunyi, dan URL dengan `his
 Perbaikan: pilihan toko menjadi tautan ke `/panel/products` dengan ID toko tujuan. Navigasi otomatis memuat render server untuk seluruh halaman, termasuk tabel, jumlah produk, pagination, dan target sinkronisasi. Batas jumlah produk serta filter stok kritis dipertahankan; halaman pagination dan sorotan produk lama direset. Penggantian HTML label secara manual dihapus. Ini menggunakan navigasi halaman, bukan pembaruan tabel melalui AJAX.
 
 PASS: `tests/products-ui.cjs` memilih toko lain melalui UI, mencocokkan ID baris dengan hasil server toko tujuan, memeriksa reset pagination dan pelestarian filter, menguji Back serta aktivasi tautan dengan Enter. Lint PHP dan build Tailwind lulus. Pemeriksaan dilakukan pada aplikasi lokal; belum memverifikasi deployment domain produksi.
+
+## Naikkan produk: sepuluh terlaris dan pilihan rekomendasi
+
+Semua toko tetap terlihat. Daftar produk awalnya tertutup; beberapa toko dapat dibuka bersamaan dan menutup daftar tidak menghapus pilihan. Ringkasan menampilkan koneksi, jumlah produk yang ditampilkan, sisa kuota, dan waktu kuota kembali bila habis. Riwayat berada di dalam daftar yang dibuka.
+
+Daftar mengambil sepuluh produk aktif dengan `sold_count` tertinggi per toko; produk yang dihapus dikecualikan. Angka terjual tidak diberi klaim periode karena sumber tidak menyediakan periode. Produk dalam masa tunggu tetap berada pada peringkatnya. Pencarian dan tombol tambah produk dihapus agar daftar tetap terbatas pada sepuluh terlaris.
+
+“Pilih rekomendasi” memilih produk tersedia dalam urutan tersebut sampai sisa kuota terpenuhi. Stok kosong, larangan boost, `show_boost_button=false`, dan masa tunggu menghalangi pemilihan. Sesi bermasalah, kuota habis, proses berjalan, serta kegagalan memuat status menonaktifkan tindakan. Pengguna dapat menghapus atau mengganti pilihan sebelum mengirim. Pemeriksaan Shopee di server tetap menjadi penentu kelayakan saat eksekusi.
+
+Setelah eksekusi, ringkasan dan riwayat dimuat ulang, pilihan dikosongkan, dan hasil berhasil/gagal/belum pasti ditampilkan. JavaScript halaman dipisahkan ke `public/assets/js/boost.js`; CSS sumber berada di `resources/css/input.css`. Screenshot pengujian hanya berada di `tmp/boost-ui/`.
+
+Verifikasi lingkup perubahan:
+
+- PASS, interaksi: `tests/boost-ui.cjs` memeriksa daftar tertutup, buka lewat keyboard, beberapa toko terbuka, persistensi pilihan, rekomendasi, penolakan pilihan berlebih, sisa kuota dua, hasil parsial, penolakan server, sesi habis, proses berjalan, gagal memuat, retry, dan produk kosong. Permintaan boost menggunakan respons uji; tidak menaikkan produk sungguhan.
+- PASS, layout: tidak ada overflow halaman pada 320, 390, 768, dan 1440 px di kedua tema; screenshot mobile terang dan desktop gelap diperiksa. Native disclosure, fokus terlihat, nama produk membungkus, dan tombol minimal 44 px.
+- PASS, teks: alasan rekomendasi memakai data yang tersedia, angka/metrik contoh hanya berada dalam tes. Kontras teks utama terhadap kartu 17,57:1 (terang) dan 15,60:1 (gelap). Gaya panel dipertahankan, ENERGY 1 / RHYTHM 1 / MOTION 1; aksen utama pada tindakan naikkan produk.
+- Pemeriksaan model tersedia melalui `php tests/boost-products.php` menggunakan tabel sementara: urutan sepuluh terlaris, pemisahan toko, pengecualian produk tidak aktif/dihapus, jumlah produk, dan toko kosong.
+
+Pemeriksaan dilakukan secara lokal. Deployment produksi dan keberhasilan permintaan boost nyata belum diverifikasi.
