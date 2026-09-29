@@ -27,8 +27,12 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); 
     products[1].show_boost_button = false;
     products[2].disabled_boost_button = true;
     products[3].boost_cooldown = {cooldown_active: true, next_boost_at: '2099-01-01 00:00:00'};
+    products[4].cover_image = 'layout-test-image';
+    products[4].name = 'HIBANPRIME Kaos Kaki Tawaf Antislip Karet Wanita Muslimah Perlengkapan Haji dan Umroh Signature';
+    products[5].name = 'ProdukDenganNamaTanpaSpasi'.repeat(6);
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
+    await page.route('https://cf.shopee.co.id/file/layout-test-image', route => route.fulfill({contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48"><rect width="48" height="48" fill="#777"/></svg>'}));
     await page.route('**/procproducts/boost_products?**', route => {
       const url = new URL(route.request().url());
       assert.equal(url.searchParams.get('limit'), '10');
@@ -134,7 +138,7 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); 
     fs.mkdirSync(output, {recursive: true});
     assert.equal(await card.locator('.boost-product-row').first().evaluate(el => getComputedStyle(el).display), 'grid');
     await card.locator('[data-recommend]').click();
-    for (const width of [320, 375, 390, 768, 1408, 1440]) {
+    for (const width of [320, 375, 390, 768, 999, 1408, 1440, 1600]) {
       await page.setViewportSize({width, height: 900});
       for (const theme of ['light', 'dark']) {
         await page.evaluate(theme => window.shopdashTheme.setMode(theme), theme);
@@ -148,6 +152,18 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); 
         assert.ok(recommendBox.height >= 44 && boostBox.height >= 44, 'Touch targets meet 44px minimum');
         assert.ok(boostBox.y + boostBox.height < productsBox.y, 'Boost action appears above products');
         assert.ok(await card.locator('[data-boost]').evaluate(el => el.scrollWidth <= el.clientWidth && el.scrollHeight <= el.clientHeight), 'Dynamic action label is not clipped');
+        for (const row of await card.locator('.boost-product-row').all()) {
+          const checkbox = await row.locator('input').boundingBox();
+          const image = await row.locator('.boost-product-image').boundingBox();
+          const title = await row.locator('.boost-product-title').boundingBox();
+          const meta = await row.locator('.boost-product-meta').boundingBox();
+          assert.ok(image.x >= checkbox.x + checkbox.width + 7, 'Checkbox and image never overlap');
+          assert.ok(title.x >= image.x + image.width + 7, 'Title stays beside image');
+          assert.equal(image.width, 48);
+          assert.equal(image.height, 48);
+          assert.ok(meta.y >= Math.max(title.y + title.height, image.y + image.height), 'Details stay below title and image');
+          assert.ok(await row.evaluate(el => el.scrollWidth <= el.clientWidth), 'Long product names wrap inside row');
+        }
         await page.screenshot({path: path.join(output, width + '-' + theme + '.png'), animations: 'disabled'});
       }
     }

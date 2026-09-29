@@ -72,15 +72,15 @@
     payload.products.forEach((product, index) => {
       const row = document.createElement('label');
       row.className = 'boost-product-row';
-      row.innerHTML = '<input type="checkbox" class="checkbox checkbox-primary" data-product-id="' + esc(product.id) + '" /><span class="min-w-0"><span class="block text-sm font-bold break-words">' + esc(product.name) + '</span><span class="mt-1 block text-xs">Terlaris #' + (index + 1) + ' · Terjual ' + number(product.sold_count) + '</span><span class="mt-1 block text-xs">Rp ' + number(product.selling_price_min ?? product.price_min) + ' · Stok ' + number(product.total_stock) + '</span><span class="mt-1 block text-xs" data-product-status></span></span>';
+      row.innerHTML = '<input type="checkbox" class="checkbox checkbox-primary" data-product-id="' + esc(product.id) + '" /><span class="boost-product-image" aria-hidden="true"></span><span class="boost-product-title">' + esc(product.name) + '</span><span class="boost-product-meta"><span>Terlaris #' + (index + 1) + ' · Terjual ' + number(product.sold_count) + '</span><span>Rp ' + number(product.selling_price_min ?? product.price_min) + ' · Stok ' + number(product.total_stock) + '</span><span data-product-status></span></span>';
       if (product.cover_image) {
         const image = document.createElement('img');
         image.src = 'https://cf.shopee.co.id/file/' + encodeURIComponent(product.cover_image);
         image.alt = '';
         image.loading = 'lazy';
-        image.width = image.height = 40;
-        image.className = 'float-left mr-3 mb-2 h-10 w-10 rounded object-cover';
-        row.querySelector('input + span').prepend(image);
+        image.width = image.height = 48;
+        image.addEventListener('error', () => image.remove(), {once: true});
+        row.querySelector('.boost-product-image').append(image);
       }
       const input = row.querySelector('input');
       input.checked = selected.has(String(product.id));

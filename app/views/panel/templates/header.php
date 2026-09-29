@@ -37,7 +37,7 @@
       update(read());
     })();
   </script>
-  <link rel="stylesheet" href="<?= assets; ?>/css/style.css">
+  <link rel="stylesheet" href="<?= assets; ?>/css/style.css?v=<?= filemtime(__DIR__ . '/../../../../public/assets/css/style.css'); ?>">
   <link rel="stylesheet" href="<?= web_icons; ?>/material-symbols.css">
   <style>
     .material-symbols-outlined { display: inline-flex; align-items: center; justify-content: center; max-width: 1em; overflow: hidden; flex-shrink: 0; white-space: nowrap; vertical-align: middle; }
