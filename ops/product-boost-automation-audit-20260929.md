@@ -4,6 +4,8 @@ Tanggal: 2026-09-29 (WIB). Baseline: `f75c9c8`. Branch: `audit/product-boost-aut
 
 Keputusan pengguna: **ulangi produk pilihan per toko saat slot tersedia**. Pemilihan otomatis dari seluruh katalog dan penggantian produk lewat rotasi berada di luar cakupan.
 
+Arahan tambahan pengguna pada 2026-09-29: implementasi juga harus meningkatkan visual dan UX halaman Boost, menggunakan UI UX Pro Max serta antislop selama pengerjaan dan review akhir. Perbaikan UI menjadi bagian hasil implementasi, dengan lingkup tetap pada Boost dan komponen yang benar-benar diperlukan.
+
 ## Kesimpulan
 
 Fondasi Boost manual dapat dipakai kembali, tetapi belum layak langsung dijalankan dengan cron. Penghambat utama adalah pemulihan setelah proses terputus, validasi produk yang berbeda antara daftar dan aksi, pemeriksaan cooldown di luar transaksi reservasi, serta belum adanya bukti status slot remote yang cukup untuk penjadwalan otomatis.
@@ -154,15 +156,34 @@ UI UX Pro Max: pencarian `background task status feedback` pada domain UX member
 
 Review antislop untuk dokumen: PASS R-17/R-36/R-38, angka existing dibedakan dari usulan dan keterbatasan; PASS R-02/R-16, bahasa tindakan spesifik tanpa klaim pemasaran. Gate visual, contrast, browser interaction dan responsive belum dinilai: belum ada UI baru yang diimplementasikan. Tidak ada klaim UI existing lulus audit visual.
 
+### Perbaikan visual dan UX yang wajib masuk implementasi
+
+Tujuan layar: pengguna dapat mengetahui toko yang perlu ditangani, memastikan produk yang akan diulang, lalu mengaktifkan atau menjeda pengulangan dengan cakupan yang jelas. Identitas Shopdash dipertahankan, tetapi hierarki, kepadatan, jarak, dan penempatan kontrol Boost boleh diperbaiki untuk tujuan tersebut.
+
+| Bagian | Perbaikan yang direncanakan | Bukti penerimaan |
+| --- | --- | --- |
+| Ringkasan toko | Logo/nama, status pengulangan, jumlah pilihan tersimpan, pemeriksaan berikutnya dan masalah yang perlu ditangani terlihat sebelum membuka detail produk | Pengguna dapat menemukan toko bermasalah saat daftar produk tertutup; status tidak bergantung pada warna |
+| Hierarki visual | Perjelas pembagian identitas toko, status, pilihan produk, tindakan dan riwayat melalui ukuran teks serta jarak; gunakan aksen utama untuk tindakan sesuai state | Screenshot menunjukkan prioritas tindakan tanpa seluruh tombol/badge memakai penekanan yang sama |
+| Editor pilihan | Pencarian katalog, jumlah pilihan dan daftar tersimpan mudah ditemukan; tampilkan penanda perubahan belum disimpan | Pilihan lintas halaman tetap utuh; polling tidak menimpa draft; navigasi dengan perubahan tersisa memberi kesempatan menyimpan atau membatalkan |
+| Baris produk | Judul panjang dapat dibaca, stok dan alasan tidak eligible berada dekat produk; pilihan tersimpan tetap terlihat walau produk sedang cooldown | Uji judul panjang, teks tanpa spasi, stok nol, gambar gagal dan produk di luar 10 terlaris |
+| Tindakan | Pisahkan pengaturan pengulangan dari Boost sekali jalan; beri label jelas pada simpan, aktifkan, jeda dan aksi manual | Menyimpan tidak mengaktifkan/mengirim; aktivasi memakai versi pilihan tersimpan yang ditampilkan, bukan draft yang berbeda |
+| Feedback | Tampilkan proses dan hasil di dekat aksi; jelaskan error beserta langkah berikutnya; refresh tidak memindahkan fokus pengguna | Uji loading, save conflict, koneksi gagal, partial dan unknown; pembaca layar mendapat pengumuman status yang bermakna |
+| Riwayat | Ringkasan waktu WIB, asal manual/otomatis dan hasil; detail per produk menampilkan alasan gagal/dilewati dan status verifikasi | Pengguna dapat membedakan pengiriman gagal, belum dikirim dan belum pasti tanpa membaca pesan teknis mentah |
+| Mobile dan tema | Kontrol bertumpuk sesuai ruang, judul dan metadata mengalir, detail panjang dapat dibuka; warna mengikuti token tema Shopdash | Lulus 320/500/999/1600px pada light/dark, target sentuh minimal 44px, zoom 200%, keyboard dan fokus terlihat |
+
+Pelaksanaan UI dimulai dengan screenshot baseline dari fixture terisolasi, dilanjutkan rancangan alur berdasarkan state backend, implementasi, lalu pembandingan screenshot dan pengujian interaksi. Riset UI UX Pro Max difokuskan pada masalah yang ditemukan dan stack PHP/plain JavaScript/html-tailwind. Antislop diterapkan sejak rancangan, bukan hanya saat selesai; rekomendasi yang bertentangan dengan konteks Shopdash tidak digunakan.
+
+Gate penerimaan UI: verifikasi kontras teks normal minimal 4.5:1 dan batas/fokus kontrol yang relevan minimal 3:1; periksa tampilan aktual dan console; uji semua tindakan dengan mutasi dimock; dokumentasikan hasil antislop beserta bukti. Perubahan CSS ditulis pada `resources/css/input.css`, dibangun dengan `npm run build`, dan mempertahankan asset versioning. Bila CSS bersama sedang disentuh agen lain, gunakan perubahan Boost yang terlingkup dan integrasikan setelah diff bersama diperiksa. Tidak ada redesign AI automation, finance, atau navigasi global dalam lingkup ini.
+
 ## Tahap menuju implementasi
 
 | Tahap | Hasil yang diperlukan | Gerbang selesai |
 | --- | --- | --- |
 | 0. Lengkapi kontrak | Capture GET Boost yang disanitasi untuk available/active/cooldown/no-slot/missing-info serta pemetaan identitas/error; sepakati kepemilikan runner dengan pekerjaan AI | Bentuk respons/type, sumber slot remote, cara rekonsiliasi, dan hubungan 240/255 menit jelas; baca status tidak memanggil endpoint lokal yang menulis |
 | 1. Benahi jalur manual | Executor bersama, eligibility konsisten, transaksi/lease, sending intent, outcome classifier, CSRF, recovery eksplisit, transport aman | Fixture race/crash/invalid response lulus; perilaku manual tetap terjaga |
-| 2. Simpan pilihan dan preview | Profil versioned, pilihan katalog, preview tanpa kirim, default nonaktif, migrasi incremental | Save/edit konflik versi, shop isolation, pilihan lintas halaman, dan preview teruji |
+| 2. Simpan pilihan dan preview | Profil versioned, pilihan katalog, preview tanpa kirim, default nonaktif, migrasi incremental; perbaikan visual ringkasan toko dan editor pilihan dengan UI UX Pro Max/antislop | Save/edit konflik versi, shop isolation, pilihan lintas halaman, draft tidak tertimpa polling, dan preview teruji |
 | 3. Scheduler tanpa kirim | Due calculation, queue/lease/fairness, pause/restart, dry-run yang nyata dan teruji | Dua worker di database uji tidak menggandakan klaim; tidak ada POST Boost di dry-run |
-| 4. Sender dan UI status | Aktivasi eksplisit per toko, pengiriman lewat executor, rekonsiliasi dan status yang jelas | Seluruh penghambat P1 tertutup; tes browser memock mutasi; observabilitas dan pause bekerja |
+| 4. Sender dan UI status | Aktivasi eksplisit per toko, pengiriman lewat executor, rekonsiliasi; penyelesaian visual/UX status, tindakan dan riwayat | Seluruh penghambat P1 tertutup; tes browser memock mutasi; observabilitas dan pause bekerja; gate visual, responsive, aksesibilitas dan antislop memiliki bukti |
 | 5. Pilot terbatas | Satu toko dan pilihan produk yang disepakati, observasi minimal melewati satu pengulangan | Hasil remote dan ledger cocok, pause menghentikan attempt berikutnya, unknown tidak diulang otomatis |
 
 Tahap 1 sampai 5 adalah rencana, bukan izin implementasi/aktivasi dalam sesi audit ini. Pilot yang menulis ke Shopee memerlukan cakupan toko/produk dan izin pengiriman yang jelas. Penerbitan dokumen ke GitHub tidak menjalankan migrasi atau service.
