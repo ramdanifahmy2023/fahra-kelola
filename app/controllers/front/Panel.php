@@ -38,6 +38,22 @@ class Panel extends Controller {
     $this->v('panel/templates/footer', $data);
   }
 
+  public function extensions() {
+    $data['judul'] = 'Ekstensi - ' . app_name;
+    $data['active_menu'] = 'extensions';
+    $data['releases'] = [];
+    $data['release_error'] = false;
+    try {
+      $data['releases'] = $this->m('ExtensionRelease')->all();
+    } catch (Throwable $error) {
+      error_log('Extension catalog: ' . $error->getMessage());
+      $data['release_error'] = true;
+    }
+    $this->v('panel/templates/header', $data);
+    $this->v('panel/extensions', $data);
+    $this->v('panel/templates/footer', $data);
+  }
+
   // Shops
   public function shops() {
     $data['judul'] = 'Daftar Toko - ' . app_name;

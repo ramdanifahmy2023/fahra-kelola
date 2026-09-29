@@ -1,5 +1,55 @@
 # Sellerio Get Cookies 2.1.0
 
+## Halaman Ekstensi dan arsip rilis
+
+Ditambahkan 2026-09-29. Menu **Manajemen > Ekstensi** membuka `/panel/extensions`. Halaman memuat unduhan terbaru, petunjuk pemasangan Chrome/Edge di komputer, panduan ganti versi, serta riwayat lengkap dengan nama rilis, tanggal, judul setiap perubahan, dan unduhan per versi. Pemasangan ekstensi tetap dilakukan di komputer; halaman dan unduhan dapat diakses dari ponsel.
+
+Arsip web dimulai dari **2.1.0 · Tampilan Sellerio & salin cookie**. Tidak ada versi lebih lama yang direka atau diterbitkan sebagai rilis Sellerio.
+
+- `resources/extensions/releases/<version>.json`: catatan rilis, ukuran ZIP, dan SHA-256.
+- `public/downloads/extensions/sellerio-get-cookies-<version>.zip`: paket permanen untuk versi tersebut. ZIP hanya memuat daftar file ekstensi yang diizinkan, tanpa `.DS_Store`, AppleDouble, konfigurasi, atau file kerja lain.
+- `app/models/ExtensionRelease.php`: membaca semua catatan, mengurutkan versi dengan `version_compare`, dan memeriksa integritas ZIP sebelum menampilkan tautan unduh. Paket rusak/hilang tetap memiliki entri riwayat dengan pesan yang jelas.
+- `bin/release-extension.php`: publikasi dengan lock, validasi versi manifest, nama rilis dan judul/deskripsi perubahan wajib, serta penolakan versi yang sudah ada.
+
+**Kontrak backup:** jangan menghapus, mengganti, mengedit, atau mengemas ulang ZIP maupun metadata rilis yang sudah dipublikasikan. Perbaikan harus menjadi rilis baru. Saat memindahkan/deploy aplikasi, sertakan seluruh direktori arsip beserta seluruh metadata; jangan hanya membawa versi terbaru. Git melacak keduanya.
+
+### Menerbitkan pembaruan berikutnya
+
+1. Edit sumber dalam `Sellerio Get Cookies/`, naikkan versi manifest, dan jalankan pengujian ekstensi yang relevan.
+2. Buat catatan baru di file sementara, misalnya `tmp/release-notes.json`:
+
+```json
+{
+  "version": "2.1.1",
+  "name": "Nama rilis sesuai perubahan sebenarnya",
+  "date": "2026-09-30",
+  "changes": [
+    {"title": "Nama perubahan", "description": "Penjelasan perubahan yang benar-benar dibuat."}
+  ]
+}
+```
+
+Contoh tersebut adalah format, bukan rilis yang sudah diterbitkan. Isi tanggal, versi, dan uraian sesuai pembaruan nyata.
+
+3. Jalankan `php bin/release-extension.php --notes=tmp/release-notes.json`. Nama dan versi manifest harus cocok. Tidak ada opsi overwrite atau penghapusan rilis lama.
+4. Jalankan `php tests/extension-releases.php` dan `node tests/extensions-ui.cjs` dengan Playwright yang tersedia. Pastikan ZIP lama masih bisa diunduh.
+5. Commit sumber terbaru, **file JSON baru**, **ZIP baru**, dan dokumentasi yang berubah. Pertahankan seluruh berkas rilis lama; push sesuai aturan proyek.
+
+### Desain dan verifikasi halaman
+
+Design read: halaman unduhan dan riwayat untuk pengguna dashboard, identitas hangat Sellerio, ENERGY 2 / RHYTHM 1 / MOTION 1. Riset UI UX Pro Max mengarahkan riwayat berurutan dengan nomor versi, bukan pola landing newsletter yang sempat muncul dari query umum. Stack menggunakan PHP/Tailwind yang sudah ada.
+
+- Warna, font, dan radius mengikuti token dashboard; oranye menandai unduhan utama, daftar rilis menggunakan permukaan netral.
+- Dua kolom memisahkan panduan dan riwayat di desktop; satu kolom dan tombol penuh di ponsel. Tautan bagian membantu mencapai riwayat tanpa menggulir seluruh panduan.
+- Changelog memakai `details` native agar dapat dibuka dengan keyboard dan tetap bekerja tanpa JavaScript. Data dirender di server, sehingga tidak memerlukan spinner pemuatan buatan.
+- Navbar bersama diperbaiki agar nama aplikasi tidak bertumpuk dengan kontrol pada layar sempit/pembesaran teks; tombol menu mendukung Enter/Space dan Escape.
+- PASS R-03/R-26/R-27/R-32/R-34/R-35/C-4: tes browser menjalankan route, menu, unduhan terbaru/riwayat, checksum, disclosure, fokus, kedua tema pada 320/500/999/1600px, teks 200%, dan fixture kosong/error/paket hilang/multi-versi.
+- PASS R-17/R-18/R-23/R-36/R-38/C-5: metadata awal berasal dari versi 2.1.0 yang nyata; versi tambahan hanya ada di direktori/HTML fixture pengujian.
+- PASS R-01/R-04/R-06/R-19/R-31/R-37: keputusan visual mengikuti identitas proyek dan alasan di atas; tidak ada dekorasi tambahan atau gerak berulang.
+- Bukti browser: `tmp/extensions-ui/`; pengujian arsip: `tests/extension-releases.php`. Test tidak menggunakan cookie toko nyata atau menjalankan transaksi bisnis.
+- PASS R-25: pasangan teks muted light 5.04:1, muted dark 8.91:1, serta teks tombol oranye 6.62:1, dihitung dengan checker antislop-human. Brand navbar mobile memakai warna teks utama agar terbaca.
+- Verifikasi 2026-09-29: build Tailwind, lint PHP, tes arsip, tes halaman Ekstensi, dan regresi `tests/products-ui.cjs` lulus. ZIP publik di `https://shopee.fahra.my.id/downloads/extensions/sellerio-get-cookies-2.1.0.zip` memberikan HTTP 200 dan SHA-256 identik; `/panel/extensions` mengarahkan pengunjung tanpa sesi ke login.
+
 Ekstensi mengikuti identitas proyek di `resources/css/input.css`, sidebar panel, dan `public/assets/images/favicon.svg`.
 
 Pembacaan desain: popup utilitas untuk pengguna Sellerio, mengikuti gaya dashboard hangat dengan ENERGY 2 / RHYTHM 1 / MOTION 1.

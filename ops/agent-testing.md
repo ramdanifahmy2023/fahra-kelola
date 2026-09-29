@@ -17,6 +17,8 @@ Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior
 | Ads campaign traversal | `php tests/ads-campaign-reports.php` |
 | Browser report import | `php tests/ads-browser-import.php` |
 | Automation profiles and rules | `php tests/automation-profile.php`, `node tests/automation-ui.cjs` |
+| Extension catalog and immutable archives | `php tests/extension-releases.php` (isolated temporary release roots; also verifies published ZIP checksums) |
+| Extension page, downloads, and mobile navbar | `node tests/extensions-ui.cjs` (local authenticated page, mocked background endpoints, download checksums and responsive checks) |
 
 Also run syntax checks on changed PHP/JS files, `npm run build` for CSS/template class changes, and `git diff --check`. Do not assume an `npm test` command exists; package scripts currently provide CSS dev/build.
 

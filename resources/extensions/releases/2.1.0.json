@@ -1,0 +1,25 @@
+{
+    "version": "2.1.0",
+    "name": "Tampilan Sellerio & salin cookie",
+    "date": "2026-09-29",
+    "changes": [
+        {
+            "title": "Identitas Sellerio",
+            "description": "Nama Sellerio Get Cookies, logo petir, serta warna oranye dan krem mengikuti dashboard Sellerio."
+        },
+        {
+            "title": "Tema terang dan gelap",
+            "description": "Tampilan mengikuti pengaturan sistem, dengan teks yang tetap terbaca dan dukungan navigasi keyboard."
+        },
+        {
+            "title": "Status salin yang jelas",
+            "description": "Pesan membedakan cookie sedang dimuat, kosong, siap disalin, berhasil disalin, dan gagal disalin. Jalur salin cadangan tersedia saat clipboard utama gagal."
+        },
+        {
+            "title": "Paket desktop",
+            "description": "Satu ZIP untuk Chrome dan Edge di macOS serta Windows, dilengkapi panduan pemasangan."
+        }
+    ],
+    "size": 109212,
+    "sha256": "9765e186a23c9b8ed8cb430d2fea17ea1166a97fbaabf1a2cec76596b833ef18"
+}

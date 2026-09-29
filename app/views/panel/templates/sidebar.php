@@ -39,6 +39,7 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
     <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">Manajemen</p>
     <div class="space-y-1">
       <a href="<?= burl; ?>/panel/shops" class="<?= $navItemClass; ?> <?= ($active == 'shops') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">storefront</span><span>Toko</span></a>
+      <a href="<?= burl; ?>/panel/extensions" class="<?= $navItemClass; ?> min-h-11 <?= ($active == 'extensions') ? $activeClass : $inactiveClass; ?>" <?= ($active == 'extensions') ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">extension</span><span>Ekstensi</span></a>
     </div>
   </nav>
 

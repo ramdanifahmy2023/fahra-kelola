@@ -11,6 +11,7 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 - Shop lists open downward in one scrollable column, with the correct shop logo. Headers on Promotions, Ads, and Boost also display shop logos.
 - Prefer shared components over page-specific copies. Preserve filters, independent selection state, keyboard access, and both themes.
 - Every completed task is committed and pushed to GitHub after appropriate verification. Do not force-push or include unrelated user work.
+- Extension releases stay downloadable as backups. Never overwrite or delete a published ZIP or its release metadata when updating; every release and changelog item must have a name. Use the release workflow in [extension maintenance](ops/sellerio-extension.md).
 - Keep maintenance knowledge in the repository so subsequent Codex/AI sessions can explicitly read it. `AGENTS.md` is the entrypoint; `tools.md` and this file are intentional root documentation exceptions to the normal `ops/` placement rule.
 
 ## Established implementation decisions
@@ -28,6 +29,7 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 | Asset delivery | CSS compiled from source and tracked; filemtime-based URLs prevent ordinary stale asset reuse |
 | Background sync | Durable scheduler/worker queue; ordinary data pages read local data, not a new full upstream sync |
 | Runtime settings | Database schedule rows and queue state are authoritative; old incident notes are historical evidence |
+| Extension downloads | `/panel/extensions`; `ExtensionRelease.php` reads per-version JSON in `resources/extensions/releases/`; immutable ZIPs live in `public/downloads/extensions/` |
 
 ## Decision history and evidence
 

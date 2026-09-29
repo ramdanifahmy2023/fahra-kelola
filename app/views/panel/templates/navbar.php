@@ -1,11 +1,11 @@
-<div class="navbar sticky top-0 z-30 min-h-14 border-b border-base-content/10 bg-base-100/75 px-3 backdrop-blur-xl sm:px-5">
+<div class="navbar panel-navbar sticky top-0 z-30 min-h-14 border-b border-base-content/10 bg-base-100/75 px-3 backdrop-blur-xl sm:px-5">
   <div class="flex-none lg:hidden">
-    <label for="panel-drawer" aria-label="open sidebar" class="btn btn-ghost btn-square btn-sm">
-      <span class="material-symbols-outlined">menu</span>
-    </label>
+    <button type="button" id="panel-menu-button" aria-label="Buka menu" aria-controls="panel-drawer" aria-expanded="false" class="btn btn-ghost btn-square">
+      <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+    </button>
   </div>
   <div class="flex-1 min-w-0">
-    <a class="btn btn-ghost px-2 text-lg font-black tracking-tight text-primary lg:hidden"><?= app_name; ?></a>
+    <a href="<?= burl; ?>/panel" class="panel-mobile-brand btn btn-ghost px-2 text-lg font-black tracking-tight text-primary lg:hidden"><?= app_name; ?></a>
   </div>
   <div class="panel-navbar-actions flex-none flex items-center gap-1.5 sm:gap-2">
     <div class="dropdown dropdown-end" id="theme-menu">
@@ -40,10 +40,10 @@
     <progress id="sync-detail-progress" class="hidden" value="0" max="100"></progress>
     <?php $authUser = authUser() ?? []; $authName = trim((string)($authUser['name'] ?? 'Pengguna')); $authEmail = (string)($authUser['email'] ?? ''); $authInitial = strtoupper(substr($authName !== '' ? $authName : 'P', 0, 1)); ?>
     <div class="dropdown dropdown-end">
-      <div tabindex="0" role="button" class="btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
+      <div tabindex="0" role="button" aria-label="Menu akun" class="panel-user-trigger btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
         <div class="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-primary to-secondary text-xs font-black text-primary-content"><?= htmlspecialchars($authInitial, ENT_QUOTES); ?></div>
         <span class="hidden max-w-28 truncate text-xs font-semibold sm:block"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span>
-        <span class="material-symbols-outlined hidden text-base-content/50 sm:block">expand_more</span>
+        <span class="panel-user-chevron material-symbols-outlined hidden text-base-content/50 sm:block" aria-hidden="true">expand_more</span>
       </div>
       <ul tabindex="0" class="menu dropdown-content z-[1] mt-2 w-52 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
         <li class="menu-title px-3 py-2"><span class="text-xs font-bold text-base-content"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span><span class="text-[10px] font-normal normal-case text-base-content/50"><?= htmlspecialchars($authEmail, ENT_QUOTES); ?></span></li>
@@ -109,6 +109,21 @@
 </style>
 <script>
 (() => {
+  const drawer = document.getElementById('panel-drawer');
+  const menuButton = document.getElementById('panel-menu-button');
+  const reflectMenu = () => {
+    menuButton.setAttribute('aria-expanded', String(drawer.checked));
+    menuButton.setAttribute('aria-label', drawer.checked ? 'Tutup menu' : 'Buka menu');
+  };
+  menuButton.addEventListener('click', () => { drawer.checked = !drawer.checked; reflectMenu(); });
+  drawer.addEventListener('change', reflectMenu);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && drawer.checked) {
+      drawer.checked = false;
+      reflectMenu();
+      menuButton.focus();
+    }
+  });
   const themeButton = document.getElementById('theme-menu-button');
   const themeMenu = document.getElementById('theme-menu');
   const themeIcon = document.getElementById('theme-menu-icon');
