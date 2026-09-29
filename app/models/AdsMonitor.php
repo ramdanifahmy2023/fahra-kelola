@@ -122,6 +122,9 @@ class AdsMonitor extends BaseModel {
     if (!isset(AdsPerformance::CHANNELS[$channel])) throw new InvalidArgumentException('Channel iklan tidak valid.');
     $this->ensureSchema();
     $shops = $this->shops($shopId);
+    require_once __DIR__ . '/AdsBrowserReport.php';
+    $browserReports = new AdsBrowserReport();
+    $browserReports->ensureSchema();
     $result = [];
     foreach ($shops as $shop) {
       $this->db->query("SELECT status, payload, error_message, synced_at FROM {$this->table} WHERE shop_id = :shop_id LIMIT 1");
@@ -146,8 +149,13 @@ class AdsMonitor extends BaseModel {
         $report['attempted_at'] = null;
         $report['error_message'] = 'Laporan periode ini menunggu sinkronisasi berikutnya.';
       }
+      $browserReport = $browserReports->forRange($shop, $range, $channel);
+      if ($browserReport && (empty($report['available']) || strtotime($browserReport['fetched_at']) > strtotime($report['fetched_at'] ?? '1970-01-01'))) {
+        $report = $browserReport;
+      }
       $reportAge = !empty($report['fetched_at']) ? time() - strtotime($report['fetched_at']) : PHP_INT_MAX;
-      $report['stale'] = !empty($report['stale']) || (!empty($report['available']) && ($reportAge >= 900 || in_array($snapshot['status'] ?? '', ['error', 'expired'], true)));
+      $serverFailed = ($report['collection_method'] ?? '') !== 'browser_capture' && in_array($snapshot['status'] ?? '', ['error', 'expired'], true);
+      $report['stale'] = !empty($report['stale']) || (!empty($report['available']) && ($reportAge >= 900 || $serverFailed));
       $payload['performance'] = $report;
       unset($payload['performance_reports']);
       if (($snapshot['status'] ?? '') === 'expired') {

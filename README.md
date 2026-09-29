@@ -42,9 +42,18 @@ The local `.env`, dependencies, macOS metadata, and captured session payloads ar
 
 ## Performa iklan
 
+Sinkronisasi melalui cookie dan daftar campaign dijelaskan di
+[ops/ads-campaign-sync.md](ops/ads-campaign-sync.md). Jalankan
+`php tests/ads-campaign-reports.php` untuk memeriksa pagination, kegagalan parsial,
+dan integrasi pengambilan laporan.
+
 Mapping harian, mingguan, bulanan, rincian per tanggal, dan batasan akses Seller Centre
 didokumentasikan di [ops/ads-data-mapping.md](ops/ads-data-mapping.md).
 Jalankan `php tests/ads-performance.php` untuk memeriksa konversi metrik terhadap capture Sniper.
 Halaman `/panel/ads` menyediakan filter periode, jenis iklan, toko, serta rincian harian.
+Pilot import laporan dari browser, kontrak input, dan batasannya ada di
+[ops/ads-browser-pilot.md](ops/ads-browser-pilot.md).
+Jalankan `php tests/ads-browser-import.php` untuk validasi identitas dan penyimpanan
+terpisah per toko, channel, serta periode (memerlukan database lokal).
 Uji browser: `node tests/ads-ui.cjs` dengan Playwright tersedia di lingkungan pengujian
 (atau arahkan `PLAYWRIGHT_MODULE` ke modul Playwright yang sudah terpasang).

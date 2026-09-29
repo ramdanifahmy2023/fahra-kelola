@@ -30,7 +30,7 @@
       </div>
     </div>
     <p id="ads-period-help" class="mt-3 text-sm text-base-content"></p>
-    <p class="mt-2 text-xs text-base-content">Sinkronisasi berjalan di latar belakang. Muat ulang menampilkan hasil tersimpan terbaru. <a href="<?= burl; ?>/panel/sync" class="ads-inline-link">Lihat sinkronisasi</a></p>
+    <p class="mt-2 text-xs text-base-content">Muat ulang menampilkan hasil tersimpan terbaru. Pengambilan data mengikuti sumber dan jadwal setiap toko. <a href="<?= burl; ?>/panel/sync" class="ads-inline-link">Lihat sinkronisasi</a></p>
   </div>
   <div id="ads-state" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan iklan…</div>
   <div id="ads-session-warning" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" hidden>
@@ -79,4 +79,4 @@
     </div>
   </article>
 </template>
-<script src="<?= assets; ?>/js/ads.js" defer></script>
+<script src="<?= assets; ?>/js/ads.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/ads.js'); ?>" defer></script>

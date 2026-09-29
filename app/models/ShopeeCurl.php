@@ -269,7 +269,8 @@ class ShopeeCurl {
 
         $credit = is_array($data['ads_credit'] ?? null) ? $data['ads_credit'] : [];
         $expense = is_array($data['ads_expense'] ?? null) ? $data['ads_expense'] : [];
-        $reports = $this->getAdsPerformanceReports($cookie);
+        require_once __DIR__ . '/../helpers/AdsCampaignReports.php';
+        $reports = (new AdsCampaignReports($this))->all($cookie);
         return [
             'ads_credit' => [
                 'total' => $toMoney($credit['total'] ?? 0),

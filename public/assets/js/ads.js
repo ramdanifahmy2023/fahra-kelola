@@ -66,6 +66,8 @@
       status.dataset.state = available && !report.stale && !expired(shop) ? 'ready' : 'pending';
       fields.forEach((field, index) => set(selectors[index], available ? metric(field, report[field]) : '-'));
       const notes = [];
+      if (report.collection_method === 'browser_capture') notes.push('Sumber: laporan Seller Centre melalui import browser. Pembaruan pilot dilakukan secara manual.');
+      if (report.collection_method === 'cookie_campaign') notes.push('Sumber: laporan seluruh campaign yang diambil melalui koneksi toko.');
       if (report.mapping_note) notes.push(report.mapping_note);
       if (report.reconciliation?.status === 'mismatch') notes.push('Total rincian tanggal belum cocok dengan ringkasan Shopee. Angka ringkasan tetap memakai total dari Shopee.');
       if (report.request_state === 'reused') notes.push('Rentang ini sama dengan laporan lain dalam sinkronisasi; hasil request yang sama digunakan kembali.');
@@ -82,7 +84,7 @@
       set('detail-count', rows.length ? '(' + rows.length + ' tanggal)' : '(belum tersedia)');
       const empty = node.querySelector('[data-detail-empty]');
       empty.hidden = rows.length > 0;
-      empty.textContent = available ? 'Ringkasan tersedia, tetapi rincian per tanggal belum diterima dari Shopee.' : 'Rincian akan tampil setelah laporan periode ini berhasil disinkronkan.';
+      empty.textContent = available ? (report.detail_message || 'Ringkasan tersedia, tetapi rincian per tanggal belum diterima dari Shopee.') : 'Rincian akan tampil setelah laporan periode ini berhasil disinkronkan.';
       const region = node.querySelector('[data-table-region]');
       region.hidden = rows.length === 0;
       region.setAttribute('aria-label', 'Rincian harian ' + shop.shop_name + '. Geser untuk melihat seluruh metrik.');
