@@ -35,6 +35,7 @@ Tests use temporary database tables or read-only local page requests; browser wr
 - Existing Finance, breakdown and Dashboard browser suites cover scope, filters, dates, selection, focus retention, source errors, HPP previews, custom ranges and WIB rollover. The Dashboard contrast test uses an isolated warning probe when live data happens to be complete, rather than requiring a real data failure.
 - The measured seven-shop ledger at 684px was 2343px high before final data repair, versus the user's supplied 3966px context. Screenshots were inspected at 684px/light and 320px/dark. Artifacts stay ignored under `tmp/finance-completeness-ui/`.
 - Browser-resolved text contrast, measured with the antislop checker: 17.57:1 light and 15.60:1 dark. Existing button and warning pairs are exercised by Dashboard browser tests.
+- Integrated Boost commit `c0a1c3f` while preserving its source styles. The shared source-CSS insertion conflict retained both feature blocks; the compiled stylesheet was rebuilt. Finance data/ad-cost, completeness UI, Dashboard UI and Boost UI tests passed on the combined revision. The later 684px measurement was 2285px after source repair; changing source warnings can change this height. No Boost sender or shared service was restarted.
 
 ## Antislop delivery review
 
