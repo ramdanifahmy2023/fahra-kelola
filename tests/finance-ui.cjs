@@ -77,6 +77,10 @@ const sid = php("chdir('public'); require '../app/init.php'; $d=new Database; $d
     assert.equal(await page.locator('#finance-cost-dialog').isVisible(),false);
     const csrf=await page.locator('#finance-page').getAttribute('data-csrf');
     assert.equal((await context.request.post(base+'/procFinance/save',{data:{}})).status(),403);
+    const catalog=await (await context.request.get(base+'/procFinance/catalog?shops=1')).json();
+    const item=catalog.rows[0];
+    const unconfirmed={shop_id:item.shop_id,product_id:item.product_id,model_id:item.model_id,version:item.version,unit_cost:'20000',valid_from:'2026-09-01',expires:Math.floor(Date.now()/1000)+600,token:'0'.repeat(64)};
+    assert.equal((await context.request.post(base+'/procFinance/save',{headers:{'X-CSRF-Token':csrf},data:unconfirmed})).status(),409);
     assert.equal((await context.request.post(base+'/procFinance/preview',{headers:{'X-CSRF-Token':csrf},data:{shop_id:999,product_id:'1',model_id:'0',version:0,unit_cost:'-1',valid_from:'2026-09-01'}})).status(),422);
     assert.equal((await context.request.get(base+'/procFinance/summary?shops=999')).status(),422);
     await page.route('**/procFinance/summary?*',route=>route.fulfill({status:500,json:{status:'error',message:'Koneksi uji gagal. Coba lagi.'}}));

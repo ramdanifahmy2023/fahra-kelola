@@ -2,6 +2,8 @@
 
 Implemented 2026-09-29 after the initial audit, following the user's request to build a configurable foundation. Navigation is **AI Agent → Automation**, at `/panel/automation`.
 
+Follow-up: [9Router connection CRUD](9router-connections.md) now adds encrypted DB connections, per-shop selection, catalog loading, and synthetic generation tests. The rule preview described here still makes no AI call. Legacy provider settings below describe the original foundation, not a fallback for the new connection manager.
+
 ## Available behavior
 
 - Choose a shop using the shared logo picker. Profiles are keyed by the local `shops.id` and never copied across shops implicitly.
@@ -46,7 +48,7 @@ The PHP suite covers validation, boundaries, local preview, profile isolation, p
 
 ## Next phase
 
-The [API audit](rating-api-audit-20260929.md) and [engine proposal](automation-engine-plan.md) remain the roadmap. Still needed: verified pagination and authenticated PHP transport, discovery checkpoints, a 9Router adapter and output validation, draft review, durable task leases/deduplication, pre-send readback, outcome reconciliation, explicit activation, and operational limits. Do not treat the saved action `ai` as authorization to start sending.
+The [API audit](rating-api-audit-20260929.md) and [engine proposal](automation-engine-plan.md) remain the roadmap. Still needed: verified rating pagination and authenticated PHP transport, discovery checkpoints, AI rating draft generation/output validation, draft review, durable task leases/deduplication, pre-send readback, outcome reconciliation, explicit activation, and operational limits. Provider catalog and synthetic tests use the new 9Router adapter. Do not treat the saved action `ai` as authorization to start sending.
 
 ## Concurrent development
 

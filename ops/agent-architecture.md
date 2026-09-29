@@ -31,6 +31,7 @@ This is not Laravel or a Node backend. Do not introduce framework commands or an
 | Chat | `chat.php`, `ChatMonitor.php`, `ShopeeChat.php`, `ProcChat.php` |
 | Automation configuration | `automation.php`, `public/assets/js/automation.js`, `AutomationProfile.php`, `app/helpers/AutomationPolicy.php`, `ProcAutomation.php` |
 | Finance / product cost | `finance.php`, `public/assets/js/finance.js`, `Finance.php`, `FinanceCost.php`, `FinanceApi.php`, `FinancePolicy.php`, `ProcFinance.php`; [contract](finance.md) |
+| 9Router connections | `templates/ai-connections.php`, `ai-connections.js`, `AiConnection.php`, `AiConnectionSupport.php`, `NineRouterClient.php`, `ProcAiConnections.php`; [operations](9router-connections.md) |
 | Extension downloads | `extensions.php`, `ExtensionRelease.php`; filesystem release catalog in `resources/extensions/releases/`, ZIPs in `public/downloads/extensions/` |
 
 View paths in the table are under `app/views/panel/`, model paths under `app/models/`, and back controllers under `app/controllers/back/` unless otherwise specified.
@@ -61,6 +62,6 @@ Use [operations](agent-operations.md) for progress measurement and recovery, and
 
 ## Database evolution
 
-Automation currently persists per-shop profiles and version audit events only. `/procAutomation/save` requires authentication/CSRF and rejects stale versions; `/procAutomation/preview` evaluates example data locally. No rating worker or sender exists. See [foundation contract](automation-foundation.md) before extending it.
+Automation persists per-shop profiles, optional connection relations, encrypted 9Router connections, and metadata audit events. `/procAutomation/save` requires authentication/CSRF and rejects stale versions; `/procAutomation/preview` evaluates example data locally. `/procAiConnections` manages shared connections and explicit catalog/synthetic generation probes. No rating worker or sender exists. See [foundation contract](automation-foundation.md) and [connection operations](9router-connections.md).
 
 `database/schema.sql` is schema-only bootstrap, not a safe incremental update. `database/migrations/` contains explicit SQL changes; some models also ensure their schemas. Inspect both before changing structure. Keep migration review, backups, and runtime application separate from Git publication. Never commit a data dump or run fresh-install bootstrap as a migration shortcut.

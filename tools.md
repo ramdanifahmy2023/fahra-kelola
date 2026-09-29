@@ -45,6 +45,8 @@ For configuration keys and example values, read `config/.env.example`. Do not pa
 | `node --check public/assets/js/ads.js` | JavaScript syntax check |
 | `git diff --check` | Detect whitespace errors |
 | `git diff --stat` | Review scope before staging |
+| `php bin/ai-connection-key.php --init` | Creates an ignored server-side encryption keyring once; refuses overwrite. Read [9Router operations](ops/9router-connections.md) before deploying to a new checkout. |
+| `php bin/ai-connection-key.php --rotate` | Adds an active master key while preserving previous keys; does not re-encrypt every database row immediately. |
 
 Do not edit minified CSS directly. New CSS selectors/classes must be covered by the configured Tailwind sources or explicit source CSS. Panel CSS and changed JavaScript use file modification timestamps in asset URLs; preserve versioning.
 

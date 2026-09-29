@@ -24,6 +24,10 @@ class ProcFinance extends Controller {
     return $data;
   }
   private function range(array $data): array { return FinancePolicy::range($data['start'] ?? null,$data['end'] ?? null); }
+  private function previewKey(): string {
+    if (empty($_SESSION['finance_preview_key'])) $_SESSION['finance_preview_key']=bin2hex(random_bytes(32));
+    return $_SESSION['finance_preview_key'];
+  }
   public function summary(): void { $this->run(function () { $m=$this->m('Finance'); $m->ensureSchema(); return $m->summary($m->shops($_GET['shops'] ?? ''),$this->range($_GET)); }); }
   public function details(): void { $this->run(function () {
     $m=$this->m('Finance'); $m->ensureSchema(); $category=(int)($_GET['category'] ?? 1);
@@ -34,9 +38,9 @@ class ProcFinance extends Controller {
   public function history(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return ['rows'=>$m->history($_GET)]; }); }
   public function preview(): void { $this->run(function () {
     $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); $preview=$m->preview($input); $expires=time()+600;
-    return ['preview'=>$preview,'expires'=>$expires,'token'=>FinanceCost::token($preview,$expires,authCsrfToken())];
+    return ['preview'=>$preview,'expires'=>$expires,'token'=>FinanceCost::token($preview,$expires,$this->previewKey())];
   }); }
-  public function save(): void { $this->run(function () { $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->save($input,(int)authUser()['id'],authCsrfToken()); }); }
+  public function save(): void { $this->run(function () { $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->save($input,(int)authUser()['id'],$this->previewKey()); }); }
   public function sync(): void { $this->run(function () {
     $input=$this->input(); $m=$this->m('Finance'); $shops=$m->shops($input['shops'] ?? '');
     if (!$shops) throw new InvalidArgumentException('Tambahkan toko terlebih dahulu.');

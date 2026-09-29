@@ -61,9 +61,12 @@
     <aside class="automation-aside">
       <section class="automation-section" aria-labelledby="automation-provider-title">
         <h2 id="automation-provider-title">Provider AI</h2><p class="automation-provider-name">9Router <span>OpenAI-compatible</span></p>
-        <p><?= $data['automation_provider']['configured'] ? 'Konfigurasi server tersedia. Koneksi belum diuji.' : 'Koneksi belum dikonfigurasi di server.'; ?></p>
-        <label for="automation-model">Model toko <span class="automation-optional">(opsional)</span></label><input id="automation-model" form="automation-form" class="input w-full" maxlength="120" placeholder="Gunakan model default server">
-        <p class="automation-help">Nama model disimpan untuk integrasi berikutnya. Credential tetap di server.</p>
+        <label for="automation-connection">Koneksi toko</label><select id="automation-connection" form="automation-form" class="select w-full"><option value="">Tanpa koneksi</option></select>
+        <p id="automation-connection-state" class="automation-help" aria-live="polite">Memuat koneksi…</p>
+        <label for="automation-model">Model toko <span class="automation-optional">(opsional)</span></label><input id="automation-model" form="automation-form" class="input w-full" maxlength="255" placeholder="Gunakan model default koneksi">
+        <p id="automation-effective-model" class="automation-help"></p>
+        <p class="automation-help">Kosongkan model toko untuk mengikuti default koneksi. Simpan konfigurasi untuk menerapkan pilihan.</p>
+        <a class="btn min-h-11" href="#ai-connections">Kelola koneksi</a>
       </section>
       <section class="automation-section" aria-labelledby="automation-preview-title">
         <h2 id="automation-preview-title">Periksa aturan</h2><p>Coba contoh ulasan dengan pengaturan di formulir, termasuk perubahan yang belum disimpan.</p>
@@ -82,4 +85,5 @@
   <script id="automation-bootstrap" type="application/json"><?= json_encode(['shop_id'=>(int)$data['active_shop_id'],'profile'=>$data['automation_profile']], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE); ?></script>
   <script src="<?= assets; ?>/js/automation.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/automation.js'); ?>" defer></script>
   <?php endif; ?>
+  <?php require __DIR__ . '/templates/ai-connections.php'; ?>
 </section>

@@ -60,6 +60,8 @@ Kasus konflik, data pribadi yang harus disunting, ancaman, atau permintaan keput
 
 ## Kontrak dan validasi AI
 
+Konfigurasi melalui UI kini diimplementasikan: [operasi CRUD koneksi 9Router](9router-connections.md), berdasarkan [audit awal](9router-connection-plan.md). Base URL, API key terenkripsi, dan model/combo tersimpan di backend; transport tersedia untuk katalog dan tes sintetis. Generasi balasan rating serta worker di bagian berikut tetap rencana.
+
 - Provider adalah **9Router (OpenAI-compatible)** dengan adapter server-side. Base URL, model ID, autentikasi, dukungan output terstruktur, timeout, dan metadata penggunaan harus diverifikasi terhadap instalasi yang akan dipakai. Jangan mengasumsikan seluruh fitur OpenAI tersedia hanya dari label compatible.
 - Credential provider tidak dikirim ke browser atau disimpan di Git. Pilihan provider belum berarti koneksi telah diuji atau review pembeli telah dikirim ke AI. Transport chat/generasi teks diperlukan; skill 9Router embeddings bukan jalur untuk membuat balasan.
 - Input minimum: bintang, teks review yang relevan, nama produk bila diperlukan, bahasa/tone toko, dan kebijakan balasan. Tidak perlu user ID, alamat, nomor pesanan, cookie, token, atau gambar pembeli.

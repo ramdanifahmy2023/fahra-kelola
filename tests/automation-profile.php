@@ -35,6 +35,7 @@ try {
   foreach(explode(';',str_replace('CREATE TABLE IF NOT EXISTS','CREATE TEMPORARY TABLE',$migration)) as $sql) {
     if(trim($sql)!=='') {$db->query($sql);$db->exe();}
   }
+  $db->query('ALTER TABLE automation_profiles ADD COLUMN connection_id INT NULL'); $db->exe();
   $model=new AutomationProfileFixture($db);
   automationCheck($model->forShop(101)['version']===0, 'Unsaved profile has no persisted version');
   $saved=$model->save(101,0,$range,1);
