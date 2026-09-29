@@ -31,9 +31,7 @@ $statusClass = static function ($status) {
 
 <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
   <div>
-    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">space_dashboard</span>Operations overview</div>
     <h2 class="text-2xl font-black tracking-tight text-base-content">Dashboard</h2>
-    <p class="mt-1 text-sm text-base-content/60">Ringkasan data lokal yang terakhir tersimpan dari channel penjualan.</p>
   </div>
   <?php if ($totalShops > 0): ?>
     <a href="<?= burl; ?>/panel/shops" class="btn btn-sm gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">storefront</span>Kelola toko</a>
@@ -201,7 +199,7 @@ $statusClass = static function ($status) {
       <span class="material-symbols-outlined text-warning">sync_problem</span>
       <div class="min-w-0 flex-1">
         <h3 class="font-bold text-base-content">Data order masih dalam proses sinkronisasi detail</h3>
-        <p class="mt-1 text-sm text-base-content/65"><?= number_format($pendingOrderDetails); ?> order sudah terdaftar, tetapi detailnya belum lengkap.</p>
+        <p class="mt-1 text-sm text-base-content/65"><?= number_format($pendingOrderDetails); ?> pesanan belum lengkap.</p>
       </div>
       <a href="<?= burl; ?>/panel/orders" class="btn btn-sm btn-warning shrink-0">Buka pesanan</a>
     </div>
@@ -212,12 +210,10 @@ $statusClass = static function ($status) {
   <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
     <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Toko aktif</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary"><span class="material-symbols-outlined">storefront</span></span></div>
     <div class="mt-4 text-3xl font-black tracking-tight"><?= number_format($connectedShops); ?><span class="ml-1 text-sm font-semibold text-base-content/45">/ <?= number_format($totalShops); ?></span></div>
-    <p class="mt-1 text-xs text-base-content/55">Terhubung ke channel</p>
   </div>
   <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
     <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Produk</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-secondary/10 text-secondary"><span class="material-symbols-outlined">inventory_2</span></span></div>
     <div class="mt-4 text-3xl font-black tracking-tight"><?= number_format((int)($summary['total_products'] ?? 0)); ?></div>
-    <p class="mt-1 text-xs text-base-content/55">Produk aktif di database</p>
   </div>
   <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
     <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Pesanan</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-info/10 text-info"><span class="material-symbols-outlined">receipt_long</span></span></div>
@@ -227,7 +223,7 @@ $statusClass = static function ($status) {
   <div class="rounded-2xl border border-base-content/10 bg-base-100 p-4 shadow-sm">
     <div class="flex items-center justify-between"><span class="text-xs font-bold uppercase tracking-wide text-base-content/50">Nilai order selesai</span><span class="grid h-9 w-9 place-items-center rounded-xl bg-success/10 text-success"><span class="material-symbols-outlined">payments</span></span></div>
     <div class="mt-4 truncate text-2xl font-black tracking-tight" title="<?= htmlspecialchars($formatMoney($completedOrderValue)); ?>"><?= htmlspecialchars($formatMoney($completedOrderValue)); ?></div>
-    <p class="mt-1 text-xs text-base-content/55">Akumulasi total order berstatus selesai</p>
+    <p class="mt-1 text-xs text-base-content/55">Total pesanan selesai</p>
   </div>
 </div>
 
@@ -273,7 +269,7 @@ $statusClass = static function ($status) {
 <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
   <section class="rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
     <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4">
-      <div><h3 class="font-black text-base-content">Kesehatan toko</h3><p class="mt-1 text-xs text-base-content/55">Status koneksi dan kelengkapan data per toko.</p></div>
+      <div><h3 class="font-black text-base-content">Kesehatan toko</h3></div>
       <a href="<?= burl; ?>/panel/shops" class="btn btn-ghost btn-sm">Lihat semua</a>
     </div>
     <?php if (!$shopHealth): ?>
@@ -296,13 +292,13 @@ $statusClass = static function ($status) {
   </section>
 
   <section class="rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
-    <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Data pelanggan</h3><p class="mt-1 text-xs text-base-content/55">Pelanggan yang sudah terbentuk dari order detail.</p></div><a href="<?= burl; ?>/panel/customers" class="btn btn-ghost btn-sm">Buka pelanggan</a></div>
-    <div class="p-5"><div class="text-4xl font-black tracking-tight"><?= number_format((int)($summary['total_customers'] ?? 0)); ?></div><p class="mt-1 text-sm text-base-content/55">Pelanggan tersimpan</p><div class="mt-5 h-2 overflow-hidden rounded-full bg-base-200"><div class="h-full rounded-full bg-primary" style="width: <?= $totalShops > 0 && (int)($summary['total_customers'] ?? 0) > 0 ? '100' : '0'; ?>%"></div></div><p class="mt-2 text-xs text-base-content/50">Sync pelanggan berjalan dari menu Pelanggan.</p></div>
+    <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Data pelanggan</h3></div><a href="<?= burl; ?>/panel/customers" class="btn btn-ghost btn-sm">Buka pelanggan</a></div>
+    <div class="p-5"><div class="text-4xl font-black tracking-tight"><?= number_format((int)($summary['total_customers'] ?? 0)); ?></div><p class="mt-1 text-sm text-base-content/55">Pelanggan tersimpan</p><div class="mt-5 h-2 overflow-hidden rounded-full bg-base-200"><div class="h-full rounded-full bg-primary" style="width: <?= $totalShops > 0 && (int)($summary['total_customers'] ?? 0) > 0 ? '100' : '0'; ?>%"></div></div></div>
   </section>
 </div>
 
 <section class="mt-6 rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
-  <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Order terbaru</h3><p class="mt-1 text-xs text-base-content/55">Order yang sudah memiliki detail atau waktu pembuatan.</p></div><a href="<?= burl; ?>/panel/orders" class="btn btn-ghost btn-sm">Buka pesanan</a></div>
+  <div class="flex items-center justify-between border-b border-base-content/10 px-5 py-4"><div><h3 class="font-black text-base-content">Pesanan terbaru</h3></div><a href="<?= burl; ?>/panel/orders" class="btn btn-ghost btn-sm">Buka pesanan</a></div>
   <?php if (!$recentOrders): ?>
     <div class="p-8 text-center text-sm text-base-content/50">Belum ada order detail untuk ditampilkan.</div>
   <?php else: ?>

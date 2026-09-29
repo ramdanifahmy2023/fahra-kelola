@@ -2,7 +2,6 @@
   <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
     <div>
       <h2 id="ads-title" class="text-2xl font-black tracking-tight text-base-content">Monitoring iklan</h2>
-      <p class="mt-1 max-w-2xl text-sm text-base-content">Performa iklan per toko, dari ringkasan periode hingga rincian setiap tanggal.</p>
     </div>
     <button id="ads-refresh" type="button" class="btn btn-sm min-h-11 rounded-lg">Muat ulang data</button>
   </div>
@@ -30,24 +29,26 @@
       </div>
     </div>
     <p id="ads-period-help" class="mt-3 text-sm text-base-content"></p>
-    <p class="mt-2 text-xs text-base-content">Muat ulang menampilkan hasil tersimpan terbaru. Pengambilan data mengikuti sumber dan jadwal setiap toko. <a href="<?= burl; ?>/panel/sync" class="ads-inline-link">Lihat sinkronisasi</a></p>
+    <details class="mt-2 text-sm">
+      <summary class="min-h-11 cursor-pointer py-3 font-semibold">Tentang data iklan</summary>
+      <p>Muat ulang menampilkan data tersimpan. <a href="<?= burl; ?>/panel/sync" class="ads-inline-link">Lihat jadwal sinkronisasi</a></p>
+      <p>Pesanan mengikuti kartu Pesanan Seller Centre. Penjualan memakai atribusi total Shopee. Nilai antarjenis iklan tidak dijumlahkan. Data periode berjalan masih dapat berubah.</p>
+      <p class="mt-2">CTR = klik ÷ tayangan. ROAS = penjualan ÷ biaya iklan. Tanda - berarti metrik belum tersedia, belum terverifikasi, atau tidak dapat dihitung.</p>
+    </details>
   </div>
   <div id="ads-state" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan iklan…</div>
   <div id="ads-session-warning" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" hidden>
     <p data-session-message></p>
-    <a class="ads-inline-link" href="<?= burl; ?>/panel/shops">Perbarui cookie toko</a>
+    <a class="ads-inline-link" href="<?= burl; ?>/panel/shops">Perbarui koneksi toko</a>
   </div>
   <div id="ads-grid" class="grid min-w-0 grid-cols-1 gap-5" aria-busy="true"></div>
-  <p class="mt-4 text-xs text-base-content">Jumlah pesanan mengikuti kartu Pesanan Seller Centre. Penjualan memakai atribusi total Shopee. Nilai antarjenis iklan tidak dijumlahkan. Tanda - berarti metrik belum tersedia, belum terverifikasi untuk jenis iklan ini, atau rasio tidak dapat dihitung.</p>
   <section class="mt-10 border-t border-base-content/15 pt-7" aria-labelledby="ads-topups-title">
     <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
         <h2 id="ads-topups-title" class="text-xl font-black tracking-tight text-base-content">Riwayat topup saldo iklan</h2>
-        <p class="mt-1 text-sm text-base-content">Total pesanan topup iklan yang berhasil, termasuk PPN. Periode mulai Agustus 2026.</p>
       </div>
       <p class="text-xs text-base-content/60" data-topups-updated>Belum tersinkron</p>
     </div>
-    <p class="mb-4 text-xs text-base-content/60">Draft tanpa arah desain · ENERGY 1 · RHYTHM 1 · MOTION 1</p>
     <div class="mb-4 rounded-xl border border-base-content/15 bg-base-100 p-4">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -75,14 +76,14 @@
           </div>
         </div>
       </div>
-      <p id="ads-topups-period-note" class="mt-3 text-sm text-base-content" aria-live="polite">Total ditampilkan per bulan, termasuk PPN.</p>
+      <p id="ads-topups-period-note" class="mt-3 text-sm text-base-content" aria-live="polite"></p>
     </div>
     <div id="ads-topups-state" class="mb-4 rounded-lg border border-base-content/15 bg-base-100 p-3 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan topup…</div>
     <div class="overflow-x-auto rounded-xl border border-base-content/15 bg-base-100">
       <table class="w-full min-w-[22rem] text-left text-sm">
         <caption class="sr-only">Total topup saldo iklan termasuk PPN per bulan</caption>
         <thead class="border-b border-base-content/15 text-xs text-base-content/60">
-          <tr><th scope="col" class="px-4 py-3 font-bold">Bulan</th><th scope="col" class="px-4 py-3 text-right font-bold">Total topup termasuk PPN</th></tr>
+          <tr><th scope="col" class="px-4 py-3 font-bold">Bulan</th><th scope="col" class="px-4 py-3 text-right font-bold">Topup berhasil (termasuk PPN)</th></tr>
         </thead>
         <tbody id="ads-topups-rows" class="divide-y divide-base-content/10"></tbody>
       </table>
@@ -109,7 +110,10 @@
       <div><dt>Biaya iklan</dt><dd data-ad-cost>-</dd></div>
       <div><dt>ROAS</dt><dd data-roas>-</dd></div>
     </dl>
-    <div class="mx-5 mb-5 rounded-lg bg-base-200 p-3 text-sm" data-note></div>
+    <div class="mx-5 mb-5 rounded-lg bg-base-200 p-3 text-sm" data-warning hidden>
+      <p data-note></p>
+      <a href="<?= burl; ?>/panel/sync" class="ads-inline-link" data-recovery>Lihat sinkronisasi</a>
+    </div>
     <details class="ads-detail border-t border-base-content/20" data-detail>
       <summary class="min-h-11 cursor-pointer px-5 py-3 text-sm font-bold">Rincian per tanggal <span class="font-normal" data-detail-count></span></summary>
       <p class="px-5 pb-4 text-sm" data-detail-empty></p>
@@ -121,11 +125,15 @@
         </table>
       </div>
     </details>
-    <div class="border-t border-base-content/20 px-5 py-4 text-xs">
-      <p data-session-status></p>
-      <p class="mt-2" data-meta></p>
-      <p class="mt-2" data-channels></p>
-    </div>
+    <details class="border-t border-base-content/20 text-sm" data-source-detail>
+      <summary class="min-h-11 cursor-pointer px-5 py-3 font-bold">Detail data</summary>
+      <div class="px-5 pb-4">
+        <p class="mb-2" data-source-note></p>
+        <p data-session-status></p>
+        <p class="mt-2" data-meta></p>
+        <p class="mt-2" data-channels></p>
+      </div>
+    </details>
   </article>
 </template>
 <script src="<?= assets; ?>/js/ads.js?v=<?= filemtime(__DIR__ . '/../../../public/assets/js/ads.js'); ?>" defer></script>

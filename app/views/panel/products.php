@@ -28,7 +28,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
       <h2 class="text-2xl font-bold mb-1 text-base-content"><?= $isCriticalFilter ? 'Stok Kritis' : 'Daftar Produk'; ?></h2>
       <?php if ($isCriticalFilter): ?><span class="badge badge-error badge-sm gap-1"><span class="material-symbols-outlined text-[14px]">warning</span>Di bawah 15</span><?php endif; ?>
     </div>
-    <p class="opacity-70 text-sm"><?= $isCriticalFilter ? 'Produk aktif dengan stok 0–14 yang perlu ditangani.' : 'Kelola semua produk dari seluruh toko cabang Anda di satu tempat.'; ?></p>
+    <?php if ($isCriticalFilter): ?><p class="mt-1 text-sm">Produk aktif dengan stok di bawah 15.</p><?php endif; ?>
   </div>
   <div id="product-toolbar" class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
   <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>

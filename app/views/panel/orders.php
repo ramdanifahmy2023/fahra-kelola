@@ -22,7 +22,6 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
   <div>
     <h2 class="text-2xl font-bold mb-1 text-base-content">Daftar Pesanan</h2>
-    <p class="opacity-70 text-sm">Kelola semua pesanan dari seluruh toko cabang Anda di satu tempat.</p>
   </div>
   <div class="flex flex-wrap items-center gap-3">
     <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueOrderBackgroundSync()" id="order-sync-button">

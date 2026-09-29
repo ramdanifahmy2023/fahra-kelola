@@ -24,7 +24,6 @@
   <div>
     <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">chat</span>Customer conversations</div>
     <h2 class="text-2xl font-black tracking-tight text-base-content">Live Chat</h2>
-    <p class="mt-1 max-w-2xl text-sm text-base-content/60">Pantau percakapan semua toko, baca riwayat, dan balas dari satu ruang kerja.</p>
   </div>
   <div class="flex flex-wrap gap-2">
     <button id="chat-open-popup" type="button" class="chat-focus btn btn-primary btn-sm min-h-11 gap-2 rounded-lg"><span class="material-symbols-outlined text-base">open_in_new</span>Buka popup chat</button>

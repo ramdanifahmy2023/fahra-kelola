@@ -5,10 +5,6 @@
     </label>
   </div>
   <div class="flex-1 min-w-0">
-    <div class="hidden lg:flex items-center gap-2 text-xs font-medium text-base-content/55">
-      <span class="material-symbols-outlined text-sm text-primary">space_dashboard</span>
-      <span>Operations workspace</span>
-    </div>
     <a class="btn btn-ghost px-2 text-lg font-black tracking-tight text-primary lg:hidden"><?= app_name; ?></a>
   </div>
   <div class="panel-navbar-actions flex-none flex items-center gap-1.5 sm:gap-2">
@@ -51,8 +47,6 @@
       </div>
       <ul tabindex="0" class="menu dropdown-content z-[1] mt-2 w-52 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
         <li class="menu-title px-3 py-2"><span class="text-xs font-bold text-base-content"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span><span class="text-[10px] font-normal normal-case text-base-content/50"><?= htmlspecialchars($authEmail, ENT_QUOTES); ?></span></li>
-        <li><a><span class="material-symbols-outlined text-base">person</span>Profil</a></li>
-        <li><a><span class="material-symbols-outlined text-base">settings</span>Pengaturan</a></li>
         <li class="mt-1 text-error"><a href="<?= burl; ?>/auth/logout"><span class="material-symbols-outlined text-base">logout</span>Keluar</a></li>
       </ul>
     </div>

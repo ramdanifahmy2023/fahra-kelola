@@ -41,15 +41,16 @@
 
   function updateHelp() {
     const descriptions = {
-      daily: 'Hari ini, mulai pukul 00.00 WIB. Data hari ini masih dapat berubah.',
-      weekly: 'Senin sampai hari ini dalam WIB. Data minggu berjalan masih dapat berubah.',
-      monthly: 'Tanggal 1 sampai hari ini dalam WIB. Data bulan berjalan masih dapat berubah.'
+      daily: 'Hari ini sejak 00.00 WIB',
+      weekly: 'Senin sampai hari ini · WIB',
+      monthly: 'Tanggal 1 sampai hari ini · WIB'
     };
     root.querySelector('#ads-period-help').textContent = descriptions[period.value];
   }
 
   function render() {
-    const openShops = new Set(Array.from(grid.querySelectorAll('article')).filter(card => card.querySelector('details').open).map(card => card.dataset.shopId));
+    const openShops = new Set(Array.from(grid.querySelectorAll('article')).filter(card => card.querySelector('[data-detail]').open).map(card => card.dataset.shopId));
+    const openSources = new Set(Array.from(grid.querySelectorAll('article')).filter(card => card.querySelector('[data-source-detail]').open).map(card => card.dataset.shopId));
     grid.replaceChildren();
     const visible = shops.filter(shop => !shopFilter.value || String(shop.shop_id) === shopFilter.value);
     const expiredShops = visible.filter(expired);
@@ -70,24 +71,35 @@
       set('shop-name', shop.shop_name || 'Toko #' + shop.shop_id);
       const range = report.start_date === report.end_date ? date(report.start_date) : date(report.start_date) + ' s.d. ' + date(report.end_date);
       set('performance-period', (report.channel_label || channel.selectedOptions[0].text) + ' · ' + range);
-      set('shop-sync', report.fetched_at ? 'Laporan terakhir berhasil diambil ' + timestamp(report.fetched_at) : 'Laporan belum berhasil diambil' + (report.attempted_at ? ' · Percobaan terakhir ' + timestamp(report.attempted_at) : ''));
+      set('shop-sync', report.fetched_at ? 'Diperbarui ' + timestamp(report.fetched_at) : 'Belum diperbarui');
       const status = node.querySelector('[data-status]');
-      status.textContent = available ? (report.stale || expired(shop) ? 'Data tersimpan · belum diperbarui' : 'Laporan tersedia') : (report.request_state === 'skipped' ? 'Request laporan dilewati' : report.error_code ? 'Laporan ditolak Shopee' : 'Laporan belum tersedia');
+      status.textContent = expired(shop) ? 'Sesi habis' : available ? (report.stale ? 'Belum diperbarui' : 'Tersedia') : (report.error_code ? 'Gagal dimuat' : 'Belum tersedia');
       status.dataset.state = available && !report.stale && !expired(shop) ? 'ready' : 'pending';
       fields.forEach((field, index) => set(selectors[index], available ? metric(field, report[field]) : '-'));
       const notes = [];
       if (report.collection_method === 'browser_capture') notes.push('Sumber: laporan Seller Centre melalui import browser. Pembaruan pilot dilakukan secara manual.');
       if (report.collection_method === 'cookie_campaign') notes.push('Sumber: laporan seluruh campaign yang diambil melalui koneksi toko.');
       if (report.mapping_note) notes.push(report.mapping_note);
-      if (report.reconciliation?.status === 'mismatch') notes.push('Total rincian tanggal belum cocok dengan ringkasan Shopee. Angka ringkasan tetap memakai total dari Shopee.');
       if (report.request_state === 'reused') notes.push('Rentang ini sama dengan laporan lain dalam sinkronisasi; hasil request yang sama digunakan kembali.');
       if (report.error_message) notes.push(report.error_message);
-      if (available && report.stale) notes.push('Angka yang ditampilkan adalah hasil sukses terakhir untuk rentang ini.');
-      if (expired(shop)) notes.push('Sesi toko habis. Perbarui cookie melalui halaman Toko.');
-      else if (shop.status === 'error' && shop.error_message) notes.push(shop.error_message);
-      if (!available) notes.push('Periksa laporan di Seller Centre dan status sinkronisasi. Saldo yang tersedia tidak menandakan laporan berhasil diambil.');
-      if (!notes.length) notes.push('Data periode berjalan masih dapat berubah. CTR dihitung dari klik ÷ tayangan; ROAS dari penjualan ÷ biaya iklan.');
-      set('note', notes.join(' '));
+      if (shop.status === 'error' && shop.error_message) notes.push(shop.error_message);
+      if (report.attempted_at) notes.push('Percobaan terakhir: ' + timestamp(report.attempted_at));
+      set('source-note', notes.join(' '));
+      node.querySelector('[data-source-note]').hidden = notes.length === 0;
+      node.querySelector('[data-source-detail]').open = openSources.has(String(shop.shop_id));
+      const warnings = [];
+      if (expired(shop)) warnings.push('Perbarui koneksi toko.');
+      if (available && report.stale) warnings.push('Menampilkan data terakhir yang berhasil diambil.');
+      if (!available) warnings.push('Laporan belum tersedia. Periksa sinkronisasi.');
+      else if (report.error_message || shop.status === 'error') warnings.push('Pembaruan gagal. Periksa sinkronisasi.');
+      if (report.reconciliation?.status === 'mismatch') warnings.push('Rincian tanggal berbeda dari ringkasan. Total mengikuti ringkasan Shopee.');
+      set('note', warnings.join(' '));
+      node.querySelector('[data-warning]').hidden = warnings.length === 0;
+      const recovery = node.querySelector('[data-recovery]');
+      if (expired(shop)) {
+        recovery.href = warning.querySelector('a').href;
+        recovery.textContent = 'Perbarui koneksi';
+      }
       const rows = available && Array.isArray(report.daily) ? report.daily : [];
       const detail = node.querySelector('[data-detail]');
       detail.open = openShops.has(String(shop.shop_id));
@@ -128,6 +140,7 @@
   async function loadTopups() {
     const current = ++topupRequestId;
     topupRows.replaceChildren();
+    topupState.hidden = false;
     topupState.textContent = 'Memuat total topup bulanan…';
     const url = new URL(root.dataset.topupsEndpoint, window.location.href);
     if (topupShop.value) url.searchParams.set('shop_id', topupShop.value);
@@ -149,7 +162,7 @@
       const shopOptions = Array.isArray(report.shop_options) ? report.shop_options : report.shops;
       shopOptions.forEach(shop => topupShop.add(new Option(shop.shop_name || 'Toko #' + shop.shop_id, String(shop.shop_id))));
       topupShop.value = shopOptions.some(shop => String(shop.shop_id) === selectedShop) ? selectedShop : '';
-      topupPeriodNote.textContent = 'Rentang ' + date(report.start_date) + ' sampai ' + date(report.end_date) + ' WIB. Total ditampilkan per bulan, termasuk PPN.';
+      topupPeriodNote.textContent = date(report.start_date) + ' sampai ' + date(report.end_date) + ' · WIB';
       const pending = report.shops.filter(shop => !shop.backfill_complete);
       const errors = report.shops.filter(shop => shop.error_message);
       if (!report.shops.length) {
@@ -158,8 +171,11 @@
         topupState.textContent = 'Sebagian data belum tersinkron. ' + errors.map(shop => shop.shop_name + ': ' + shop.error_message).join(' ');
       } else if (pending.length) {
         topupState.textContent = 'Riwayat sejak Agustus sedang disinkronkan. Total di bawah masih sementara.';
+      } else if (!report.months.length) {
+        topupState.textContent = 'Belum ada topup pada periode ini.';
       } else {
-        topupState.textContent = 'Semua riwayat sejak Agustus sudah tersinkron. Angka termasuk PPN.';
+        topupState.textContent = '';
+        topupState.hidden = true;
       }
       const lastSync = report.shops.map(shop => shop.synced_at).filter(Boolean).sort().pop();
       topupUpdated.textContent = lastSync ? 'Terakhir disinkron ' + timestamp(lastSync.replace(' ', 'T') + 'Z') : 'Menunggu sinkronisasi pertama';

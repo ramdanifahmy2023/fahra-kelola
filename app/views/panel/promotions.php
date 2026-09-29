@@ -2,7 +2,6 @@
   <div>
     <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">local_activity</span>Promotion operations</div>
     <h2 class="text-2xl font-black tracking-tight text-base-content">Voucher & flash sale toko</h2>
-    <p class="mt-1 max-w-2xl text-sm text-base-content/60">Ringkasan promosi dipisahkan per toko dan disegarkan dari Seller Centre setiap lima menit.</p>
   </div>
   <button id="promotion-refresh" type="button" class="btn btn-sm min-h-11 gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">refresh</span>Perbarui</button>
 </div>
@@ -33,7 +32,7 @@
         <div class="space-y-2" data-flash-sales></div>
       </section>
     </div>
-    <div class="border-t border-base-content/10 p-5"><div class="rounded-lg bg-base-200/60 p-3 text-xs text-base-content/55" data-note>Data promosi berhasil disegarkan dari Seller Centre.</div></div>
+    <div class="border-t border-base-content/10 p-5" data-warning hidden><div class="rounded-lg bg-base-200/60 p-3 text-sm" data-note></div></div>
   </article>
 </template>
 
@@ -87,7 +86,8 @@
         vouchers.innerHTML = (data.vouchers || []).slice(0, 8).map(v => '<div class="rounded-lg border border-base-content/10 p-3"><div class="flex items-start justify-between gap-3"><div class="min-w-0"><div class="truncate text-xs font-bold" title="' + esc(v.name) + '">' + esc(v.name) + '</div><div class="mt-1 text-[10px] text-base-content/50">' + date(v.start_time) + ' – ' + date(v.end_time) + '</div></div><span class="badge badge-primary badge-sm shrink-0">' + esc(voucherLabel(v)) + '</span></div><div class="mt-2 text-[10px] text-base-content/50">Min. belanja ' + money(v.min_price) + (v.usage_limit ? ' · Pemakaian ' + number(v.current_usage) + '/' + number(v.usage_limit) : '') + '</div></div>').join('') || '<div class="rounded-lg bg-base-200/60 p-3 text-xs text-base-content/50">Tidak ada voucher aktif.</div>';
         const flash = node.querySelector('[data-flash-sales]');
         flash.innerHTML = (data.active_flash_sales || []).map(s => '<div class="rounded-lg border border-base-content/10 p-3"><div class="flex items-center justify-between gap-3"><span class="text-xs font-bold">Flash sale #' + esc(s.id) + '</span><span class="badge badge-secondary badge-sm">' + number(s.enabled_item_count) + ' produk</span></div><div class="mt-1 text-[10px] text-base-content/50">' + date(s.start_time) + ' – ' + date(s.end_time) + '</div></div>').join('') || '<div class="rounded-lg bg-base-200/60 p-3 text-xs text-base-content/50">Tidak ada flash sale aktif.</div>';
-        if (shop.session_expired) node.querySelector('[data-note]').textContent = shop.error_message || 'Sesi Shopee toko habis. Perbarui cookie toko.';
+        node.querySelector('[data-warning]').hidden = !shop.session_expired && shop.status !== 'error';
+        if (shop.session_expired) node.querySelector('[data-note]').textContent = 'Sesi habis. Perbarui koneksi di halaman Toko.';
         else if (shop.status === 'error') node.querySelector('[data-note]').textContent = shop.error_message || 'Data promosi tidak tersedia.';
         grid.appendChild(node);
       });

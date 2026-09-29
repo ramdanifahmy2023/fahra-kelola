@@ -7,7 +7,6 @@
   <div>
     <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">group</span>Customer directory</div>
     <h2 class="text-xl font-black tracking-tight text-base-content">Daftar Pelanggan</h2>
-    <p class="mt-1 text-xs text-base-content/60">Data pelanggan yang tersimpan pada workspace Anda.</p>
   </div>
   <div class="flex items-center gap-2">
     <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueCustomerBackgroundSync()" id="customer-sync-button"><span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang</button>

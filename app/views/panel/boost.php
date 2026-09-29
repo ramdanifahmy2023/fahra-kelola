@@ -1,8 +1,6 @@
 <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
   <div>
-    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">north</span>Product operations</div>
     <h2 class="text-2xl font-black tracking-tight text-base-content">Naikkan produk</h2>
-    <p class="mt-1 max-w-2xl text-sm text-base-content/60">Kelola beberapa toko dari satu halaman. Pilih maksimal lima produk per toko setiap periode.</p>
   </div>
   <a href="<?= burl; ?>/panel/products" class="btn btn-sm min-h-11 gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">inventory_2</span>Sinkronkan produk</a>
 </div>
@@ -135,7 +133,7 @@
     const checked = [...card.querySelectorAll('input[data-product-id]:checked')];
     const max = 5;
     if (checked.length > max) checked[checked.length - 1].checked = false;
-    card.querySelector('[data-selection-help]').textContent = checked.length + '/5 produk dipilih.';
+    card.querySelector('[data-selection-help]').textContent = checked.length + '/5 dipilih';
   }
 
   function renderHistory(card, history) {
@@ -153,7 +151,7 @@
     if (!response.ok || payload.status !== 'success') throw new Error(payload.message || 'Data produk gagal dimuat.');
     stateByShop.set(shopId, {page, products: append ? (local.products || []).concat(payload.products || []) : (payload.products || [])});
     renderSummary(card, payload); renderProducts(card, payload.products || [], append); renderHistory(card, payload.history || []);
-    card.querySelector('[data-shop-status]').textContent = number(payload.total) + ' produk aktif · data lokal';
+    card.querySelector('[data-shop-status]').textContent = number(payload.total) + ' produk aktif';
     card.querySelector('[data-more]').classList.toggle('hidden', (page * 12) >= Number(payload.total || 0));
   }
 

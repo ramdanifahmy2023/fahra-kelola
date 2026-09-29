@@ -11,7 +11,6 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
     </div>
     <div class="min-w-0">
       <div class="tooltip tooltip-right truncate text-base font-black tracking-tight" data-tip="<?= app_name; ?>"><?= app_name; ?></div>
-      <div class="text-[9px] font-bold uppercase tracking-[0.2em] text-primary">Operations</div>
     </div>
   </div>
 
@@ -35,12 +34,7 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
     <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">Manajemen</p>
     <div class="space-y-1">
       <a href="<?= burl; ?>/panel/shops" class="<?= $navItemClass; ?> <?= ($active == 'shops') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">storefront</span><span>Toko</span></a>
-      <a href="javascript:void(0)" class="<?= $navItemClass; ?> <?= ($active == 'settings') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">tune</span><span>Sistem</span></a>
     </div>
   </nav>
 
-  <div class="m-3 shrink-0 rounded-xl border border-neutral-content/10 bg-neutral-content/5 p-3">
-    <div class="flex items-center gap-2 text-[11px] font-bold"><span class="h-2 w-2 rounded-full bg-success shadow-[0_0_10px_currentColor]"></span>System online</div>
-    <p class="mt-1 text-[10px] leading-relaxed text-neutral-content/45">Workspace siap digunakan.</p>
-  </div>
 </aside>

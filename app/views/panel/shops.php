@@ -2,7 +2,6 @@
 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <div class="min-w-0">
     <h2 class="text-2xl font-bold mb-1 text-base-content">Daftar Toko</h2>
-    <p class="opacity-70 text-sm">Kelola semua toko dan pengaturan masing-masing cabang di sini.</p>
   </div>
   <div class="w-full sm:w-auto">
     <button class="btn btn-primary w-full gap-2 shadow-sm sm:w-auto" onclick="add_shop_modal.showModal()">
