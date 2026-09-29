@@ -18,13 +18,17 @@ class ProcNotifications extends Controller {
       $unread=($_GET['unread_only'] ?? '1')!=='0';
       $limit=max(10,min(100,(int)($_GET['limit'] ?? 10)));
       $offset=max(0,(int)($_GET['offset'] ?? 0));
-      $rows=$model->notifications($user,$unread,$limit,$offset);
       $chatCursor=null;
       try { $chatCursor=$this->m('ChatIncomingNotifications')->cursor(); }
       catch (Throwable $e) { $chatCursor=null; }
-      $this->json(['status'=>'success','summary'=>$summary,'unread_count'=>$summary['unread'],'notifications'=>$rows,
-        'chat_cursor'=>$chatCursor,
-        'has_more'=>($unread?$summary['unread']:$summary['total'])>$offset+count($rows),'offset'=>$offset,'evaluation_available'=>$available]);
+      $filters=['urgent'=>($_GET['urgent_only'] ?? '0')==='1','shop_id'=>max(0,(int)($_GET['shop_id'] ?? 0)),'type'=>is_string($_GET['type'] ?? null)?$_GET['type']:''];
+      $payload=['status'=>'success','summary'=>$summary,'unread_count'=>$summary['unread'],'offset'=>$offset,'evaluation_available'=>$available,'chat_cursor'=>$chatCursor];
+      if (($_GET['grouped'] ?? '0')==='1') $payload+=$model->groups($user,$unread,$limit,$offset,$filters);
+      else {
+        $rows=$model->notifications($user,$unread,$limit,$offset,$filters);$count=$model->filteredCount($user,$unread,$filters);
+        $payload+=['notifications'=>$rows,'filtered_count'=>$count,'has_more'=>$count>$offset+count($rows)];
+      }
+      $this->json($payload);
     } catch(Throwable $e) { $this->json(['status'=>'error','message'=>'Notifikasi belum dapat dimuat. Coba lagi.'],500); }
   }
 
@@ -47,6 +51,11 @@ class ProcNotifications extends Controller {
     $items=$this->items();
     try { $model=$this->center();$model->markRead((int)authUser()['id'],$items);$this->json(['status'=>'success']); }
     catch(Throwable $e) { $this->json(['status'=>'error','message'=>'Status dibaca gagal disimpan. Coba lagi.'],500); }
+  }
+  public function snooze(): void {
+    $items=$this->items();
+    try {$model=$this->center();$model->snooze((int)authUser()['id'],$items,3600);$this->json(['status'=>'success']);}
+    catch(Throwable $e) {$this->json(['status'=>'error','message'=>'Pengingat belum dapat ditunda. Coba lagi.'],500);}
   }
   public function acknowledge_all(): void { $this->acknowledge(); }
 }

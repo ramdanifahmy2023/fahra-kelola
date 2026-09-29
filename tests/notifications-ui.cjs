@@ -1,9 +1,9 @@
 const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');const {execFileSync}=require('node:child_process');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');const root=path.resolve(__dirname,'..');const base=process.env.NOTIFICATION_TEST_URL||'http://127.0.0.1:8131';
 const php=code=>execFileSync('php',['-r',code],{cwd:root,encoding:'utf8'}).trim();
-const sid=php("chdir('public');require '../app/init.php';$d=new Database();$d->query('SELECT id,name,email FROM accounts LIMIT 1');$a=$d->single();session_id(bin2hex(random_bytes(24)));session_start();$_SESSION['auth_user']=$a;echo session_id();session_write_close();");
+const testSession=require('./panel-test-session.cjs')(root);const sid=testSession.sid;
 (async()=>{let browser;try{
- browser=await chromium.launch();const ctx=await browser.newContext({viewport:{width:1600,height:1008}});await ctx.addCookies([{name:'PHPSESSID',value:sid,url:base}]);const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ browser=await chromium.launch();const ctx=await browser.newContext({viewport:{width:1600,height:1008}});await ctx.addCookies([{name:'PHPSESSID',value:sid,url:base}]);await ctx.route('**/procWorkspace/**',r=>r.fulfill({json:{status:'success'}}));const page=await ctx.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  let readFail=false,loadFail=false,evaluation=true,writes=0;
  let rows=Array.from({length:25},(_,i)=>({id:i+1,revision:1,shop_id:1,shop_name:'Toko dengan nama panjang untuk menguji pembungkusan tanpa terpotong',shop_logo:i===0?base+'/missing-notification-logo.png':'',type:i%2?'shipping_deadline':'low_stock',severity:i%2?'urgent':'warning',unread:true,title:i%2?'Batas kirim <script>':'Stok kritis',message:'Pesanan atau produk fixture untuk pengujian. Tidak ada transaksi sungguhan.',action_label:i%2?'Buka pesanan':'Periksa produk',path:i===2?'https://example.com/unsafe':'/panel/orders?shop_id=1&order_id='+i,icon:i%2?'local_shipping':'inventory_2',source_at:'2026-09-29 10:00:00',deadline:i%2?1790787599:null,stale:i===3}));
  await page.route('**/procnotifications/**',async route=>{
@@ -80,4 +80,4 @@ const sid=php("chdir('public');require '../app/init.php';$d=new Database();$d->q
  if(order){await page.goto(base+'/panel/orders?shop_id='+order.shop_id+'&order_id='+order.id);await page.locator('#notification-order-focus').waitFor();assert.equal(await page.locator('#order-row-'+order.id).count(),1);assert.equal(await page.locator('tr[id^="order-row-"]').count(),1);}
  console.log('Minimum sampled notification text contrast: '+minimumContrast.toFixed(2)+':1');
  console.log('PASS: notification filters, receipts, escalation, failures, paging, safe links/copy, logo fallback, keyboard, auth/CSRF and four responsive widths in both themes');
-}finally{await browser?.close();php("session_id('"+sid+"');session_start();session_destroy();");}})().catch(e=>{console.error(e);process.exitCode=1;});
+}finally{await browser?.close();testSession.cleanup();}})().catch(e=>{console.error(e);process.exitCode=1;});

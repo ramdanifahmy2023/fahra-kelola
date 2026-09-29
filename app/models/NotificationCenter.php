@@ -102,8 +102,8 @@ class NotificationCenter extends StockAlert {
     return '(COALESCE(r.revision,IF(a.acknowledged_at IS NOT NULL,a.revision,0)) < a.revision)';
   }
 
-  private function visibleWhere(): string {
-    return 'a.resolved_at IS NULL AND (a.silenced_until IS NULL OR a.silenced_until<=UTC_TIMESTAMP())';
+  private function visibleWhere(int $userId): string {
+    return 'a.resolved_at IS NULL AND (a.silenced_until IS NULL OR a.silenced_until<=UTC_TIMESTAMP()) AND NOT EXISTS (SELECT 1 FROM notification_snoozes z WHERE z.alert_id=a.id AND z.user_id='.(int)$userId.' AND z.revision=a.revision AND z.snoozed_until>UTC_TIMESTAMP())';
   }
 
   public function overview(int $userId): array {
@@ -111,13 +111,14 @@ class NotificationCenter extends StockAlert {
     $row=$this->rows("SELECT COUNT(*) total,COALESCE(SUM(a.severity='urgent'),0) urgent,
       COALESCE(SUM({$unread}),0) unread,COALESCE(SUM({$unread} AND a.severity='urgent'),0) unread_urgent
       FROM alerts a JOIN shops s ON s.id=a.shop_id LEFT JOIN notification_receipts r ON r.alert_id=a.id AND r.user_id=:user
-      WHERE ".$this->visibleWhere(),['user'=>$userId])[0];
+      WHERE ".$this->visibleWhere($userId),['user'=>$userId])[0];
     return array_map('intval',$row);
   }
 
-  public function notifications(int $userId, bool $unreadOnly=true, int $limit=10, int $offset=0): array {
-    $limit=max(1,min(100,$limit));$offset=max(0,$offset);$where=$this->visibleWhere();
+  public function notifications(int $userId, bool $unreadOnly=true, int $limit=10, int $offset=0, array $filters=[]): array {
+    $limit=max(1,min(100,$limit));$offset=max(0,$offset);$where=$this->visibleWhere($userId);
     if ($unreadOnly) $where.=' AND '.$this->unreadExpression();
+    $where.=$this->filterWhere($filters);
     $rows=$this->rows("SELECT a.*,s.name shop_name,s.shop_logo,p.name product_name,p.total_stock,".$this->unreadExpression()." is_unread
       FROM alerts a JOIN shops s ON s.id=a.shop_id LEFT JOIN products p ON a.entity_type='product' AND p.id=a.entity_id AND p.shop_id=a.shop_id
       LEFT JOIN notification_receipts r ON r.alert_id=a.id AND r.user_id=:user WHERE {$where}
@@ -136,6 +137,40 @@ class NotificationCenter extends StockAlert {
         'changed_at'=>$row['changed_at'] ?? $row['first_seen_at'],'source_at'=>(array_key_exists('source_at',$payload)?$payload['source_at']:$row['last_seen_at']),
         'deadline'=>$payload['deadline'] ?? null,'stale'=>$until !== null && $until<time()];
     },$rows);
+  }
+
+  private function filterWhere(array $filters): string {
+    $where='';
+    if (!empty($filters['urgent'])) $where.=" AND a.severity='urgent'";
+    if (!empty($filters['shop_id'])) $where.=' AND a.shop_id='.(int)$filters['shop_id'];
+    if (!empty($filters['type']) && in_array($filters['type'],['low_stock','shipping_deadline','connection','sync_stale','chat_incoming'],true)) $where.=" AND a.type='".$filters['type']."'";
+    return $where;
+  }
+
+  public function groups(int $userId,bool $unreadOnly,int $limit,int $offset,array $filters=[]): array {
+    $where=$this->visibleWhere($userId).$this->filterWhere($filters);
+    if ($unreadOnly) $where.=' AND '.$this->unreadExpression();
+    $rows=$this->rows("SELECT a.shop_id,a.type,s.name shop_name,s.shop_logo,COUNT(*) total,SUM(".$this->unreadExpression().") unread,SUM(a.severity='urgent') urgent,MAX(COALESCE(a.changed_at,a.first_seen_at)) changed_at
+      FROM alerts a JOIN shops s ON s.id=a.shop_id LEFT JOIN notification_receipts r ON r.alert_id=a.id AND r.user_id=:user
+      WHERE {$where} GROUP BY a.shop_id,a.type,s.name,s.shop_logo ORDER BY (SUM(a.severity='urgent')>0) DESC,MAX(COALESCE(a.changed_at,a.first_seen_at)) DESC,a.shop_id,a.type",['user'=>$userId]);
+    $count=count($rows);$rows=array_slice($rows,max(0,$offset),max(1,min(100,$limit)));
+    foreach ($rows as &$row) foreach (['shop_id','total','unread','urgent'] as $key) $row[$key]=(int)$row[$key];unset($row);
+    return ['groups'=>$rows,'group_count'=>$count,'has_more'=>$count>$offset+count($rows)];
+  }
+
+  public function filteredCount(int $userId,bool $unreadOnly,array $filters): int {
+    $where=$this->visibleWhere($userId).$this->filterWhere($filters);if($unreadOnly)$where.=' AND '.$this->unreadExpression();
+    return (int)$this->rows('SELECT COUNT(*) total FROM alerts a JOIN shops s ON s.id=a.shop_id LEFT JOIN notification_receipts r ON r.alert_id=a.id AND r.user_id=:user WHERE '.$where,['user'=>$userId])[0]['total'];
+  }
+
+  public function snooze(int $userId,array $items,int $seconds=3600): void {
+    $seconds=max(300,min(86400,$seconds));
+    foreach ($items as $item) {
+      $this->db->query("INSERT INTO notification_snoozes (alert_id,user_id,revision,snoozed_until)
+        SELECT id,:user,revision,DATE_ADD(UTC_TIMESTAMP(),INTERVAL {$seconds} SECOND) FROM alerts WHERE id=:id AND revision=:revision AND resolved_at IS NULL
+        ON DUPLICATE KEY UPDATE snoozed_until=IF(VALUES(revision)>=notification_snoozes.revision,VALUES(snoozed_until),snoozed_until),revision=GREATEST(notification_snoozes.revision,VALUES(revision))");
+      foreach (['user'=>$userId,'id'=>$item['id'],'revision'=>$item['revision']] as $key=>$value) $this->db->bind($key,$value);$this->db->exe();
+    }
   }
 
   public function markRead(int $userId, array $items): void {

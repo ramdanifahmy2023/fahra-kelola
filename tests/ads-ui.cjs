@@ -8,7 +8,7 @@ const base = process.env.ADS_TEST_URL || 'http://127.0.0.1:8123';
 const output = path.join(root, 'tmp/ads-ui');
 fs.mkdirSync(output, {recursive: true});
 const php = code => execFileSync('php', ['-r', code], {cwd: root, encoding: 'utf8'}).trim();
-const sid = php("chdir('public'); require '../app/init.php'; $d=new Database(); $d->query('SELECT id,name,email FROM accounts LIMIT 1'); $a=$d->single(); if (!$a) exit(1); session_id(bin2hex(random_bytes(24))); session_start(); $_SESSION['auth_user']=$a; echo session_id(); session_write_close();");
+const testSession=require('./panel-test-session.cjs')(root);const sid=testSession.sid;
 let checks = 0;
 function check(value, message) { assert.ok(value, message); checks++; }
 const ready = page => page.waitForFunction(() => document.querySelector('#ads-grid')?.getAttribute('aria-busy') === 'false');
@@ -18,6 +18,7 @@ const ready = page => page.waitForFunction(() => document.querySelector('#ads-gr
   try {
     browser = await chromium.launch({headless: true});
     const context = await browser.newContext({viewport: {width: 1440, height: 1000}});
+    await context.route('**/procWorkspace/**',r=>r.fulfill({json:{status:'success'}}));
     await context.addCookies([{name: 'PHPSESSID', value: sid, url: base}]);
     const page = await context.newPage();
     const errors = [];
@@ -189,6 +190,6 @@ const ready = page => page.waitForFunction(() => document.querySelector('#ads-gr
     console.log('PASS: ' + checks + ' browser checks');
   } finally {
     await browser?.close();
-    php("session_id('" + sid + "'); session_start(); $_SESSION=[]; session_destroy();");
+    testSession.cleanup();
   }
 })().catch(error => {console.error(error); process.exitCode = 1;});

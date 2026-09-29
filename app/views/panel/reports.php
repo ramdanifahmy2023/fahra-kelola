@@ -71,6 +71,9 @@ $shops = $data['shops'] ?? [];
   const today = new Date();
   const dateInput = document.getElementById('report-end-date');
   dateInput.value = new Intl.DateTimeFormat('en-CA', {timeZone: 'Asia/Jakarta'}).format(today);
+  const restoredFilters=new URLSearchParams(location.search);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(restoredFilters.get('end_date')||'')) dateInput.value=restoredFilters.get('end_date');
+  for(const [key,id]of Object.entries({sort:'report-sort',metric:'compare-metric'})){const el=document.getElementById(id);if([...el.options].some(o=>o.value===restoredFilters.get(key)))el.value=restoredFilters.get(key);}
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const money = value => new Intl.NumberFormat('id-ID', {style:'currency', currency:'IDR', maximumFractionDigits:0}).format(Number(value || 0));
   const number = value => new Intl.NumberFormat('id-ID', {maximumFractionDigits:0}).format(Number(value || 0));

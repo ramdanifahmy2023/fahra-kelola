@@ -45,6 +45,12 @@ class ProcSync extends Controller {
     $this->json(['status' => 'success', 'schedules' => $rows, 'refreshed_at' => date('c')]);
   }
 
+  public function retry() {
+    if ($_SERVER['REQUEST_METHOD']!=='POST') $this->json(['status'=>'error'],405);
+    if (!authVerifyCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) $this->json(['status'=>'error','message'=>'Muat ulang halaman.'],403);
+    $_POST['sync_mode']='diff';$this->enqueue();
+  }
+
   public function pulse() {
     $this->requireAjax();
     $this->m('BackgroundSync')->requestShopHealth();

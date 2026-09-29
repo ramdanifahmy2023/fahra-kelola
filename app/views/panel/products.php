@@ -42,6 +42,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 </div>
 <div id="background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi berjalan di belakang. Halaman ini membaca data lokal.</div>
 
+<?php if (!empty($data['focused_product_id'])): ?><div class="workspace-focus">Menampilkan produk dari pencarian atau notifikasi.<a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$data['active_shop_id']; ?>&stock=all&page=1">Lihat semua produk toko</a></div><?php endif; ?>
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
   <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>

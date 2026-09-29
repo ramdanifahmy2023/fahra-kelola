@@ -1,6 +1,17 @@
 <?php
 
 class Panel extends Controller {
+  public function __construct() {
+    $path=trim(parse_url($_SERVER['REQUEST_URI'] ?? '/panel',PHP_URL_PATH),'/');
+    $scope=basename($path);if ($scope==='panel') $scope='dashboard';
+    $explicitNavigation=count(array_diff(array_keys($_GET),['url']))>0;
+    try {
+      $workspace=$this->m('AccountWorkspace')->allFor((int)authUser()['id']);
+      $_GET=WorkspacePolicy::restore($scope,$_GET,$workspace[$scope] ?? [],isset($workspace['global']['shop_id'])?(int)$workspace['global']['shop_id']:null);
+      $GLOBALS['panel_workspace']=['saved'=>$workspace,'scope'=>$scope,'available'=>true,'explicitNavigation'=>$explicitNavigation];
+    } catch (Throwable $e) {$GLOBALS['panel_workspace']=['saved'=>[],'scope'=>$scope,'available'=>false,'explicitNavigation'=>$explicitNavigation];}
+  }
+
   public function finance() {
     $data=['judul'=>'Keuangan - '.app_name,'active_menu'=>'finance'];
     $data['shops']=$this->m('Finance')->shops();
@@ -99,6 +110,7 @@ class Panel extends Controller {
     $data['judul'] = 'Laporan Performa Toko - ' . app_name;
     $data['active_menu'] = 'reports';
     $data['shops'] = $this->m('Shop')->findAll();
+    $data['active_shop_id'] = max(0,(int)($_GET['shop_id'] ?? 0));
     $this->v('panel/templates/header', $data);
     $this->v('panel/reports', $data);
     $this->v('panel/templates/footer', $data);
@@ -126,6 +138,8 @@ class Panel extends Controller {
     if (!$activeShopId && !empty($data['shops'])) {
         $activeShopId = $data['shops'][0]['id'];
     }
+    $validShopIds=array_map('intval',array_column($data['shops'],'id'));
+    if (!in_array((int)$activeShopId,$validShopIds,true)) $activeShopId=$validShopIds[0] ?? 0;
     $data['active_shop_id'] = $activeShopId;
     
     // Pagination Logic
@@ -147,6 +161,11 @@ class Panel extends Controller {
         $data['total_pages'] = ceil($data['total_products'] / $limit);
         $data['current_page'] = $page;
         $data['products'] = $criticalFilter ? $productModel->findCriticalPaginated($activeShopId, $limit, $offset) : $productModel->findWherePaginated(['shop_id' => $activeShopId], $limit, $offset);
+        if (!empty($_GET['highlight'])) {
+          $data['products']=$productModel->findWhere(['id'=>(int)$_GET['highlight'],'shop_id'=>(int)$activeShopId]);
+          $data['total_products']=count($data['products']);$data['total_pages']=1;$data['current_page']=1;
+          $data['focused_product_id']=(int)$_GET['highlight'];
+        }
     } else {
         $data['products'] = [];
         $data['total_products'] = 0;
@@ -179,6 +198,8 @@ class Panel extends Controller {
     if (!$activeShopId && !empty($data['shops'])) {
         $activeShopId = $data['shops'][0]['id'];
     }
+    $validShopIds=array_map('intval',array_column($data['shops'],'id'));
+    if (!in_array((int)$activeShopId,$validShopIds,true)) $activeShopId=$validShopIds[0] ?? 0;
     $data['active_shop_id'] = $activeShopId;
 
     $timezone = new DateTimeZone('Asia/Jakarta');
@@ -218,8 +239,14 @@ class Panel extends Controller {
             $data['current_page'] = 1;
         }
         $orderItemModel = $this->m('OrderItem');
+        $referenceDb=new Database();$references=[];
+        foreach (['logistic_channels','payment_methods'] as $referenceTable) {
+          $referenceDb->query('SELECT code,title FROM '.$referenceTable);$references[$referenceTable]=array_column($referenceDb->getAll(),'title','code');
+        }
         foreach ($orders as &$ord) {
             $ord['items'] = $orderItemModel->findWhere(['order_id' => $ord['id']]);
+            $ord['shipping_cargo_label']=$references['logistic_channels'][$ord['shipping_cargo'] ?? ''] ?? ($ord['shipping_cargo'] ?? '');
+            $ord['payment_method_label']=$references['payment_methods'][$ord['payment_method'] ?? ''] ?? ($ord['payment_method'] ?? '');
         }
         $data['orders'] = $orders;
     } else {
@@ -260,6 +287,11 @@ class Panel extends Controller {
     $data['current_page'] = min($page, $data['total_pages']);
     $data['limit'] = $limit;
     $data['customers'] = $customerModel->findWithOrderStats($limit, ($data['current_page'] - 1) * $limit, $shopId);
+    if (!empty($_GET['customer_id'])) {
+      $data['customers']=$customerModel->findWithOrderStats(1,0,$shopId,(int)$_GET['customer_id']);
+      $data['total_customers']=count($data['customers']);$data['total_pages']=1;$data['current_page']=1;
+      $data['focused_customer_id']=(int)$_GET['customer_id'];
+    }
 
     $this->v('panel/templates/header', $data);
     $this->v('panel/customers', $data);

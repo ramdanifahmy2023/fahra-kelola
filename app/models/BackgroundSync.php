@@ -126,9 +126,23 @@ class BackgroundSync extends BaseModel {
     $this->ensureSchedules();
     $where = '';
     if ((int)$shopId > 0) $where = ' WHERE s.shop_id = :shop_id';
-    $this->db->query("SELECT s.*, sh.name AS shop_name, j.id AS job_id, j.status AS job_status, j.last_error AS job_error, j.started_at AS job_started_at, j.completed_at AS job_completed_at FROM sync_schedules s LEFT JOIN shops sh ON sh.id = s.shop_id LEFT JOIN sync_jobs j ON j.id = (SELECT MAX(j2.id) FROM sync_jobs j2 WHERE j2.shop_id = s.shop_id AND CAST(j2.sync_type AS BINARY) = CAST(s.sync_type AS BINARY)) {$where} ORDER BY s.shop_id, s.sync_type");
+    $this->db->query("SELECT s.*, sh.name AS shop_name, j.id AS job_id, j.status AS job_status, j.last_error AS job_error, j.started_at AS job_started_at, j.completed_at AS job_completed_at, j.page_number job_page_number, j.next_retry_at job_next_retry_at FROM sync_schedules s LEFT JOIN shops sh ON sh.id = s.shop_id LEFT JOIN sync_jobs j ON j.id = (SELECT MAX(j2.id) FROM sync_jobs j2 WHERE j2.shop_id = s.shop_id AND CAST(j2.sync_type AS BINARY) = CAST(s.sync_type AS BINARY)) {$where} ORDER BY s.shop_id, s.sync_type");
     if ($where) $this->db->bind('shop_id', (int)$shopId);
-    return $this->db->getAll();
+    $rows=$this->db->getAll();
+    $ids=array_values(array_filter(array_map('intval',array_column($rows,'job_id'))));$details=[];$pages=[];
+    if ($ids) {
+      $list=implode(',',$ids);
+      $this->db->query("SELECT job_id,COUNT(*) detail_total,SUM(status='done') detail_done,SUM(status='failed') detail_failed,MAX(CASE WHEN status='done' THEN completed_at END) last_detail_at,SUM(status='done' AND completed_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 5 MINUTE)) recent_done,MIN(CASE WHEN status='done' AND completed_at>=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 5 MINUTE) THEN completed_at END) recent_first_at FROM sync_job_orders WHERE job_id IN ({$list}) GROUP BY job_id");
+      foreach ($this->db->getAll() as $r) $details[(int)$r['job_id']]=$r;
+      $this->db->query("SELECT job_id,SUM(status='done') pages_done FROM sync_pages WHERE job_id IN ({$list}) GROUP BY job_id");
+      foreach ($this->db->getAll() as $r) $pages[(int)$r['job_id']]=$r;
+    }
+    require_once __DIR__.'/../helpers/SyncPresentation.php';
+    foreach ($rows as &$row) {
+      $id=(int)$row['job_id'];$row+=($details[$id] ?? [])+($pages[$id] ?? []);
+      $row['presentation']=SyncPresentation::describe($row,time());
+    }
+    unset($row);return $rows;
   }
 
   public function configure($shopId, $syncType, $intervalSeconds, $enabled = 1) {

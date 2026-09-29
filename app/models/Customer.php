@@ -12,11 +12,13 @@ class Customer extends BaseModel {
     return (int)$this->db->single()['total'];
   }
 
-  public function findWithOrderStats($limit = 10, $offset = 0, int $shopId = 0) {
+  public function findWithOrderStats($limit = 10, $offset = 0, int $shopId = 0, int $customerId = 0) {
     $limit = (int)$limit;
     $offset = (int)$offset;
     $orderScope = $shopId > 0 ? " AND orders.shop_id = {$shopId}" : '';
-    $this->db->query("SELECT customers.*, COUNT(DISTINCT orders.id) AS total_orders, COUNT(order_items.id) AS total_items FROM customers LEFT JOIN orders ON orders.buyer_username = customers.username{$orderScope} LEFT JOIN order_items ON order_items.order_id = orders.id" . $this->shopFilter($shopId) . " GROUP BY customers.id, customers.username, customers.address, customers.created_at ORDER BY customers.created_at DESC, customers.id DESC LIMIT {$limit} OFFSET {$offset}");
+    $where=$this->shopFilter($shopId);
+    if ($customerId>0) $where.=($where?' AND ':' WHERE ').'customers.id='.(int)$customerId;
+    $this->db->query("SELECT customers.*, COUNT(DISTINCT orders.id) AS total_orders, COUNT(order_items.id) AS total_items FROM customers LEFT JOIN orders ON orders.buyer_username = customers.username{$orderScope} LEFT JOIN order_items ON order_items.order_id = orders.id" . $where . " GROUP BY customers.id, customers.username, customers.address, customers.created_at ORDER BY customers.created_at DESC, customers.id DESC LIMIT {$limit} OFFSET {$offset}");
     return $this->db->getAll();
   }
 

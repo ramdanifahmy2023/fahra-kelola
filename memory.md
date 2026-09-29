@@ -100,3 +100,9 @@ Passing counts above are historical, not a promise about the current revision. R
 ## Handoff format for unfinished work
 
 Use an ignored `tmp/` note for transient/private details. Persist a sanitized `ops/` note only when it has continuing value. Include: objective, branch/base commit, changed files, completed behavior, tests actually run, remaining work, current blocker, and exact next verification. Identify assumptions separately from verified facts. Never store cookies, session tokens, passwords, or customer payloads.
+
+## Workspace comfort
+
+- Per-account filters/shop/position, navbar local search, mobile order cards/details, honest sync stages and grouped revision-specific reminders are implemented. Read [workspace comfort operations](ops/workspace-comfort.md) before extending these flows.
+- Explicit destination filters override preferences. Preserve timestamp-based stale-tab rejection, current-job sync denominators and per-account/revision snoozes. Do not infer new tenant isolation from preference storage.
+- Closed shared shop menus must not intercept pointer input. Browser tests use synthetic sessions and mocked operational writes; never test preference saves with a real account session.
