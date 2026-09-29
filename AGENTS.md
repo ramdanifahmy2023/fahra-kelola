@@ -30,6 +30,12 @@
 - In Boost, keep checkbox, product thumbnail, and title in separate grid columns. Do not return to floated images inside text.
 - Product thumbnails are 48px square. Long titles must wrap without clipping or horizontal overflow. Metadata reflows below according to available container width.
 
+## Boost worker
+
+- Before working on Boost operations, read [Boost runtime and verification](ops/boost-automation.md), the Boost section in [tools.md](tools.md), and the dated evidence in [memory.md](memory.md). Boost has its own service, `com.fahra.shopdash.boost`, separate from AI/rating, Finance and background sync.
+- Inspect the installed service, database heartbeat, sender setting and shop profiles before changing runtime. A periodic worker being `not running` between ticks is normal. Use the installed service; do not add a second runner from a development/test worktree or reinstall unrelated services.
+- Preserve user-selected products and activation settings. Fresh-install defaults do not mean an existing sender should be disabled. `--once` and service kickstart can send real Boosts; use read-only checks for diagnosis. Never reset cooldown/history or retry an uncertain POST merely to make a status look healthy.
+
 ## Verification and delivery
 
 - Edit CSS in `resources/css/input.css`, then run `npm run build` to regenerate the tracked stylesheet. Keep asset versioning so browsers receive updated CSS and JavaScript.

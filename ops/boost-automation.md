@@ -61,6 +61,8 @@ Worker memproses toko due berdasarkan waktu paling lama menunggu, maksimal lima 
 
 Status worker berasal dari heartbeat nyata. UI menampilkan pesan bila profil aktif tetapi heartbeat tidak terlihat dalam tiga menit. Log service: `/tmp/shopdash-boost.log` dan `/tmp/shopdash-boost.error.log`, berisi ID lokal/status atau pesan aplikasi yang tersanitasi.
 
+Service memanggil CLI sekali setiap tick, sehingga `state = not running`/`job state = exited` di sela pemeriksaan adalah normal jika heartbeat masih segar dan exit code 0. Periksa dengan `launchctl print "gui/$(id -u)/com.fahra.shopdash.boost"` dan query lokal di [referensi perintah Boost](../tools.md#boost-worker-commands). `launchctl kickstart "gui/$(id -u)/com.fahra.shopdash.boost"` memicu pemeriksaan pada service yang sama, tetap menghormati due/cooldown, dan dapat mengirim POST nyata. Jangan menambah `-k` atau memasang runner kedua untuk sekadar mengecek kesehatan. Browser boleh ditutup; host dan sesi layanan harus tetap tersedia.
+
 Untuk berhenti mengirim, set `BOOST_SEND_ENABLED=0` dan jeda profil yang diperlukan. Environment proses mengungguli file config; hapus/ubah override bila digunakan. Request yang sudah dikirim tetap dicatat. Untuk melepas service gunakan `launchctl bootout "gui/$(id -u)/com.fahra.shopdash.boost"` setelah memeriksa run aktif. Pertahankan ledger dan event; jangan menghapus tabel untuk membuka kuota.
 
 ## UI dan verifikasi
@@ -101,6 +103,10 @@ Setelah pengguna menyimpan pilihan rekomendasi, runtime utama `shopdash` telah d
 
 Verifikasi pada 23:51 WIB: worker menghasilkan heartbeat `sender_enabled=1`, `alive=1`, dan exit code 0. Dua profil masing-masing berisi lima produk; kedua profil tetap nonaktif. Tidak ada run Boost dalam lima menit terakhir saat pemeriksaan. Penyiapan ini tidak mengaktifkan profil atau menguji POST Boost nyata. Pengguna memulai pengulangan melalui tombol **Aktifkan pengulangan** per toko, atau mengirim manual melalui **Naikkan sekali**. Angka/status ini merupakan catatan pemeriksaan, bukan status runtime yang selalu berlaku.
 
-## Batas sebelum pilot produksi
+## Bukti pengiriman nyata pada 2026-09-30
 
-GET yang berhasil belum membuktikan jumlah slot remote secara menyeluruh atau bahwa respons POST yang ada di baseline masih sama. Implementasi menggunakan preflight per produk dan gagal tertutup jika flags tidak dikenali; slot eksternal yang berubah dapat menghasilkan penolakan saat POST. Pilot produksi masih diperlukan pada toko/produk yang ditentukan pengguna, untuk respons accepted/rejected, slot penuh, dan setidaknya satu pengulangan. Instalasi baru tetap default off; runtime yang dicatat di atas sudah menyiapkan sakelar server, sementara aktivasi profil tetap tindakan pengguna.
+Setelah pengguna mengaktifkan pengulangan, pemeriksaan baca-saja pada **00:07 WIB** menemukan tujuh profil aktif, sakelar server aktif, heartbeat `2026-09-29 17:07:03 UTC` (`alive=1`) dan service dengan exit code terakhir 0. Ledger mencatat lima run otomatis selesai, total 23 item diterima, nol gagal dan nol unknown. Pengiriman awal ini terjadi pada 29 September sekitar 23:55–23:56 WIB. Bukti berasal dari agregat ledger dan status service, tanpa menyalin produk, cookie atau payload pelanggan ke dokumentasi. Angka ini menggantikan status dua profil nonaktif pada catatan penyiapan sebelumnya, tetapi tetap harus diperiksa ulang pada sesi selanjutnya.
+
+## Batas verifikasi produksi
+
+GET serta pengiriman awal yang diterima sudah memiliki bukti live di atas. Bukti ini belum mencakup penolakan remote/slot penuh atau satu pengulangan lengkap sesudah cooldown; kasus kegagalan dan recovery sebelumnya diuji dengan transport tiruan. Implementasi menggunakan preflight per produk dan gagal tertutup jika flags tidak dikenali; slot eksternal yang berubah dapat menghasilkan penolakan saat POST. Status diterima tetap bukan bukti independen bahwa posisi atau penjualan berubah. Instalasi baru default off; runtime yang dicatat di atas sudah aktif sesuai pilihan pengguna. Jangan menonaktifkan runtime atau mereset pilihan hanya karena membaca default instalasi baru.

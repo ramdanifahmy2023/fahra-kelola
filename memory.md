@@ -1,6 +1,6 @@
 # Project memory
 
-Last reviewed: 2026-09-29. This is durable project context, not a live status dashboard. Read together with [AGENTS.md](AGENTS.md). Update existing entries when decisions change rather than accumulating contradictory instructions.
+Last reviewed: 2026-09-30 (Boost worker handoff). This is durable project context, not a live status dashboard. Read together with [AGENTS.md](AGENTS.md). Update existing entries when decisions change rather than accumulating contradictory instructions.
 
 ## User preferences and standing decisions
 
@@ -27,6 +27,7 @@ Last reviewed: 2026-09-29. This is durable project context, not a live status da
 | Customer scoping | Optional local shop ID; membership from `customer_shops` or matching orders; counts/history scoped to the selected shop; zero means all shops |
 | Orders navigation | Real navigation loads the selected shop, preserves date/limit filters, and resets pagination |
 | Boost product layout | Separate checkbox, 48px thumbnail, and title grid tracks; metadata reflows by container width |
+| Boost automation | Fixed selected products per shop; independent CLI service `com.fahra.shopdash.boost`. See [Boost operations](ops/boost-automation.md) and [commands](tools.md#boost-worker-commands). |
 | Asset delivery | CSS compiled from source and tracked; filemtime-based URLs prevent ordinary stale asset reuse |
 | Background sync | Durable scheduler/worker queue; ordinary data pages read local data, not a new full upstream sync |
 | Runtime settings | Database schedule rows and queue state are authoritative; old incident notes are historical evidence |
@@ -59,6 +60,16 @@ Passing counts above are historical, not a promise about the current revision. R
 - See [foundation](ops/automation-foundation.md), [API capture audit](ops/rating-api-audit-20260929.md), and [future implementation proposal](ops/automation-engine-plan.md). Rating discovery, AI rating drafts, sending, queues, and schedules remain unimplemented. Provider transport currently serves catalog and synthetic connection tests only.
 - XYZ Sniper MCP was used read-only to inspect project 1. Never persist its authentication token or captured credentials. Pagination beyond page 1 and backend write transport remain unverified.
 - Next phase: verify 9Router capabilities and rating pagination/transport, then implement discovery and AI drafts before an explicitly enabled sender. Users configure tone, support policies, target dates, and per-star handling in the foundation page.
+
+## Boost automation and worker
+
+- The user requested and enabled real product Boost repetition. The implementation is separate from the AI/rating foundation described above; the AI sender's implementation status must not be used to infer Boost status.
+- `/panel/boost` saves up to five fixed products per shop. **Pilih rekomendasi** selects the highest synced sales among active, in-stock products with positive sales in that shop; the user reviews and saves. Recommendations never save, enable or send by themselves. Selected products are not automatically replaced when temporarily unavailable.
+- The official runtime is the main `shopdash` checkout. macOS LaunchAgent `com.fahra.shopdash.boost` runs `bin/boost-worker.php --once --limit=5` every 60 seconds, including when the browser is closed. Avoid another runner from a test worktree and leave AI/Finance/sync services untouched. The host must remain awake and the service loaded; real sending also needs network access.
+- Sending requires both the server switch `BOOST_SEND_ENABLED=1` and an enabled shop profile. Process environment takes precedence over the local config file, including explicit `0`. Preserve the user's live activation choices; default-off is for new installations. Inspect current runtime before changing either switch.
+- Database shop locks serialize manual/automatic sending. Cooldown is conservatively 255 minutes per product; local capacity is an estimate. Unknown POST outcomes block that shop until inspected and reconciled, without automatic resend. Do not delete ledger/history or shorten cooldown to bypass a wait.
+- Evidence at **2026-09-30 00:07 WIB**: sender enabled, worker heartbeat fresh (`alive=1`), service interval 60 seconds and last exit code 0; seven profiles enabled. The database recorded five automatic runs with 23 accepted items, zero failed and zero unknown. This is dated evidence, not a perpetual status. Accepted means the API accepted the request, not proof of ranking/sales improvement; a complete repeat after cooldown was not yet observed in this check.
+- Read [Boost operations and production evidence](ops/boost-automation.md) and [Boost command effects](tools.md#boost-worker-commands) before maintenance. Recheck `boost_worker_health`, `boost_profiles`, recent `product_boost_runs/items`, the service definition and server sender setting each session. Read-only inspection is sufficient for routine health checks; kickstart/`--once` can send real requests.
 
 ## Notifications
 

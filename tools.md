@@ -1,6 +1,6 @@
 # Tools and command reference
 
-Verified against source on 2026-09-29. Run commands from the Git repository root (`shopdash`). Paths contain spaces on the current Mac; quote absolute paths. This file documents tools; it does not grant extra permissions or require installing new tools.
+General commands verified against source on 2026-09-29; Boost commands reviewed on 2026-09-30. Run commands from the Git repository root (`shopdash`). Paths contain spaces on the current Mac; quote absolute paths. This file documents tools; it does not grant extra permissions or require installing new tools.
 
 ## Environment
 
@@ -72,6 +72,36 @@ php bin/sync-observe.php
 ```
 
 `./ops/install-background-sync.sh` rewrites local LaunchAgent definitions and unloads/reloads web, scheduler, and worker. It changes runtime state; do not run it for a documentation or ordinary CSS change. Service definitions and logs are detailed in [operations](ops/agent-operations.md).
+
+## Boost worker commands
+
+Read [Boost operations](ops/boost-automation.md) before runtime changes. The installed macOS service is `com.fahra.shopdash.boost`, running `bin/boost-worker.php --once --limit=5` from the main `shopdash` checkout every 60 seconds. Its plist is `~/Library/LaunchAgents/com.fahra.shopdash.boost.plist`; logs are `/tmp/shopdash-boost.log` and `/tmp/shopdash-boost.error.log`. Verify these paths/settings in the current service definition rather than assuming another checkout serves production.
+
+| Command | Effect / use |
+| --- | --- |
+| `launchctl print "gui/$(id -u)/com.fahra.shopdash.boost"` | Read-only service definition, run count and last exit status. `not running` between scheduled invocations is normal. |
+| `php bin/boost-worker.php --dry-run --shop=1` | Local read-only preview for an example local shop ID; replace `1` with the intended shop. No Shopee request, heartbeat, recovery or schedule writes. |
+| `php bin/boost-worker.php --dry-run` | Read-only preview of due active profiles. Empty output may simply mean no profile is due. No flags also defaults to dry-run. |
+| `php bin/boost-worker.php --migrate` | Applies only additive Boost tables; does not enable profiles or call Shopee. |
+| `./ops/install-boost-worker.sh --install` | Installs only the Boost service and starts its first tick. Refuses an existing service/plist. Can send immediately if the server sender and due shop profiles are already enabled. |
+| `launchctl kickstart "gui/$(id -u)/com.fahra.shopdash.boost"` | Triggers the existing service; writes heartbeat and may send real Boosts for due profiles. It is not a read-only health check. Do not add `-k` to kill an in-flight sender. |
+| `php bin/boost-worker.php --once --limit=5` | Processes up to five due active shops; writes state and may call Shopee. Use as an alternative runner, not an additional loop beside the installed service. |
+| `launchctl bootout "gui/$(id -u)/com.fahra.shopdash.boost"` | Unloads only the Boost service; inspect in-flight runs first. Does not disable manual sending or erase profiles/history. |
+
+Read-only SQL checks through the configured database connection:
+
+```sql
+SELECT last_tick_at, sender_enabled,
+       last_tick_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 MINUTE) AS alive
+FROM boost_worker_health WHERE id = 1;
+SELECT shop_id, enabled, next_check_at, last_checked_at, last_message
+FROM boost_profiles ORDER BY shop_id;
+SELECT id, shop_id, mode, status, success_count, failed_count, unknown_count,
+       started_at, completed_at
+FROM product_boost_runs ORDER BY id DESC LIMIT 10;
+```
+
+Database times are UTC; convert to WIB for user-facing updates. A fresh heartbeat proves the worker ticked, not that any product was sent. Check profiles and run results too. `BOOST_SEND_ENABLED` in the process environment overrides `config/.env`, including an explicit `0`; the switch is checked before every POST. New installations default off, but do not reset an existing enabled installation from that default. Per-shop activation is stored separately in `boost_profiles.enabled` and controlled from the panel. Global stop uses `BOOST_SEND_ENABLED=0`; pause individual shops through the panel. Requests already sent cannot be recalled. Preserve ledger/cooldown and resolve unknown outcomes through the documented inspection flow.
 
 ## Commands that modify data or call Shopee
 
