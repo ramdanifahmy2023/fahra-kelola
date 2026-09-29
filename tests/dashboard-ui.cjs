@@ -20,7 +20,7 @@ const realtime=(ids=['1','2'])=>({status:'success',selected_shop_count:ids.lengt
     await route.fulfill({json:realtime(ids.length ? ids : ['1','2'])}).catch(()=>{});
   });
   await page.route('**/procFinance/sync',route=>{syncs++;return route.fulfill({json:{status:'success',queued:1,message:'Pembaruan masuk antrean.'}});});
-  const loaded=()=>page.waitForFunction(()=>document.querySelectorAll('.finance-store').length>0 && document.querySelector('#finance-summary-panel').getAttribute('aria-busy')==='false');
+  const loaded=()=>page.waitForFunction(()=>document.querySelectorAll('.finance-store').length>0 && document.querySelector('#finance-summary-panel').getAttribute('aria-busy')==='false' && document.querySelector('#dashboard-operations').getAttribute('aria-busy')==='false');
   await page.goto(base+'/panel');await loaded();await page.locator('.dashboard-stock-row').first().waitFor();await page.locator('#dashboard-hour-select').waitFor();
   const today=await page.evaluate(()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()));
   assert.equal(await page.inputValue('#finance-period'),'month');assert.equal(await page.inputValue('#finance-start'),today.slice(0,8)+'01');assert.equal(await page.inputValue('#finance-end'),today);
@@ -58,9 +58,11 @@ const realtime=(ids=['1','2'])=>({status:'success',selected_shop_count:ids.lengt
           const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
           const rgb=color=>{ctx.clearRect(0,0,1,1);ctx.fillStyle=color;ctx.fillRect(0,0,1,1);return Array.from(ctx.getImageData(0,0,1,1).data);};
           return ['#finance-pending','.finance-quality.is-partial','#finance-sync'].map(selector=>{
-            const el=document.querySelector(selector),text=rgb(getComputedStyle(el).color);let node=el,bg;
+            let el=document.querySelector(selector),probe=false;
+            if(!el){el=document.createElement('span');el.className='finance-quality is-partial';el.textContent='Peringatan fixture';document.querySelector('#finance-page').append(el);probe=true;}
+            const text=rgb(getComputedStyle(el).color);let node=el,bg;
             while(node){bg=rgb(getComputedStyle(node).backgroundColor);if(bg[3]===255)break;node=node.parentElement;}
-            const hex=values=>'#'+values.slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('');return {selector,text:hex(text),background:hex(bg)};
+            const hex=values=>'#'+values.slice(0,3).map(v=>v.toString(16).padStart(2,'0')).join('');const pair={selector,text:hex(text),background:hex(bg)};if(probe)el.remove();return pair;
           });
         });
         const luminance=hex=>{const c=hex.slice(1).match(/../g).map(v=>parseInt(v,16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);return .2126*c[0]+.7152*c[1]+.0722*c[2];};

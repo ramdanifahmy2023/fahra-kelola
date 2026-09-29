@@ -1,44 +1,59 @@
-<section id="boost-monitor" data-endpoint="<?= burl; ?>/procproducts" data-shops-url="<?= burl; ?>/panel/shops">
-  <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
-    <h2 class="text-2xl font-black tracking-tight">Naikkan produk</h2>
-    <a href="<?= burl; ?>/panel/products" class="btn btn-sm min-h-11 rounded-lg">Kelola produk</a>
-  </div>
-  <div id="boost-state" class="mb-5 text-sm" role="status">Memuat status toko…</div>
-  <div id="boost-grid" class="grid grid-cols-1 items-start gap-4 2xl:grid-cols-2"></div>
+<section id="boost-monitor" data-endpoint="<?= burl; ?>/procBoost" data-csrf="<?= htmlspecialchars(authCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>" data-shops-url="<?= burl; ?>/panel/shops">
+  <header class="boost-heading">
+    <div><h1>Naikkan produk</h1><p>Ulangi produk pilihan setiap toko saat produk dan slot tersedia.</p></div>
+    <a href="<?= burl; ?>/panel/products" class="btn boost-secondary">Kelola produk</a>
+  </header>
+  <div class="boost-intro"><p>Simpan pilihan, lalu aktifkan pengulangan. Produk yang belum tersedia akan menunggu tanpa diganti produk lain.</p></div>
+  <p id="boost-state" role="status">Memuat status toko…</p>
+  <div id="boost-grid"></div>
+
+  <dialog id="boost-editor" aria-labelledby="boost-editor-title">
+    <header class="boost-dialog-heading"><div><p data-editor-shop></p><h2 id="boost-editor-title">Pilih produk untuk diulang</h2></div><button type="button" class="btn boost-secondary" data-editor-close>Tutup</button></header>
+    <div class="boost-editor-content">
+    <p data-editor-intro>Pilih hingga 5 produk. Produk yang belum tersedia akan menunggu tanpa diganti produk lain.</p>
+    <div class="boost-recommendation" data-recommendation>
+      <strong>Rekomendasi terlaris</strong>
+      <p id="boost-recommendation-help">Hingga 5 produk aktif dan berstok dengan penjualan tertinggi dari seluruh katalog toko ini, berdasarkan data tersinkron. Mengganti pilihan di popup; tinjau sebelum menyimpan.</p>
+      <div class="boost-recommendation-actions"><button type="button" class="btn boost-secondary" data-recommend aria-describedby="boost-recommendation-help">Pilih rekomendasi</button><button type="button" class="boost-text-button" data-undo-recommendation hidden>Kembalikan pilihan</button></div>
+      <p data-recommendation-status role="status" hidden></p>
+    </div>
+    <div class="boost-draft-heading"><strong data-draft-count role="status">0 / 5 dipilih</strong><span data-dirty></span></div>
+    <ul class="boost-chosen" data-chosen aria-label="Pilihan pengulangan"></ul>
+    <form data-search-form class="boost-search"><label for="boost-search">Cari produk di toko ini</label><div><input id="boost-search" type="search" class="input" autocomplete="off" maxlength="100" placeholder="Nama produk"><button type="submit" class="btn boost-secondary">Cari</button></div></form>
+    <p data-catalog-status role="status"></p><div data-catalog></div>
+    <nav class="boost-pagination" aria-label="Halaman katalog"><button type="button" class="btn boost-secondary" data-prev>Sebelumnya</button><span data-page></span><button type="button" class="btn boost-secondary" data-next>Berikutnya</button></nav>
+    <p data-editor-error role="alert" hidden></p><button type="button" class="btn boost-secondary" data-reload-version hidden>Muat versi terbaru</button>
+    </div>
+    <footer class="boost-dialog-footer"><p data-editor-note>Menyimpan pilihan tidak mengaktifkan pengulangan baru.</p><div><button type="button" class="btn boost-secondary" data-editor-cancel>Batalkan</button><button type="button" class="btn btn-primary" data-save>Simpan pilihan</button></div></footer>
+  </dialog>
+
+  <dialog id="boost-confirm" aria-labelledby="boost-confirm-title">
+    <h2 id="boost-confirm-title"></h2><p data-confirm-copy></p><div data-confirm-products></div>
+    <p data-confirm-error role="alert" hidden></p>
+    <footer class="boost-dialog-footer"><button type="button" class="btn boost-secondary" data-confirm-cancel>Batal</button><button type="button" class="btn btn-primary" data-confirm-action></button></footer>
+  </dialog>
+
+  <dialog id="boost-resolution" aria-labelledby="boost-resolution-title">
+    <h2 id="boost-resolution-title">Pastikan hasil pengiriman</h2><p data-resolution-name></p>
+    <p>Periksa produk ini di Seller Centre. Status tersedia saat ini saja tidak membuktikan apakah pengiriman sebelumnya berhasil.</p>
+    <label class="boost-check"><input type="checkbox" data-resolution-confirm> Saya sudah memeriksa hasil di Seller Centre.</label>
+    <label for="boost-resolution-outcome">Hasil yang sudah dipastikan</label><select id="boost-resolution-outcome" class="select"><option value="">Pilih hasil</option><option value="confirmed_sent">Produk berhasil dinaikkan</option><option value="confirmed_not_sent">Produk dipastikan tidak dinaikkan</option></select>
+    <p>Konfirmasi disimpan dalam riwayat. Jika belum yakin, batalkan dan biarkan status belum pasti.</p><p data-resolution-error role="alert" hidden></p>
+    <footer class="boost-dialog-footer"><button type="button" class="btn boost-secondary" data-resolution-cancel>Batal</button><button type="button" class="btn btn-primary" data-resolution-save disabled>Simpan hasil pemeriksaan</button></footer>
+  </dialog>
 </section>
 
 <template id="boost-card-template">
-  <article class="min-w-0 rounded-xl border border-base-content/20 bg-base-100" data-card>
-    <div class="flex flex-wrap items-start justify-between gap-3 p-5">
-      <div class="shop-identity"><span class="shop-logo" data-shop-logo></span><div class="min-w-0"><h3 class="break-words text-base font-bold" data-shop-name></h3><p class="mt-1 text-sm" data-shop-status>Memuat produk…</p></div></div>
-      <span class="text-sm" data-session-status></span>
+  <article class="boost-store" data-card>
+    <header class="boost-store-heading"><div class="shop-identity"><span class="shop-logo" data-shop-logo></span><div><h2 data-shop-name></h2><p data-session-status></p></div></div><span class="boost-mode" data-mode>Memuat…</span></header>
+    <div class="boost-store-body">
+      <div class="boost-overview"><div><span>Produk tersimpan</span><strong data-saved-count>Belum dimuat</strong></div><div><span>Pemeriksaan berikutnya</span><strong data-next-check>Belum tersedia</strong></div><div><span>Perkiraan slot lokal</span><strong data-remaining>Belum tersedia</strong></div></div>
+      <p class="boost-notice" data-operation-note></p><p data-load-state role="status"></p><p data-action-result role="status" hidden></p>
+      <ul class="boost-saved-products" data-saved-products></ul>
+      <div class="boost-store-actions"><button type="button" class="btn boost-secondary" data-edit disabled>Pilih produk</button><button type="button" class="btn btn-primary" data-toggle disabled>Aktifkan pengulangan</button><button type="button" class="btn boost-secondary" data-manual disabled>Naikkan sekali</button><button type="button" class="boost-text-button" data-refresh>Muat ulang status</button></div>
+      <p class="boost-caption" data-freshness></p><a class="boost-text-button" data-reconnect hidden>Perbarui koneksi toko</a>
+      <details class="boost-history"><summary>Riwayat &amp; pemeriksaan hasil</summary><p>Jeda aman lokal: 4 jam 15 menit per produk. Status Shopee tetap diperiksa sebelum pengiriman.</p><button type="button" class="btn boost-secondary" data-inspect>Periksa status di Shopee</button><p data-inspection role="status" hidden></p><div data-unresolved></div><div data-history></div></details>
     </div>
-    <div class="flex flex-wrap items-center justify-between gap-3 px-5 pb-4 text-sm">
-      <p>Sisa kuota <strong data-remaining>-</strong> / 5</p>
-      <p data-cooldown></p>
-    </div>
-    <div class="px-5 pb-4 text-sm" data-load-state role="status" hidden></div>
-    <div class="px-5 pb-4 text-sm" data-selection-help hidden></div>
-    <a class="mx-5 mb-4 inline-flex min-h-11 items-center underline" data-reconnect hidden>Perbarui koneksi toko</a>
-    <details class="border-t border-base-content/20" data-product-detail>
-      <summary class="min-h-11 cursor-pointer px-5 py-3 text-sm font-bold">Lihat 10 produk terlaris <span class="font-normal" data-collapsed-count></span></summary>
-      <div class="px-3 pb-4 sm:px-5 sm:pb-5">
-        <p class="mb-3 text-sm">Rekomendasi berdasarkan jumlah terjual, stok, dan status naikkan produk.</p>
-        <div class="boost-primary-actions">
-          <button type="button" class="btn btn-sm rounded-lg" data-recommend disabled>Pilih rekomendasi</button>
-          <button type="button" class="btn btn-primary btn-sm rounded-lg" data-boost disabled>Naikkan produk</button>
-        </div>
-        <div class="mb-3 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span class="text-sm" data-selection-count role="status">0 dipilih</span>
-          <button type="button" class="btn btn-ghost btn-sm min-h-11 rounded-lg" data-clear disabled>Hapus pilihan</button>
-          <button type="button" class="btn btn-ghost btn-sm min-h-11 rounded-lg" data-refresh>Muat ulang status</button>
-        </div>
-        <p class="mb-3 text-sm" data-recommendation-note role="status" hidden></p>
-        <div class="mb-3 rounded-lg border border-base-content/20 p-3 text-sm" data-action-result role="status" hidden></div>
-        <div data-products class="space-y-2"></div>
-        <details class="mt-4 border-t border-base-content/20 pt-2"><summary class="min-h-11 cursor-pointer py-3 text-sm font-bold">Riwayat toko</summary><div class="space-y-2 text-sm" data-history></div></details>
-      </div>
-    </details>
   </article>
 </template>
 <?php require __DIR__ . '/templates/shop-logos.php'; ?>

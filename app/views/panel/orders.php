@@ -49,6 +49,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 </div>
 <div id="order-background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi pesanan berjalan di belakang. Halaman ini membaca data lokal.</div>
 
+<?php if (!empty($data['focused_order_id'])): ?><div id="notification-order-focus">Menampilkan pesanan dari notifikasi.<a href="<?= burl; ?>/panel/orders?shop_id=<?= (int)$data['active_shop_id']; ?>">Lihat semua pesanan toko</a></div><?php endif; ?>
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
   <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>

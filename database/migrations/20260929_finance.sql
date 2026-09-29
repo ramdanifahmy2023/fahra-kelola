@@ -43,6 +43,14 @@ CREATE TABLE IF NOT EXISTS finance_current (
   import_id BIGINT UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS finance_pending_states (
+  import_id BIGINT UNSIGNED NOT NULL,
+  external_order_id BIGINT NOT NULL,
+  state VARCHAR(16) NOT NULL,
+  synced_at DATETIME NULL,
+  PRIMARY KEY (import_id,external_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS finance_overview_totals (
   import_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
   week_start DATE NOT NULL,
@@ -51,6 +59,25 @@ CREATE TABLE IF NOT EXISTS finance_overview_totals (
   week_amount BIGINT NULL,
   month_amount BIGINT NULL,
   all_amount BIGINT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS finance_pending_diagnostics (
+  import_id BIGINT UNSIGNED NOT NULL,
+  external_order_id BIGINT NOT NULL,
+  reason VARCHAR(40) NULL,
+  PRIMARY KEY (import_id,external_order_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS finance_paid_intraday (
+  shop_id INT NOT NULL,
+  source_shop_id BIGINT NOT NULL,
+  metric_date DATE NOT NULL,
+  amount BIGINT NULL,
+  through_at DATETIME NULL,
+  synced_at DATETIME NULL,
+  last_attempt_at DATETIME NOT NULL,
+  failed TINYINT NOT NULL DEFAULT 0,
+  PRIMARY KEY (shop_id,source_shop_id,metric_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS finance_days (

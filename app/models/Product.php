@@ -26,7 +26,7 @@ class Product extends BaseModel {
         if (!$ids) return [];
         $placeholders = [];
         foreach ($ids as $index => $id) $placeholders[] = ':product_id_' . $index;
-        $this->db->query("SELECT id, shop_id, name, status, total_stock, sold_count FROM {$this->table} WHERE shop_id = :shop_id AND status = 1 AND id IN (" . implode(', ', $placeholders) . ")");
+        $this->db->query("SELECT id, shop_id, name, status, total_stock, sold_count FROM {$this->table} WHERE shop_id = :shop_id AND status = 1 AND deleted_at IS NULL AND total_stock > 0 AND id IN (" . implode(', ', $placeholders) . ")");
         $this->db->bind('shop_id', (int)$shopId);
         foreach ($ids as $index => $id) $this->db->bind('product_id_' . $index, $id);
         return $this->db->getAll();

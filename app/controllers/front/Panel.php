@@ -209,6 +209,13 @@ class Panel extends Controller {
         $data['current_page'] = min($page, $data['total_pages']);
         $orders = $orderModel->findByCreatedDateRangePaginated($activeShopId, $startDate, $endDate, $limit, ($data['current_page'] - 1) * $limit);
         
+        $data['focused_order_id'] = max(0,(int)($_GET['order_id'] ?? 0));
+        if ($data['focused_order_id']) {
+            $orders = $orderModel->findWhere(['id'=>$data['focused_order_id'],'shop_id'=>(int)$activeShopId]);
+            $data['total_orders'] = count($orders);
+            $data['total_pages'] = 1;
+            $data['current_page'] = 1;
+        }
         $orderItemModel = $this->m('OrderItem');
         foreach ($orders as &$ord) {
             $ord['items'] = $orderItemModel->findWhere(['order_id' => $ord['id']]);

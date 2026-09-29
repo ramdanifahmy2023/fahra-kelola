@@ -9,6 +9,10 @@ class Finance extends BaseModel {
     foreach (explode(';',file_get_contents(__DIR__.'/../../database/migrations/20260929_finance.sql')) as $sql) {
       if (trim($sql) !== '') $this->execute($sql);
     }
+    foreach (explode(';',file_get_contents(__DIR__.'/../../database/migrations/20260929_ad_balance_topups.sql')) as $sql) {
+      if (trim($sql) !== '') $this->execute($sql);
+    }
+    $this->execute(file_get_contents(__DIR__.'/../../database/migrations/20260929_ads_browser_reports.sql'));
     $this->ready = true;
   }
 
@@ -80,6 +84,7 @@ class Finance extends BaseModel {
         $this->execute("UPDATE finance_imports SET state='running' WHERE id=:id",['id'=>(int)$import['id']]);
         $response = $api->page($shop,$import);
         $rows = array_map(static fn($row)=>FinancePolicy::row($row,(int)$import['category']),$response['rows']);
+        $pendingStates=(int)$import['category']===1 ? $api->pendingStates($shop,array_column($rows,'external_order_id'),$rateMs) : [];
         $next = $response['next']; $seen = json_decode($import['seen_cursors'] ?? '[]',true) ?: [];
         if ($next && (!$rows || in_array($next['cursor'],$seen,true) || count($seen)>10000)) throw new UnexpectedValueException('Halaman Shopee berulang atau tidak bergerak. Coba pembaruan kembali.');
         if ($next) $seen[] = $next['cursor'];
@@ -93,6 +98,9 @@ class Finance extends BaseModel {
             $row = ['import_id'=>(int)$import['id'],'shop_id'=>$shopId]+$row;
             $columns = array_keys($row); $updates = array_map(static fn($key)=>$key.'=VALUES('.$key.')',array_diff($columns,['import_id','external_order_id']));
             $this->execute('INSERT INTO finance_income_rows ('.implode(',',$columns).') VALUES (:'.implode(',:',$columns).') ON DUPLICATE KEY UPDATE '.implode(',',$updates),$row);
+            if ((int)$import['category']===1) {
+              $this->savePendingStatus($row['import_id'],$row['external_order_id'],$pendingStates[$row['external_order_id']] ?? ['state'=>'unknown','reason'=>'not_checked','synced_at'=>null]);
+            }
           }
           $this->execute("UPDATE finance_imports SET cursor_json=:cursor,seen_cursors=:seen,page_count=page_count+1,state=:state,overview_pending=:overview,completed_at=IF(:done=1,UTC_TIMESTAMP(),NULL),error_message=NULL WHERE id=:id",['cursor'=>$next ? json_encode($next) : null,'seen'=>json_encode($seen),'state'=>$next?'running':'ready','overview'=>$overview,'done'=>$next?0:1,'id'=>(int)$import['id']]);
           if (!$next) {
@@ -110,36 +118,116 @@ class Finance extends BaseModel {
           }
           $this->db->commit();
         } catch (Throwable $error) { $this->db->rollback(); throw $error; }
+        if (!$next && (int)$import['category']===1) $this->syncPaidToday($shop,$api);
       }
       return [true,null,!$this->hasWork($shopId)];
     } catch (Throwable $error) {
       $message = $error instanceof PDOException ? 'Penyimpanan data keuangan gagal. Data lengkap sebelumnya tetap tersedia.' : $error->getMessage();
       if (!$import) $import=$this->one("SELECT id FROM finance_imports WHERE shop_id=:shop AND state IN ('queued','running') ORDER BY id LIMIT 1",['shop'=>$shopId]);
-      if ($import) $this->execute("UPDATE finance_imports SET state='failed',error_message=:error,completed_at=UTC_TIMESTAMP() WHERE id=:id",['error'=>mb_substr($message,0,255),'id'=>(int)$import['id']]);
+      if ($import) $this->execute("UPDATE finance_imports SET state='failed',error_message=:error,completed_at=UTC_TIMESTAMP() WHERE id=:id AND state<>'ready'",['error'=>mb_substr($message,0,255),'id'=>(int)$import['id']]);
       return [false,$message,true];
     } finally { $this->one('SELECT RELEASE_LOCK(:key) released',['key'=>$key]); }
   }
 
+  private function savePendingStatus(int $importId,string $orderId,array $status): void {
+    $params=['import'=>$importId,'order_id'=>$orderId];
+    $this->execute('INSERT INTO finance_pending_states (import_id,external_order_id,state,synced_at) VALUES (:import,:order_id,:state,:synced_at) ON DUPLICATE KEY UPDATE state=VALUES(state),synced_at=VALUES(synced_at)',
+      $params+['state'=>$status['state'],'synced_at'=>$status['synced_at']]);
+    $this->execute('INSERT INTO finance_pending_diagnostics (import_id,external_order_id,reason) VALUES (:import,:order_id,:reason) ON DUPLICATE KEY UPDATE reason=VALUES(reason)',
+      $params+['reason'=>$status['reason'] ?? null]);
+  }
+
+  private function syncPaidToday(array $shop,$api): void {
+    if ((int)(new DateTimeImmutable('now',new DateTimeZone('Asia/Jakarta')))->format('G')===0) return;
+    $date=FinancePolicy::range()['end'];
+    $params=['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id'],'date'=>$date];
+    try {
+      $data=$api->paidToday($shop);
+      if ($data['date']!==$date) return;
+      $this->execute('INSERT INTO finance_paid_intraday (shop_id,source_shop_id,metric_date,amount,through_at,synced_at,last_attempt_at,failed) VALUES (:shop,:source,:date,:amount,:through,UTC_TIMESTAMP(),UTC_TIMESTAMP(),0) ON DUPLICATE KEY UPDATE amount=VALUES(amount),through_at=VALUES(through_at),synced_at=VALUES(synced_at),last_attempt_at=VALUES(last_attempt_at),failed=0',
+        $params+['amount'=>$data['amount'],'through'=>$data['through_at']]);
+    } catch (Throwable $error) {
+      $this->execute('INSERT INTO finance_paid_intraday (shop_id,source_shop_id,metric_date,last_attempt_at,failed) VALUES (:shop,:source,:date,UTC_TIMESTAMP(),1) ON DUPLICATE KEY UPDATE last_attempt_at=VALUES(last_attempt_at),failed=1',$params);
+    }
+  }
+
+  public function repairPending(array $shop,$api=null,int $limit=100): array {
+    $this->ensureSchema(); require_once __DIR__.'/../helpers/FinanceApi.php';
+    $api=$api ?? new FinanceApi(); $key=$this->lockKey('worker',(int)$shop['id']);
+    if (!(int)$this->one('SELECT GET_LOCK(:key,0) locked',['key'=>$key])['locked']) return ['ok'=>true,'busy'=>true,'checked'=>0];
+    try {
+      $api->verify($shop);
+      $rows=$this->rows("SELECT r.import_id,r.external_order_id FROM finance_current c JOIN finance_imports i ON i.id=c.import_id AND i.source_shop_id=:source JOIN finance_income_rows r ON r.import_id=c.import_id LEFT JOIN finance_pending_states ps ON ps.import_id=r.import_id AND ps.external_order_id=r.external_order_id WHERE c.shop_id=:shop AND (ps.state IS NULL OR ps.state='unknown') AND r.status_key<>'ps_content_return_processing' ORDER BY ps.synced_at,r.external_order_id LIMIT ".max(1,min(500,$limit)),['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id']]);
+      $states=$api->pendingStates($shop,array_column($rows,'external_order_id'),350);
+      $api->verify($shop);
+      $this->db->begin();
+      try {
+        foreach ($rows as $row) if (isset($states[$row['external_order_id']])) $this->savePendingStatus((int)$row['import_id'],(string)$row['external_order_id'],$states[$row['external_order_id']]);
+        $this->db->commit();
+      } catch (Throwable $error) { $this->db->rollback(); throw $error; }
+      $this->syncPaidToday($shop,$api);
+      return ['ok'=>true,'busy'=>false,'checked'=>count($rows),'identified'=>count(array_filter($states,static fn($v)=>$v['state']!=='unknown'))];
+    } finally { $this->one('SELECT RELEASE_LOCK(:key) released',['key'=>$key]); }
+  }
+
   private function ads(array $shop, array $range): array {
-    $snapshot=$this->one('SELECT payload FROM ad_shop_snapshots WHERE shop_id=:shop',['shop'=>(int)$shop['id']]);
+    require_once __DIR__.'/../helpers/FinanceAdCost.php';
+    $snapshot=$this->one('SELECT payload,status FROM ad_shop_snapshots WHERE shop_id=:shop',['shop'=>(int)$shop['id']]);
     $payload=json_decode($snapshot['payload'] ?? '{}',true) ?: [];
-    if ((string)($payload['source_shop_id'] ?? '') !== (string)$shop['shop_id']) return ['amount'=>null,'days'=>0,'updated_at'=>null];
-    $daily=[];
-    foreach (($payload['performance_reports'] ?? []) as $channels) foreach ($channels as $channel=>$report) {
-      if (!in_array($channel,['product','shop','live'],true) || empty($report['available'])) continue;
-      foreach (($report['daily'] ?? []) as $point) {
-        $date=$point['date'] ?? ''; $amount=$point['raw_metrics']['cost'] ?? null;
-        if ($date<$range['start'] || $date>$range['end'] || !is_numeric($amount)) continue;
-        $time=$report['fetched_at'] ?? '';
-        if (!isset($daily[$date][$channel]) || $time>$daily[$date][$channel]['time']) $daily[$date][$channel]=['amount'=>(int)$amount,'time'=>$time];
+    $reports=[];
+    if ((string)($payload['source_shop_id'] ?? '')===(string)$shop['shop_id']) {
+      foreach (($payload['performance_reports'] ?? []) as $channels) foreach ($channels as $report) if (is_array($report)) {
+        if (in_array($snapshot['status'],['error','expired'],true)) $report['stale']=true;
+        $reports[]=$report;
       }
     }
-    $days=0; $total=0; $updated=0;
-    foreach ($daily as $channels) if (count($channels)===3) {
-      $days++; $total+=array_sum(array_column($channels,'amount'));
-      foreach ($channels as $point) if ($point['time']) $updated=max($updated,(int)strtotime($point['time']));
+    foreach ($this->rows('SELECT payload FROM ad_browser_reports WHERE shop_id=:shop AND source_shop_id=:source AND start_date<=:end AND end_date>=:start AND mapping_version=:version',
+      ['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id'],'start'=>$range['start'],'end'=>$range['end'],'version'=>AdsPerformance::MAPPING_VERSION]) as $row) {
+      $report=json_decode($row['payload'],true); if (is_array($report)) $reports[]=$report;
     }
-    return ['amount'=>$days ? $total/100000 : null,'days'=>$days,'updated_at'=>$updated ? gmdate('Y-m-d H:i:s',$updated) : null];
+    $result=FinanceAdCost::summarize($reports,$shop,$range);
+    if ($range['end']===FinancePolicy::range()['end'] && $result['updated_at'] && time()-strtotime($result['updated_at'].' UTC')>=900) $result['stale']=true;
+    return $result;
+  }
+
+  private function gmv(array $shop,array $range): array {
+    $rows=$this->rows("SELECT metric_date,paid_gmv,synced_at FROM shop_performance_daily WHERE shop_id=:shop AND metric_date BETWEEN :start AND :end AND source='homepage' AND paid_gmv IS NOT NULL ORDER BY metric_date",['shop'=>(int)$shop['id'],'start'=>$range['start'],'end'=>$range['end']]);
+    $byDate=array_column($rows,null,'metric_date'); $today=FinancePolicy::range()['end']; $intraday=null; $usesIntraday=false;
+    if ($range['start']<=$today && $range['end']>=$today) {
+      $intraday=$this->one('SELECT * FROM finance_paid_intraday WHERE shop_id=:shop AND source_shop_id=:source AND metric_date=:date',['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id'],'date'=>$today]);
+      if ($intraday && $intraday['amount']!==null && (!isset($byDate[$today]) || $intraday['synced_at']>$byDate[$today]['synced_at'])) {
+        $byDate[$today]=['metric_date'=>$today,'paid_gmv'=>$intraday['amount'],'synced_at'=>$intraday['synced_at']]; $usesIntraday=true;
+      }
+    }
+    $missing=[];
+    for ($day=FinancePolicy::date($range['start']);$day<=FinancePolicy::date($range['end']);$day=$day->modify('+1 day')) if (!isset($byDate[$day->format('Y-m-d')])) $missing[]=$day->format('Y-m-d');
+    $times=array_filter(array_column($byDate,'synced_at')); $dates=array_keys($byDate); sort($dates);
+    return ['amount'=>$byDate ? (float)array_sum(array_column($byDate,'paid_gmv')) : null,'days'=>count($byDate),'updated_at'=>$times ? min($times) : null,
+      'first_date'=>$dates[0] ?? null,'last_date'=>$dates ? end($dates) : null,'missing_dates'=>$missing,'today_included'=>isset($byDate[$today]),
+      'today_updated'=>$byDate[$today]['synced_at'] ?? null,'today_through'=>$usesIntraday ? $intraday['through_at'] : null,'today_failed'=>!empty($intraday['failed'])];
+  }
+
+  private function topups(array $shop,array $range): array {
+    $params=['shop'=>(int)$shop['id'],'source'=>(int)$shop['shop_id']];
+    $sync=$this->one('SELECT backfill_complete,synced_at,last_error FROM ad_topup_sync_state WHERE shop_id=:shop AND source_shop_id=:source',$params);
+    $start=FinancePolicy::date($range['start'])->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    $end=FinancePolicy::date($range['end'])->modify('+1 day')->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    $row=$this->one('SELECT COUNT(*) transactions,SUM(actual_price) amount FROM ad_balance_topups WHERE shop_id=:shop AND source_shop_id=:source AND occurred_at_utc>=:start AND occurred_at_utc<:end',$params+['start'=>$start,'end'=>$end]);
+    $updated=$sync['synced_at'] ?? null;
+    $through=$updated ? (new DateTimeImmutable($updated,new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Jakarta'))->format('Y-m-d') : null;
+    $complete=!empty($sync['backfill_complete']) && $through && $range['start']>='2026-08-01' && $range['end']<=$through && empty($sync['last_error']);
+    $schedule=$this->one("SELECT interval_seconds,enabled FROM sync_schedules WHERE shop_id=:shop AND sync_type='ads_topups'",['shop'=>(int)$shop['id']]);
+    $interval=(int)($schedule['interval_seconds'] ?? 86400);
+    return ['amount'=>$row['transactions'] ? (float)$row['amount'] : ($complete ? 0 : null),'transactions'=>(int)$row['transactions'],
+      'complete'=>(bool)$complete,'updated_at'=>$updated,'history_start'=>'2026-08-01','interval_seconds'=>$interval,
+      'enabled'=>!empty($schedule['enabled']),'stale'=>$updated && time()-strtotime($updated.' UTC')>$interval,
+      'error'=>!empty($sync['last_error'])];
+  }
+
+  private function statusFields(): string {
+    return "ps.state snapshot_state,ps.synced_at status_synced_at,pd.reason status_reason,o.detail_synced_at,i.completed_at,
+      COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(o.raw_data),o.raw_data,'{}'),'$.status_info_v2.status_description.description_value')),'null'),
+        NULLIF(JSON_UNQUOTE(JSON_EXTRACT(IF(JSON_VALID(o.raw_data),o.raw_data,'{}'),'$.status_info.status_description.description_value')),'null'),o.status_description) status_description";
   }
 
   public function summary(array $shops, array $range): array {
@@ -157,14 +245,19 @@ class Finance extends BaseModel {
           $released=(int)$overviewTotals[$period.'_amount']/100000; $basis='overview_'.$period; $releaseDays=$range['days']; $releaseUpdated=$pending['completed_at']; break;
         }
       }
-      $gmv=$this->one("SELECT COUNT(DISTINCT metric_date) days,SUM(paid_gmv) amount,MAX(synced_at) updated_at FROM shop_performance_daily WHERE shop_id=:shop AND metric_date BETWEEN :start AND :end AND source='homepage' AND paid_gmv IS NOT NULL",['shop'=>(int)$shop['id'],'start'=>$range['start'],'end'=>$range['end']]);
+      $gmv=$this->gmv($shop,$range);
       $work=$this->one("SELECT SUM(state IN ('queued','running')) active,SUM(state='failed') failed FROM finance_imports WHERE shop_id=:shop AND source_shop_id=:source AND (category=1 OR (start_date<=:end AND end_date>=:start))",$rp);
       $latest=$this->one("SELECT f.error_message FROM finance_imports f WHERE f.shop_id=:shop AND f.source_shop_id=:source AND f.state='failed' AND (f.category=1 OR (f.start_date<=:end AND f.end_date>=:start)) AND NOT EXISTS (SELECT 1 FROM finance_imports newer WHERE newer.shop_id=f.shop_id AND newer.source_shop_id=f.source_shop_id AND newer.category=f.category AND newer.state='ready' AND newer.id>f.id AND newer.start_date<=f.start_date AND newer.end_date>=f.end_date) ORDER BY f.id DESC LIMIT 1",$rp);
-      $states=['shipping'=>0,'return'=>0,'delivered'=>0,'unknown'=>0];
-      $stateCounts=array_fill_keys(array_keys($states),0);
+      $states=array_fill_keys(FinancePolicy::STATES,0);
+      $stateCounts=array_fill_keys(array_keys($states),0); $statusTimes=[]; $reasons=[];
       if ($pending) {
-        $rows=$this->rows('SELECT r.income_amount,r.status_key,o.status_description,o.detail_synced_at,i.completed_at FROM finance_income_rows r JOIN finance_imports i ON i.id=r.import_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE r.import_id=:id',['id'=>(int)$pending['id']]);
-        foreach ($rows as $row) { $state=FinancePolicy::pendingState($row); $states[$state]+=(int)$row['income_amount']; $stateCounts[$state]++; }
+        $rows=$this->rows('SELECT r.income_amount,r.status_key,'.$this->statusFields().' FROM finance_income_rows r JOIN finance_imports i ON i.id=r.import_id LEFT JOIN finance_pending_states ps ON ps.import_id=r.import_id AND ps.external_order_id=r.external_order_id LEFT JOIN finance_pending_diagnostics pd ON pd.import_id=r.import_id AND pd.external_order_id=r.external_order_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE r.import_id=:id',['id'=>(int)$pending['id']]);
+        foreach ($rows as $row) {
+          $state=FinancePolicy::pendingState($row); $states[$state]+=(int)$row['income_amount']; $stateCounts[$state]++;
+          if ($state==='unknown') { $reason=$row['status_reason'] ?? 'not_checked'; $reasons[$reason]=($reasons[$reason] ?? 0)+1; }
+          $time=$row['status_key']==='ps_content_return_processing' ? $row['completed_at'] : ($row['status_synced_at'] ?? ($state!=='unknown' ? $row['detail_synced_at'] : null));
+          if ($time) $statusTimes[]=$time;
+        }
       }
       $stores[]=[
         'id'=>(int)$shop['id'],'name'=>$shop['name'],'logo'=>$shop['shop_logo'],
@@ -175,30 +268,41 @@ class Finance extends BaseModel {
         'released_difference'=>$basis!=='detail' && (int)$release['days']===$range['days'] ? $released-$releasedDetail : null,
         'released_orders'=>(int)$release['orders'],'released_updated'=>$releaseUpdated,
         'adjustment'=>(int)$release['days'] && (int)$release['adjustment_known']===(int)$release['orders'] ? (int)$release['adjustment']/100000 : null,
-        'gmv'=>(int)$gmv['days'] ? (float)$gmv['amount'] : null,'gmv_days'=>(int)$gmv['days'],'gmv_updated'=>$gmv['updated_at'],
-        'ads'=>$this->ads($shop,$range),'pending_states'=>$pending ? array_map(static fn($v)=>$v/100000,$states) : null,
+        'gmv'=>$gmv['amount'],'gmv_days'=>$gmv['days'],'gmv_updated'=>$gmv['updated_at'],'gmv_coverage'=>$gmv,
+        'ads'=>$this->ads($shop,$range),'topups'=>$this->topups($shop,$range),'pending_states'=>$pending ? array_map(static fn($v)=>$v/100000,$states) : null,
         'pending_state_counts'=>$pending ? $stateCounts : null,
+        'pending_issues'=>array_map(static fn($reason,$count)=>['reason'=>$reason,'message'=>FinancePolicy::STATUS_NOTES[$reason] ?? FinancePolicy::STATUS_NOTES['unrecognized'],'orders'=>$count],array_keys($reasons),array_values($reasons)),
+        'pending_status_updated'=>$statusTimes ? min($statusTimes) : ($pending && !(int)$pending['orders'] ? $pending['completed_at'] : null),
         'active_imports'=>(int)$work['active'],'error'=>$latest['error_message'] ?? null
       ];
     }
     return ['range'=>$range,'stores'=>$stores];
   }
 
-  public function details(array $shops,array $range,int $category,int $page,string $search=''): array {
+  public function details(array $shops,array $range,int $category,int $page,string $search='',string $state=''): array {
+    if ($state!=='' && !in_array($state,FinancePolicy::STATES,true)) throw new InvalidArgumentException('Pilihan status Pending tidak valid.');
+    if ($category!==1 && $state!=='') throw new InvalidArgumentException('Rincian status hanya tersedia untuk Pending.');
     if (!$shops) return ['rows'=>[],'total'=>0,'page'=>1];
     $ids=implode(',',array_map('intval',array_column($shops,'id'))); $params=[];
     if ($category===1) $join='JOIN finance_current c ON c.shop_id=r.shop_id AND c.import_id=r.import_id';
     else { $join='JOIN finance_days d ON d.shop_id=r.shop_id AND d.import_id=r.import_id AND d.income_date=r.released_date AND d.income_date BETWEEN :start AND :end'; $params=['start'=>$range['start'],'end'=>$range['end']]; }
     $where="r.shop_id IN ({$ids})";
     if ($search!=='') { $where.=' AND r.order_sn LIKE :search'; $params['search']='%'.addcslashes(mb_substr($search,0,100),'%_\\').'%'; }
-    $from="FROM finance_income_rows r {$join} JOIN finance_imports i ON i.id=r.import_id AND i.state='ready' JOIN shops s ON s.id=r.shop_id AND s.shop_id=i.source_shop_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE {$where}";
-    $total=(int)$this->one('SELECT COUNT(*) total '.$from,$params)['total'];
-    $page=max(1,min($page,max(1,(int)ceil($total/25)))); $offset=($page-1)*25;
-    $rows=$this->rows('SELECT r.*,s.name shop_name,o.status_description,o.detail_synced_at,i.completed_at '.$from." ORDER BY COALESCE(r.released_at,i.completed_at) DESC,r.external_order_id DESC LIMIT 25 OFFSET {$offset}",$params);
+    $from="FROM finance_income_rows r {$join} JOIN finance_imports i ON i.id=r.import_id AND i.state='ready' JOIN shops s ON s.id=r.shop_id AND s.shop_id=i.source_shop_id LEFT JOIN finance_pending_states ps ON ps.import_id=r.import_id AND ps.external_order_id=r.external_order_id LEFT JOIN finance_pending_diagnostics pd ON pd.import_id=r.import_id AND pd.external_order_id=r.external_order_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE {$where}";
+    $select='SELECT r.*,s.name shop_name,'.$this->statusFields().' '.$from.' ORDER BY COALESCE(r.released_at,i.completed_at) DESC,r.external_order_id DESC';
+    if ($state!=='') {
+      $rows=array_values(array_filter($this->rows($select,$params),static fn($r)=>FinancePolicy::pendingState($r)===$state));
+      $total=count($rows); $page=max(1,min($page,max(1,(int)ceil($total/25)))); $rows=array_slice($rows,($page-1)*25,25);
+    } else {
+      $total=(int)$this->one('SELECT COUNT(*) total '.$from,$params)['total'];
+      $page=max(1,min($page,max(1,(int)ceil($total/25)))); $offset=($page-1)*25;
+      $rows=$this->rows($select." LIMIT 25 OFFSET {$offset}",$params);
+    }
     require_once __DIR__.'/FinanceCost.php'; $costs=new FinanceCost();
     foreach ($rows as &$row) {
       $row['external_order_id']=(string)$row['external_order_id'];
       $row['state']=$category===1 ? FinancePolicy::pendingState($row) : 'released';
+      $row['state_note']=FinancePolicy::STATUS_NOTES[$row['status_reason'] ?? ($row['state']==='unknown' ? 'not_checked' : '')] ?? null;
       foreach (['income_amount','adjustment_amount','net_amount'] as $key) $row[$key]=$row[$key]===null ? null : (int)$row[$key]/100000;
       $row['cost']=$costs->orderCost((int)$row['shop_id'],(string)$row['external_order_id']);
     }
