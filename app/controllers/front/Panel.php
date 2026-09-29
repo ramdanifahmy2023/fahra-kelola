@@ -34,12 +34,8 @@ class Panel extends Controller {
   public function index() {
     $data['judul'] = 'Panel - ' . app_name;
     $data['active_menu'] = 'dashboard';
-    $dashboard = $this->m('Dashboard');
-    $data['summary'] = $dashboard->summary();
-    $data['shop_health'] = $dashboard->shopHealth();
-    $data['recent_orders'] = $dashboard->recentOrders();
-    $data['low_stock_products'] = $dashboard->lowStockProducts();
-    $data['low_stock_by_shop'] = $dashboard->lowStockByShop();
+    $data['shops'] = $this->m('Finance')->shops();
+    $data['finance_dashboard'] = true;
     
     $this->v('panel/templates/header', $data);
     $this->v('panel/index', $data);

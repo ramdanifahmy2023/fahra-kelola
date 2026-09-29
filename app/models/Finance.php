@@ -123,7 +123,7 @@ class Finance extends BaseModel {
   private function ads(array $shop, array $range): array {
     $snapshot=$this->one('SELECT payload FROM ad_shop_snapshots WHERE shop_id=:shop',['shop'=>(int)$shop['id']]);
     $payload=json_decode($snapshot['payload'] ?? '{}',true) ?: [];
-    if ((string)($payload['source_shop_id'] ?? '') !== (string)$shop['shop_id']) return ['amount'=>null,'days'=>0];
+    if ((string)($payload['source_shop_id'] ?? '') !== (string)$shop['shop_id']) return ['amount'=>null,'days'=>0,'updated_at'=>null];
     $daily=[];
     foreach (($payload['performance_reports'] ?? []) as $channels) foreach ($channels as $channel=>$report) {
       if (!in_array($channel,['product','shop','live'],true) || empty($report['available'])) continue;
@@ -134,9 +134,12 @@ class Finance extends BaseModel {
         if (!isset($daily[$date][$channel]) || $time>$daily[$date][$channel]['time']) $daily[$date][$channel]=['amount'=>(int)$amount,'time'=>$time];
       }
     }
-    $days=0; $total=0;
-    foreach ($daily as $channels) if (count($channels)===3) { $days++; $total+=array_sum(array_column($channels,'amount')); }
-    return ['amount'=>$days ? $total/100000 : null,'days'=>$days];
+    $days=0; $total=0; $updated=0;
+    foreach ($daily as $channels) if (count($channels)===3) {
+      $days++; $total+=array_sum(array_column($channels,'amount'));
+      foreach ($channels as $point) if ($point['time']) $updated=max($updated,(int)strtotime($point['time']));
+    }
+    return ['amount'=>$days ? $total/100000 : null,'days'=>$days,'updated_at'=>$updated ? gmdate('Y-m-d H:i:s',$updated) : null];
   }
 
   public function summary(array $shops, array $range): array {
@@ -158,9 +161,10 @@ class Finance extends BaseModel {
       $work=$this->one("SELECT SUM(state IN ('queued','running')) active,SUM(state='failed') failed FROM finance_imports WHERE shop_id=:shop AND source_shop_id=:source AND (category=1 OR (start_date<=:end AND end_date>=:start))",$rp);
       $latest=$this->one("SELECT f.error_message FROM finance_imports f WHERE f.shop_id=:shop AND f.source_shop_id=:source AND f.state='failed' AND (f.category=1 OR (f.start_date<=:end AND f.end_date>=:start)) AND NOT EXISTS (SELECT 1 FROM finance_imports newer WHERE newer.shop_id=f.shop_id AND newer.source_shop_id=f.source_shop_id AND newer.category=f.category AND newer.state='ready' AND newer.id>f.id AND newer.start_date<=f.start_date AND newer.end_date>=f.end_date) ORDER BY f.id DESC LIMIT 1",$rp);
       $states=['shipping'=>0,'return'=>0,'delivered'=>0,'unknown'=>0];
+      $stateCounts=array_fill_keys(array_keys($states),0);
       if ($pending) {
         $rows=$this->rows('SELECT r.income_amount,r.status_key,o.status_description,o.detail_synced_at,i.completed_at FROM finance_income_rows r JOIN finance_imports i ON i.id=r.import_id LEFT JOIN orders o ON o.id=r.external_order_id AND o.shop_id=r.shop_id WHERE r.import_id=:id',['id'=>(int)$pending['id']]);
-        foreach ($rows as $row) $states[FinancePolicy::pendingState($row)]+=(int)$row['income_amount'];
+        foreach ($rows as $row) { $state=FinancePolicy::pendingState($row); $states[$state]+=(int)$row['income_amount']; $stateCounts[$state]++; }
       }
       $stores[]=[
         'id'=>(int)$shop['id'],'name'=>$shop['name'],'logo'=>$shop['shop_logo'],
@@ -171,8 +175,9 @@ class Finance extends BaseModel {
         'released_difference'=>$basis!=='detail' && (int)$release['days']===$range['days'] ? $released-$releasedDetail : null,
         'released_orders'=>(int)$release['orders'],'released_updated'=>$releaseUpdated,
         'adjustment'=>(int)$release['days'] && (int)$release['adjustment_known']===(int)$release['orders'] ? (int)$release['adjustment']/100000 : null,
-        'gmv'=>(int)$gmv['days'] ? (float)$gmv['amount'] : null,'gmv_days'=>(int)$gmv['days'],
+        'gmv'=>(int)$gmv['days'] ? (float)$gmv['amount'] : null,'gmv_days'=>(int)$gmv['days'],'gmv_updated'=>$gmv['updated_at'],
         'ads'=>$this->ads($shop,$range),'pending_states'=>$pending ? array_map(static fn($v)=>$v/100000,$states) : null,
+        'pending_state_counts'=>$pending ? $stateCounts : null,
         'active_imports'=>(int)$work['active'],'error'=>$latest['error_message'] ?? null
       ];
     }

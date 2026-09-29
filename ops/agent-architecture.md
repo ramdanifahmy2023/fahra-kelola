@@ -31,6 +31,7 @@ This is not Laravel or a Node backend. Do not introduce framework commands or an
 | Chat | `chat.php`, `ChatMonitor.php`, `ShopeeChat.php`, `ProcChat.php` |
 | Automation configuration | `automation.php`, `public/assets/js/automation.js`, `AutomationProfile.php`, `app/helpers/AutomationPolicy.php`, `ProcAutomation.php` |
 | Finance / product cost | `finance.php`, `public/assets/js/finance.js`, `Finance.php`, `FinanceCost.php`, `FinanceApi.php`, `FinancePolicy.php`, `ProcFinance.php`; [contract](finance.md) |
+| Dashboard | Shared Finance overview plus `dashboard.js`, `Dashboard.php`, `ProcDashboard.php` for scoped operations; `ProcRealtime.php` and `DashboardMetrics.php` for intraday activity. [UI contract and verification](dashboard-finance-ux.md) |
 | 9Router connections | `templates/ai-connections.php`, `ai-connections.js`, `AiConnection.php`, `AiConnectionSupport.php`, `NineRouterClient.php`, `ProcAiConnections.php`; [operations](9router-connections.md) |
 | Extension downloads | `extensions.php`, `ExtensionRelease.php`; filesystem release catalog in `resources/extensions/releases/`, ZIPs in `public/downloads/extensions/` |
 

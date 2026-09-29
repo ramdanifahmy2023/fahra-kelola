@@ -460,9 +460,9 @@ class ShopeeCurl {
 
         return [
             'key_metrics' => is_array($data['key_metrics'] ?? null) ? $data['key_metrics'] : [],
-            'top_sales_items' => is_array($data['top_sales_items'] ?? null) ? $data['top_sales_items'] : [],
-            'sales_hourly' => is_array($data['sales_hourly'] ?? null) ? $data['sales_hourly'] : [],
-            'time' => (int)($data['time'] ?? time())
+            'top_sales_items' => is_array($data['top_sales_items'] ?? null) ? $data['top_sales_items'] : null,
+            'sales_hourly' => is_array($data['sales_hourly'] ?? null) ? $data['sales_hourly'] : null,
+            'time' => isset($data['time']) ? (int)$data['time'] : null
         ];
     }
 

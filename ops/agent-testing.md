@@ -18,6 +18,7 @@ Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior
 | Browser report import | `php tests/ads-browser-import.php` |
 | Automation profiles and rules | `php tests/automation-profile.php`, `node tests/automation-ui.cjs` |
 | Finance / HPP / multi-shop picker | `php tests/finance.php`, `node tests/finance-ui.cjs` (default 8133; override `FINANCE_TEST_URL`; browser saves/sync mocked, DB fixtures use temporary tables and isolated locks) |
+| Dashboard / Finance clarity and defaults | `php tests/dashboard.php`, `node tests/dashboard-ui.cjs` (same `FINANCE_TEST_URL`; temporary DB fixtures, mocked realtime/write responses and browser clock for rollover). Includes scope, partial/null/zero, request races, focus, all four widths and both themes. |
 | 9Router connections | `php tests/ai-connections.php`, `php tests/ai-http.php`, `node tests/ai-connections-ui.cjs`; temporary tables, local HTTP fixture and mocked browser mutations |
 | Extension catalog and immutable archives | `php tests/extension-releases.php` (isolated temporary release roots; also verifies published ZIP checksums) |
 | Extension page, downloads, and mobile navbar | `node tests/extensions-ui.cjs` (local authenticated page, mocked background endpoints, download checksums and responsive checks) |

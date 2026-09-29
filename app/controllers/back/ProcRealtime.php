@@ -1,9 +1,11 @@
 <?php
+require_once __DIR__.'/../../helpers/DashboardMetrics.php';
 
 class ProcRealtime extends Controller {
   private function json($payload, $code = 200) {
     http_response_code($code);
     header('Content-Type: application/json');
+    header('Cache-Control: no-store');
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;
   }
@@ -32,12 +34,15 @@ class ProcRealtime extends Controller {
     $requestedShopIds = array_values(array_unique(array_filter(array_map('intval', $requestedShopIds))));
 
     $shopModel = $this->m('Shop');
-    $allShops = $shopModel->findWhere(['account_id' => $accountId]);
+    $allShops = $shopModel->findAll();
     usort($allShops, static function ($left, $right) {
       return (int)($left['id'] ?? 0) <=> (int)($right['id'] ?? 0);
     });
     $shopsById = [];
     foreach ($allShops as $shop) $shopsById[(int)$shop['id']] = $shop;
+    if (array_diff($requestedShopIds,array_keys($shopsById))) {
+      $this->json(['status'=>'error','message'=>'Toko tidak ditemukan.'],422);
+    }
     $shops = $requestedShopIds
       ? array_values(array_filter(array_map(static function ($shopId) use ($shopsById) {
           return $shopsById[$shopId] ?? null;
@@ -66,29 +71,6 @@ class ProcRealtime extends Controller {
       $this->json(['status' => 'error', 'message' => 'Metrik realtime tidak tersedia untuk toko yang dipilih.', 'failures' => $failures], 502);
     }
 
-    $keyMetrics = ['uv' => 0, 'pv' => 0, 'product_clicks' => 0, 'orders' => 0, 'buyers' => 0, 'sales' => 0];
-    $hourly = [];
-    $products = [];
-    $updatedAt = 0;
-    foreach ($successful as $item) {
-      $metrics = $item['metrics'];
-      foreach ($keyMetrics as $key => $value) $keyMetrics[$key] += (float)($metrics['key_metrics'][$key] ?? 0);
-      foreach (array_values((array)($metrics['sales_hourly'] ?? [])) as $index => $value) $hourly[$index] = ($hourly[$index] ?? 0) + (float)$value;
-      foreach (($metrics['top_sales_items'] ?? []) as $product) {
-        $name = trim((string)($product['item_name'] ?? 'Produk')) ?: 'Produk';
-        $products[$name] = ($products[$name] ?? 0) + (float)($product['sales'] ?? 0);
-      }
-      $updatedAt = max($updatedAt, (int)($metrics['time'] ?? 0));
-    }
-    arsort($products);
-    $topProducts = [];
-    foreach (array_slice($products, 0, 5, true) as $name => $sales) $topProducts[] = ['item_name' => $name, 'sales' => $sales];
-    if ($hourly) {
-      $lastHour = max(array_keys($hourly));
-      for ($index = 0; $index <= $lastHour; $index++) $hourly[$index] = $hourly[$index] ?? 0;
-      ksort($hourly);
-    }
-
     $this->json([
       'status' => 'success',
       'shop_count' => count($successful),
@@ -96,7 +78,7 @@ class ProcRealtime extends Controller {
       'failure_count' => count($failures),
       'stores' => array_map(function ($item) { return ['shop_id' => $item['shop_id'], 'shop_name' => $item['shop_name']]; }, $successful),
       'failures' => $failures,
-      'metrics' => ['key_metrics' => $keyMetrics, 'top_sales_items' => $topProducts, 'sales_hourly' => array_values($hourly), 'time' => $updatedAt]
+      'metrics' => DashboardMetrics::combine($successful,count($shops))
     ]);
   }
 }

@@ -1,75 +1,43 @@
 <?php
+require_once __DIR__.'/../helpers/FinancePolicy.php';
 
 class Dashboard extends BaseModel {
-  protected $table = 'shops';
-
-  public function summary() {
-    $this->db->query("SELECT
-      (SELECT COUNT(*) FROM shops) AS total_shops,
-      (SELECT COUNT(*) FROM shops WHERE sync_status = 'connected') AS connected_shops,
-      (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL) AS total_products,
-      (SELECT COUNT(*) FROM orders WHERE deleted_at IS NULL) AS total_orders,
-      (SELECT COUNT(*) FROM orders WHERE deleted_at IS NULL AND (order_sn IS NULL OR order_sn = '')) AS pending_order_details,
-      (SELECT COUNT(*) FROM orders WHERE deleted_at IS NULL AND status_type LIKE '%Completed%') AS completed_orders,
-      (SELECT COALESCE(SUM(CASE WHEN status_type LIKE '%Completed%' THEN COALESCE(total_price, 0) ELSE 0 END), 0) FROM orders WHERE deleted_at IS NULL) AS completed_order_value,
-      (SELECT COUNT(*) FROM customers) AS total_customers,
-      (SELECT MAX(updated_at) FROM shops) AS shops_updated_at,
-      (SELECT MAX(updated_at) FROM orders) AS orders_updated_at,
-      (SELECT MAX(modify_time) FROM products WHERE deleted_at IS NULL) AS products_updated_at,
-      (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND status = 1 AND total_stock = 0) AS stock_out_count,
-      (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND status = 1 AND total_stock > 0 AND total_stock < 15) AS stock_low_count,
-      (SELECT COUNT(*) FROM products WHERE deleted_at IS NULL AND status = 1 AND total_stock < 15) AS stock_critical_count");
-    return $this->db->single();
-  }
-
-  public function shopHealth() {
-    $this->db->query("SELECT
-      shops.id,
-      shops.name,
-      shops.username,
-      shops.sync_status,
-      shops.total_products,
-      shops.last_successful_sync_at,
-      shops.last_sync_attempt_at,
-      (SELECT COUNT(*) FROM products WHERE products.shop_id = shops.id AND products.deleted_at IS NULL) AS product_count,
-      (SELECT COUNT(*) FROM orders WHERE orders.shop_id = shops.id AND orders.deleted_at IS NULL) AS order_count,
-      (SELECT COUNT(*) FROM orders WHERE orders.shop_id = shops.id AND orders.deleted_at IS NULL AND (orders.order_sn IS NULL OR orders.order_sn = '')) AS pending_order_details
-      FROM shops
-      ORDER BY shops.name ASC");
+  private function rows(string $sql, array $params = []): array {
+    $this->db->query($sql);
+    foreach ($params as $key=>$value) $this->db->bind($key,$value);
     return $this->db->getAll();
   }
 
-  public function recentOrders($limit = 8) {
-    $limit = max(1, min(20, (int)$limit));
-    $this->db->query("SELECT
-      orders.id,
-      orders.order_sn,
-      orders.status_type,
-      orders.total_price,
-      orders.created_at,
-      shops.name AS shop_name,
-      CASE
-        WHEN orders.order_sn IS NULL OR orders.order_sn = '' THEN 'Menunggu detail'
-        WHEN orders.status_type IS NULL OR orders.status_type = '' THEN 'Status belum tersedia'
-        ELSE orders.status_type
-      END AS display_status
-      FROM orders
-      LEFT JOIN shops ON shops.id = orders.shop_id
-      WHERE orders.deleted_at IS NULL
-        AND (orders.order_sn IS NOT NULL OR orders.created_at IS NOT NULL)
-      ORDER BY COALESCE(orders.created_at, orders.updated_at) DESC, orders.id DESC
-      LIMIT {$limit}");
-    return $this->db->getAll();
-  }
-
-  public function lowStockProducts($limit = 10) {
-    $limit = max(1, min(50, (int)$limit));
-    $this->db->query("SELECT p.id, p.shop_id, p.name, p.total_stock, s.name AS shop_name FROM products p LEFT JOIN shops s ON s.id = p.shop_id WHERE p.deleted_at IS NULL AND p.status = 1 AND p.total_stock < 15 ORDER BY p.total_stock ASC, p.name ASC LIMIT {$limit}");
-    return $this->db->getAll();
-  }
-
-  public function lowStockByShop() {
-    $this->db->query("SELECT s.id AS shop_id, s.name AS shop_name, COALESCE(SUM(p.total_stock = 0), 0) AS stock_out_count, COALESCE(SUM(p.total_stock > 0 AND p.total_stock < 15), 0) AS stock_low_count, COUNT(p.id) AS stock_critical_count FROM shops s LEFT JOIN products p ON p.shop_id = s.id AND p.deleted_at IS NULL AND p.status = 1 AND p.total_stock < 15 GROUP BY s.id, s.name ORDER BY s.name ASC");
-    return $this->db->getAll();
+  public function overview(array $shops, array $range): array {
+    $ids=implode(',',array_map('intval',array_column($shops,'id'))) ?: '0';
+    $utc=new DateTimeZone('UTC');
+    $params=['start'=>FinancePolicy::date($range['start'])->setTimezone($utc)->format('Y-m-d H:i:s'),
+      'end'=>FinancePolicy::date($range['end'])->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s')];
+    $scope="shop_id IN ($ids) AND deleted_at IS NULL";
+    $orders=$this->rows("SELECT COUNT(*) total_orders,
+      COALESCE(SUM(status_type LIKE '%Completed%'),0) completed_orders,
+      CASE WHEN COALESCE(SUM(status_type LIKE '%Completed%'),0)=0 THEN 0
+        ELSE SUM(CASE WHEN status_type LIKE '%Completed%' THEN total_price END) END completed_order_value,
+      COALESCE(SUM(status_type LIKE '%Completed%' AND total_price IS NULL),0) completed_missing_value,
+      COALESCE(SUM(order_sn IS NULL OR order_sn=''),0) pending_order_details
+      FROM orders WHERE $scope AND created_at>=:start AND created_at<:end",$params)[0];
+    $undated=$this->rows("SELECT COUNT(*) count FROM orders WHERE $scope AND created_at IS NULL")[0]['count'];
+    $products=$this->rows("SELECT COUNT(*) total_products,
+      COALESCE(SUM(status=1 AND total_stock=0),0) stock_out_count,
+      COALESCE(SUM(status=1 AND total_stock>0 AND total_stock<15),0) stock_low_count
+      FROM products WHERE $scope")[0];
+    $mapped=$this->rows("SELECT c.id FROM customer_shops cs JOIN customers c ON c.id=cs.customer_id WHERE cs.shop_id IN ($ids)");
+    // Materialize the selected buyers once; a correlated lookup scans orders for every customer.
+    $buyers=$this->rows("SELECT c.id FROM (SELECT DISTINCT buyer_username FROM orders
+      WHERE shop_id IN ($ids) AND deleted_at IS NULL AND buyer_username<>'') b JOIN customers c ON c.username=b.buyer_username");
+    $customers=count(array_unique(array_merge(array_column($mapped,'id'),array_column($buyers,'id'))));
+    $health=$this->rows("SELECT id,name,sync_status,last_successful_sync_at FROM shops WHERE id IN ($ids) ORDER BY name,id");
+    $stock=$this->rows("SELECT p.id,p.shop_id,p.name,p.total_stock,s.name shop_name FROM products p JOIN shops s ON s.id=p.shop_id
+      WHERE p.shop_id IN ($ids) AND p.deleted_at IS NULL AND p.status=1 AND p.total_stock<15 ORDER BY p.total_stock,p.name LIMIT 10");
+    $recent=$this->rows("SELECT o.id,o.shop_id,o.order_sn,o.status_type,o.total_price,o.created_at,s.name shop_name FROM orders o
+      JOIN shops s ON s.id=o.shop_id WHERE o.shop_id IN ($ids) AND o.deleted_at IS NULL AND o.created_at>=:start AND o.created_at<:end
+      ORDER BY o.created_at DESC,o.id DESC LIMIT 8",$params);
+    return ['range'=>$range,'summary'=>$orders+$products+['undated_orders'=>(int)$undated,'total_customers'=>(int)$customers],
+      'shops'=>$health,'low_stock'=>$stock,'recent_orders'=>$recent];
   }
 }
