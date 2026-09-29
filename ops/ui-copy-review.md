@@ -34,3 +34,11 @@ Hasil pemeriksaan pada lingkup perubahan (bukan sertifikasi aksesibilitas seluru
 - PASS, implementasi: build Tailwind, lint PHP template yang diubah, pemeriksaan sintaks JavaScript, 89 pemeriksaan browser Iklan, 135 pemeriksaan performa iklan, dan 36 pemeriksaan laporan campaign lulus. `tests/boost-ui.cjs` memeriksa batas pilihan, reset, peringatan sesi, dan overflow dengan respons produk uji tanpa mengirim tindakan boost.
 
 Kontras seluruh panel, seluruh interaksi halaman lain, dan pengujian perangkat fisik belum diaudit ulang. Panduan disclosure berasal dari bagian Forms & Feedback skill; pencarian khusus disclosure tidak menghasilkan kecocokan yang relevan.
+
+## Pilihan toko pada Produk
+
+Temuan: `selectShop()` mengganti label toko, ID tersembunyi, dan URL dengan `history.replaceState()`, tetapi hanya mengambil status sinkronisasi. Tabel dan pagination masih berasal dari render toko sebelumnya. Akibatnya label toko dan produk tidak cocok sampai pengguna memuat ulang halaman secara manual.
+
+Perbaikan: pilihan toko menjadi tautan ke `/panel/products` dengan ID toko tujuan. Navigasi otomatis memuat render server untuk seluruh halaman, termasuk tabel, jumlah produk, pagination, dan target sinkronisasi. Batas jumlah produk serta filter stok kritis dipertahankan; halaman pagination dan sorotan produk lama direset. Penggantian HTML label secara manual dihapus. Ini menggunakan navigasi halaman, bukan pembaruan tabel melalui AJAX.
+
+PASS: `tests/products-ui.cjs` memilih toko lain melalui UI, mencocokkan ID baris dengan hasil server toko tujuan, memeriksa reset pagination dan pelestarian filter, menguji Back serta aktivasi tautan dengan Enter. Lint PHP dan build Tailwind lulus. Pemeriksaan dilakukan pada aplikasi lokal; belum memverifikasi deployment domain produksi.

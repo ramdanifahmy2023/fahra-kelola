@@ -51,7 +51,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
         <?php if (!empty($data['shops'])): ?>
           <?php foreach ($data['shops'] as $index => $shop): ?>
             <li class="mb-1 last:mb-0">
-              <a data-tip="<?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?>" onclick="selectShop(this, <?= $shop['id']; ?>, '<?= addslashes(htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama')); ?>', '<?= addslashes(htmlspecialchars($shop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png')); ?>')" class="tooltip tooltip-left flex items-center gap-3 py-2.5 <?= $shop['id'] == $data['active_shop_id'] ? 'bg-base-200' : '' ?>">
+              <a href="<?= burl; ?>/panel/products?<?= htmlspecialchars(http_build_query(['shop_id' => (int)$shop['id'], 'limit' => (int)$data['limit']] + ($isCriticalFilter ? ['stock' => 'critical'] : [])), ENT_QUOTES, 'UTF-8'); ?>" data-product-shop="<?= (int)$shop['id']; ?>" <?= (int)$shop['id'] === (int)$data['active_shop_id'] ? 'aria-current="page"' : ''; ?> data-tip="<?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?>" class="tooltip tooltip-left flex items-center gap-3 py-2.5 <?= $shop['id'] == $data['active_shop_id'] ? 'bg-base-200' : '' ?>">
                 <img src="<?= htmlspecialchars($shop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-6 h-6 rounded object-cover" />
                 <span class="truncate font-medium"><?= htmlspecialchars($shop['name'] ?: 'Toko Tanpa Nama'); ?></span>
               </a>
@@ -235,36 +235,6 @@ function changeLimit(limit, shopId) {
     url.searchParams.set('limit', limit);
     <?php if ($isCriticalFilter): ?>url.searchParams.set('stock', 'critical');<?php endif; ?>
     window.location.href = url.toString();
-}
-
-function selectShop(element, id, name, logo) {
-    pauseProductSync();
-    // 1. Update hidden input
-    document.getElementById('selectedShopId').value = id;
-    
-    // 2. Update display
-    document.getElementById('selectedShopDisplay').innerHTML = `
-        <img src="${logo}" class="w-6 h-6 rounded object-cover" />
-        <span class="truncate flex-1 text-left">${name}</span>
-        <span class="material-symbols-outlined text-[20px] opacity-50 ml-auto">expand_more</span>
-    `;
-    document.getElementById('selectedShopDisplay').dataset.tip = name;
-    
-    // 3. Remove active state from all items, then add to the clicked one
-    const menu = element.closest('.menu');
-    menu.querySelectorAll('a').forEach(a => a.classList.remove('bg-base-200'));
-    element.classList.add('bg-base-200');
-
-    const currentUrl = new URL(window.location.href);
-    currentUrl.searchParams.set('shop_id', id);
-    currentUrl.searchParams.delete('page');
-    window.history.replaceState({}, '', currentUrl);
-    
-    // 4. Tutup dropdown
-    document.activeElement.blur();
-    
-    // Data tetap lokal; sinkronisasi remote berjalan di worker background.
-    refreshBackgroundStatus(id);
 }
 
 function queueBackgroundSync(type) {
