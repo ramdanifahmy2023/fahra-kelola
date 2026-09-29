@@ -18,7 +18,7 @@ class ProcSync extends Controller {
     $shopId = (int)($_POST['shop_id'] ?? 0);
     $type = strtolower(trim((string)($_POST['sync_type'] ?? '')));
     $mode = ($_POST['sync_mode'] ?? '') === 'full' ? 'full' : 'diff';
-    $allowed = ['orders', 'products', 'ads', 'promotions', 'performance', 'chat', 'customers', 'shops', 'packages'];
+    $allowed = ['orders', 'products', 'ads', 'ads_topups', 'promotions', 'performance', 'chat', 'customers', 'shops', 'packages'];
     if (($shopId < 1 && $type !== 'customers') || !in_array($type, $allowed, true)) $this->json(['status' => 'error', 'message' => 'Toko dan tipe sinkronisasi wajib diisi.'], 422);
     if ($type === 'customers' && $shopId < 1) {
       $shops = $this->m('Shop')->findAll();

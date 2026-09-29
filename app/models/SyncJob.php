@@ -225,7 +225,7 @@ class SyncJob extends BaseModel {
     $this->ensureSchema();
     $shopId = (int)$shopId;
     $syncType = strtolower(trim((string)$syncType));
-    $allowed = ['products', 'ads', 'promotions', 'performance', 'chat', 'customers', 'shops', 'packages'];
+    $allowed = ['products', 'ads', 'ads_topups', 'promotions', 'performance', 'chat', 'customers', 'shops', 'packages'];
     if ($shopId < 1 || !in_array($syncType, $allowed, true)) return 0;
 
     $this->db->query("SELECT id FROM sync_jobs WHERE shop_id = :shop_id AND sync_type = :sync_type AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");

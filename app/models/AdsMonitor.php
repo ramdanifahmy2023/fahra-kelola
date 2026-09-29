@@ -186,4 +186,218 @@ class AdsMonitor extends BaseModel {
     }
     return $result;
   }
+
+  private function ensureTopupSchema() {
+    $migration = file_get_contents(__DIR__ . '/../../database/migrations/20260929_ad_balance_topups.sql');
+    foreach (array_filter(array_map('trim', explode(';', (string)$migration))) as $statement) {
+      $this->db->query($statement);
+      $this->db->exe();
+    }
+  }
+
+  private function topupRows(array $data) {
+    $containers = [$data, $data['data'] ?? null];
+    foreach ($containers as $container) {
+      if (!is_array($container)) continue;
+      $pageInfo = $container['page_info'] ?? null;
+      if (is_array($pageInfo) && (int)($pageInfo['total'] ?? $pageInfo['total_count'] ?? -1) === 0) return [];
+      foreach (['order_list', 'orders', 'list', 'items', 'order_data'] as $key) {
+        $rows = $container[$key] ?? null;
+        if (is_array($rows)) return $rows;
+      }
+      if (isset($container[0]) && is_array($container[0]) && array_key_exists('order_id', $container[0])) return $container;
+      foreach ($container as $rows) {
+        if (!is_array($rows) || !isset($rows[0]) || !is_array($rows[0])) continue;
+        if (array_key_exists('order_id', $rows[0]) && array_key_exists('actual_price', $rows[0])) return $rows;
+      }
+    }
+    return false;
+  }
+
+  private function saveTopupSyncState($shopId, $sourceShopId, $nextPage, $backfillComplete, $error = null, $synced = false) {
+    $this->db->query('INSERT INTO ad_topup_sync_state (shop_id, source_shop_id, next_page_number, backfill_complete, synced_at, last_error)
+      VALUES (:shop_id, :source_shop_id, :next_page, :complete, CASE WHEN :synced = 1 THEN UTC_TIMESTAMP() ELSE NULL END, :error)
+      ON DUPLICATE KEY UPDATE source_shop_id = VALUES(source_shop_id), next_page_number = VALUES(next_page_number),
+      backfill_complete = VALUES(backfill_complete), synced_at = CASE WHEN :synced_update = 1 THEN UTC_TIMESTAMP() ELSE synced_at END, last_error = VALUES(last_error)');
+    $this->db->bind('shop_id', (int)$shopId);
+    $this->db->bind('source_shop_id', (int)$sourceShopId);
+    $this->db->bind('next_page', (int)$nextPage);
+    $this->db->bind('complete', $backfillComplete ? 1 : 0);
+    $this->db->bind('synced', $synced ? 1 : 0);
+    $this->db->bind('synced_update', $synced ? 1 : 0);
+    $this->db->bind('error', $error);
+    $this->db->exe();
+  }
+
+  public function syncTopups(array $shop, ShopeeCurl $shopee, $pageLimit = 20) {
+    $this->ensureTopupSchema();
+    $shopId = (int)($shop['id'] ?? 0);
+    $sourceShopId = (int)($shop['shop_id'] ?? 0);
+    if ($shopId < 1 || $sourceShopId < 1) {
+      return [false, 'Cookie atau identitas toko kosong.', true];
+    }
+    if (trim((string)($shop['cookie'] ?? '')) === '') {
+      $error = 'Cookie toko kosong. Perbarui cookie melalui halaman Toko.';
+      $this->saveTopupSyncState($shopId, $sourceShopId, 1, false, $error, false);
+      return [false, $error, true];
+    }
+
+    $session = $shopee->check($shop['cookie']);
+    if ((int)($session['shop']['id'] ?? 0) !== $sourceShopId) {
+      $this->saveTopupSyncState($shopId, $sourceShopId, 1, false, 'Sesi Shopee tidak cocok dengan toko.', false);
+      return [false, 'Sesi Shopee tidak cocok dengan toko.', true];
+    }
+
+    $this->db->query('SELECT next_page_number, backfill_complete FROM ad_topup_sync_state WHERE shop_id = :shop_id LIMIT 1');
+    $this->db->bind('shop_id', $shopId);
+    $state = $this->db->single();
+    $backfillComplete = !empty($state['backfill_complete']);
+    $page = $backfillComplete ? 1 : max(1, (int)($state['next_page_number'] ?? 1));
+    $cutoff = (new DateTimeImmutable('2026-08-01 00:00:00', new DateTimeZone('Asia/Jakarta')))->getTimestamp();
+    $pageSize = 24;
+    $pageLimit = max(1, min(50, (int)$pageLimit));
+    $pagesFetched = 0;
+    $stop = false;
+
+    while ($pagesFetched < $pageLimit) {
+      $response = $shopee->getCompletedAdsTopups($shop['cookie'], $page, $pageSize);
+      if (!is_array($response)) {
+        $error = 'Pesanan topup iklan gagal dimuat dari Seller Centre.';
+        $this->saveTopupSyncState($shopId, $sourceShopId, $page, $backfillComplete, $error, false);
+        return [false, $error, true];
+      }
+      $rows = $this->topupRows($response);
+      $payloadData = is_array($response['data'] ?? null) ? $response['data'] : [];
+      $pageInfo = is_array($payloadData['page_info'] ?? null) ? $payloadData['page_info'] : [];
+      $total = (int)($pageInfo['total'] ?? $pageInfo['total_count'] ?? 0);
+      if ($rows === false || (!$rows && $total > 0 && !$backfillComplete)) {
+        $error = 'Respons pesanan topup iklan tidak memiliki daftar pesanan yang dikenali.';
+        $this->saveTopupSyncState($shopId, $sourceShopId, $page, false, $error, false);
+        return [false, $error, true];
+      }
+
+      $oldestTime = PHP_INT_MAX;
+      $changedCount = 0;
+      foreach ($rows as $row) {
+        $orderId = (string)($row['order_id'] ?? '');
+        $actualPrice = $row['actual_price'] ?? null;
+        $createdAt = (int)($row['create_time'] ?? 0);
+        if ($createdAt > 1000000000000) $createdAt = (int)floor($createdAt / 1000);
+        if ($createdAt < 1 || $orderId === '' || !is_numeric($actualPrice) || (float)$actualPrice < 0) continue;
+        $status = strtolower(trim((string)($row['status'] ?? 'completed')));
+        if ($status !== '' && !in_array($status, ['completed', 'complete', '4'], true)) continue;
+        $oldestTime = min($oldestTime, $createdAt);
+        $payment = is_array($row['payment'] ?? null) ? $row['payment'] : [];
+        $rowHash = hash('sha256', json_encode([
+          'order_id' => $orderId,
+          'actual_price' => $actualPrice,
+          'tax_amount' => $row['tax_amount'] ?? null,
+          'status' => $status,
+          'create_time' => $createdAt,
+          'payment' => $payment
+        ], JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
+        $this->db->query('INSERT INTO ad_balance_topups
+          (shop_id, source_shop_id, order_id, order_sn, order_status, actual_price, original_price, discount_price, tax_amount, tax_rate, payment_channel, payment_type, occurred_at_utc, source_hash)
+          VALUES (:shop_id, :source_shop_id, :order_id, :order_sn, :status, :actual_price, :original_price, :discount_price, :tax_amount, :tax_rate, :payment_channel, :payment_type, :occurred_at, :source_hash)
+          ON DUPLICATE KEY UPDATE source_shop_id = VALUES(source_shop_id), order_sn = VALUES(order_sn), order_status = VALUES(order_status),
+          actual_price = VALUES(actual_price), original_price = VALUES(original_price), discount_price = VALUES(discount_price), tax_amount = VALUES(tax_amount),
+          tax_rate = VALUES(tax_rate), payment_channel = VALUES(payment_channel), payment_type = VALUES(payment_type), occurred_at_utc = VALUES(occurred_at_utc), source_hash = VALUES(source_hash)');
+        $this->db->bind('shop_id', $shopId);
+        $this->db->bind('source_shop_id', $sourceShopId);
+        $this->db->bind('order_id', $orderId);
+        $this->db->bind('order_sn', $row['order_sn'] ?? null);
+        $this->db->bind('status', $status ?: 'completed');
+        $this->db->bind('actual_price', (float)$actualPrice);
+        $this->db->bind('original_price', is_numeric($row['original_price'] ?? null) ? (float)$row['original_price'] : null);
+        $this->db->bind('discount_price', is_numeric($row['discount_price'] ?? null) ? (float)$row['discount_price'] : null);
+        $this->db->bind('tax_amount', is_numeric($row['tax_amount'] ?? null) ? (float)$row['tax_amount'] : null);
+        $this->db->bind('tax_rate', is_numeric($row['tax_rate'] ?? null) ? (float)$row['tax_rate'] : null);
+        $this->db->bind('payment_channel', $payment['channel_name'] ?? null);
+        $this->db->bind('payment_type', isset($payment['payment_type']) ? (string)$payment['payment_type'] : null);
+        $this->db->bind('occurred_at', gmdate('Y-m-d H:i:s', $createdAt));
+        $this->db->bind('source_hash', $rowHash);
+        $this->db->exe();
+        $changedCount += $this->db->row() > 0 ? 1 : 0;
+      }
+
+      $pagesFetched++;
+      $cutoffReached = $oldestTime < $cutoff;
+      $lastPage = !$rows || count($rows) < $pageSize || ($total > 0 && $page * $pageSize >= $total);
+      if (!$backfillComplete && ($cutoffReached || $lastPage)) {
+        $backfillComplete = true;
+        $page = 1;
+        $stop = true;
+      } elseif ($backfillComplete && ($changedCount === 0 || $lastPage)) {
+        $page = 1;
+        $stop = true;
+      } else {
+        $page++;
+      }
+
+      $this->saveTopupSyncState($shopId, $sourceShopId, $page, $backfillComplete, null, $stop);
+      if ($stop) break;
+    }
+
+    return [true, null, $backfillComplete];
+  }
+
+  public function topupSummary($shopId = null) {
+    $this->ensureTopupSchema();
+    $timezone = new DateTimeZone('Asia/Jakarta');
+    $now = new DateTimeImmutable('now', $timezone);
+    $firstMonth = new DateTimeImmutable('2026-08-01 00:00:00', $timezone);
+    $endMonth = $now->modify('first day of next month')->setTime(0, 0);
+    $startUtc = $firstMonth->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    $endUtc = $endMonth->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+    $monthMap = [];
+    $monthNames = [1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    for ($month = $firstMonth; $month < $endMonth; $month = $month->modify('+1 month')) {
+      $key = $month->format('Y-m');
+      $monthMap[$key] = ['month' => $key, 'label' => $monthNames[(int)$month->format('n')] . ' ' . $month->format('Y'), 'total' => 0, 'transactions' => 0];
+    }
+
+    $where = '';
+    if ((int)$shopId > 0) $where = ' WHERE id = :shop_id';
+    $this->db->query("SELECT id, shop_id, name FROM shops{$where} ORDER BY name ASC");
+    if ($where) $this->db->bind('shop_id', (int)$shopId);
+    $shops = $this->db->getAll();
+    $shopStates = [];
+    foreach ($shops as $shop) {
+      $this->db->query('SELECT next_page_number, backfill_complete, synced_at, last_error FROM ad_topup_sync_state WHERE shop_id = :shop_id AND source_shop_id = :source_shop_id LIMIT 1');
+      $this->db->bind('shop_id', (int)$shop['id']);
+      $this->db->bind('source_shop_id', (int)$shop['shop_id']);
+      $state = $this->db->single() ?: [];
+      $shopStates[] = [
+        'shop_id' => (int)$shop['id'],
+        'shop_name' => $shop['name'] ?? '',
+        'backfill_complete' => !empty($state['backfill_complete']),
+        'next_page_number' => (int)($state['next_page_number'] ?? 1),
+        'synced_at' => $state['synced_at'] ?? null,
+        'error_message' => $state['last_error'] ?? null
+      ];
+      $this->db->query("SELECT DATE_FORMAT(DATE_ADD(occurred_at_utc, INTERVAL 7 HOUR), '%Y-%m') AS month_key, SUM(actual_price) AS total, COUNT(*) AS transactions
+        FROM ad_balance_topups WHERE shop_id = :shop_id AND source_shop_id = :source_shop_id
+        AND occurred_at_utc >= :start_utc AND occurred_at_utc < :end_utc
+        GROUP BY month_key ORDER BY month_key ASC");
+      $this->db->bind('shop_id', (int)$shop['id']);
+      $this->db->bind('source_shop_id', (int)$shop['shop_id']);
+      $this->db->bind('start_utc', $startUtc);
+      $this->db->bind('end_utc', $endUtc);
+      foreach ($this->db->getAll() as $row) {
+        $key = (string)$row['month_key'];
+        if (!isset($monthMap[$key])) continue;
+        $monthMap[$key]['total'] += (float)$row['total'];
+        $monthMap[$key]['transactions'] += (int)$row['transactions'];
+      }
+    }
+
+    return [
+      'start_month' => $firstMonth->format('Y-m'),
+      'end_month' => $now->format('Y-m'),
+      'months' => array_values($monthMap),
+      'shops' => $shopStates,
+      'backfill_complete' => count($shopStates) > 0 && count(array_filter($shopStates, static function ($state) { return $state['backfill_complete']; })) === count($shopStates),
+      'refreshed_at' => $now->format(DateTimeInterface::ATOM)
+    ];
+  }
 }

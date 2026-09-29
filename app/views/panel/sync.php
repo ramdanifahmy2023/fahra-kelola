@@ -11,7 +11,7 @@
 
 <script>
 const syncIntervals = [30, 60, 180, 300, 600, 900, 1800, 3600, 43200, 86400];
-const syncLabels = {orders:'Pesanan', chat:'Live chat', products:'Produk', promotions:'Voucher & flash sale', ads:'Iklan', customers:'Pelanggan', shops:'Status toko', packages:'Paket'};
+const syncLabels = {orders:'Pesanan', chat:'Live chat', products:'Produk', promotions:'Voucher & flash sale', ads:'Iklan', ads_topups:'Topup saldo iklan', customers:'Pelanggan', shops:'Status toko', packages:'Paket'};
 function formatInterval(seconds) { seconds = Number(seconds || 0); if (seconds >= 86400) return Math.round(seconds / 86400) + ' hari'; if (seconds >= 3600) return Math.round(seconds / 3600) + ' jam'; if (seconds >= 60) return Math.round(seconds / 60) + ' menit'; return seconds + ' detik'; }
 function formatDate(value) { if (!value) return 'Belum pernah'; return new Date(String(value).replace(' ', 'T') + 'Z').toLocaleString('id-ID'); }
 function renderSyncCards(rows) {

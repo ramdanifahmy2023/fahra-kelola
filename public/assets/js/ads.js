@@ -7,6 +7,9 @@
   const period = root.querySelector('#ads-period');
   const channel = root.querySelector('#ads-channel');
   const shopFilter = root.querySelector('#ads-shop');
+  const topupState = root.querySelector('#ads-topups-state');
+  const topupRows = root.querySelector('#ads-topups-rows');
+  const topupUpdated = root.querySelector('[data-topups-updated]');
   const warning = root.querySelector('#ads-session-warning');
   const template = document.getElementById('ads-card-template');
   const periodLabels = {daily: 'Hari ini', weekly: 'Minggu berjalan', monthly: 'Bulan berjalan'};
@@ -28,6 +31,7 @@
   let shops = [];
   let loaded = false;
   let requestId = 0;
+  let topupRequestId = 0;
 
   function updateHelp() {
     const descriptions = {
@@ -115,6 +119,52 @@
     state.textContent = periodLabels[period.value] + ' · ' + visible.length + ' toko · ' + availableCount + ' laporan tersedia' + (staleCount ? ' (' + staleCount + ' belum diperbarui)' : '') + ' · ' + (visible.length - availableCount) + ' belum tersedia.';
   }
 
+  async function loadTopups() {
+    const current = ++topupRequestId;
+    topupRows.replaceChildren();
+    topupState.textContent = 'Memuat total topup bulanan…';
+    const url = new URL(root.dataset.topupsEndpoint, window.location.href);
+    if (shopFilter.value) url.searchParams.set('shop_id', shopFilter.value);
+    try {
+      const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, cache: 'no-store'});
+      if (response.redirected) throw new Error('Sesi aplikasi berakhir. Muat ulang halaman untuk masuk kembali.');
+      if (!response.ok) throw new Error('Laporan topup gagal dimuat (HTTP ' + response.status + ').');
+      const payload = await response.json();
+      if (payload.status !== 'success' || !payload.report || !Array.isArray(payload.report.months)) throw new Error(payload.message || 'Respons laporan topup tidak lengkap.');
+      if (current !== topupRequestId) return;
+      const report = payload.report;
+      const pending = report.shops.filter(shop => !shop.backfill_complete);
+      const errors = report.shops.filter(shop => shop.error_message);
+      if (!report.shops.length) {
+        topupState.textContent = 'Belum ada toko. Tambahkan toko melalui halaman Toko untuk mulai mengumpulkan riwayat topup.';
+      } else if (errors.length) {
+        topupState.textContent = 'Sebagian data belum tersinkron. ' + errors.map(shop => shop.shop_name + ': ' + shop.error_message).join(' ');
+      } else if (pending.length) {
+        topupState.textContent = 'Riwayat sejak Agustus sedang disinkronkan. Total di bawah masih sementara.';
+      } else {
+        topupState.textContent = 'Semua riwayat sejak Agustus sudah tersinkron. Angka termasuk PPN.';
+      }
+      const lastSync = report.shops.map(shop => shop.synced_at).filter(Boolean).sort().pop();
+      topupUpdated.textContent = lastSync ? 'Terakhir disinkron ' + timestamp(lastSync.replace(' ', 'T') + 'Z') : 'Menunggu sinkronisasi pertama';
+      report.months.forEach(month => {
+        const row = document.createElement('tr');
+        const label = document.createElement('th');
+        label.scope = 'row';
+        label.className = 'px-4 py-3 font-semibold';
+        label.textContent = month.label;
+        const total = document.createElement('td');
+        total.className = 'px-4 py-3 text-right font-bold tabular-nums';
+        total.textContent = money(month.total);
+        row.append(label, total);
+        topupRows.appendChild(row);
+      });
+    } catch (error) {
+      if (current !== topupRequestId) return;
+      topupState.textContent = error instanceof TypeError ? 'Koneksi ke aplikasi gagal. Periksa koneksi lalu muat ulang halaman.' : error.message;
+      topupUpdated.textContent = 'Status sinkronisasi belum tersedia';
+    }
+  }
+
   async function loadAds() {
     controller?.abort();
     controller = new AbortController();
@@ -124,6 +174,7 @@
     grid.setAttribute('aria-busy', 'true');
     grid.hidden = true;
     warning.hidden = true;
+    loadTopups();
     state.textContent = 'Memuat ' + periodLabels[period.value].toLowerCase() + ' untuk ' + channel.selectedOptions[0].text.toLowerCase() + '…';
     updateHelp();
     try {
@@ -160,7 +211,7 @@
 
   period.addEventListener('change', loadAds);
   channel.addEventListener('change', loadAds);
-  shopFilter.addEventListener('change', render);
+  shopFilter.addEventListener('change', () => { render(); loadTopups(); });
   refresh.addEventListener('click', loadAds);
   loadAds();
   window.setInterval(() => { if (!document.hidden && !refresh.disabled) loadAds(); }, 300000);

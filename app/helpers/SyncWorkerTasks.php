@@ -267,6 +267,9 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
     $ok = $monitor->syncShop($shop);
     return [$ok, $monitor->lastSyncError()];
   }
+  if ($type === 'ads_topups') {
+    return (new AdsMonitor())->syncTopups($shop, $shopee);
+  }
   if ($type === 'performance') {
     $result = (new ShopPerformance())->syncShop($shop);
     return [!empty($result['ok']), $result['message'] ?? null];
@@ -295,4 +298,3 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
   }
   return [false, 'Tipe sinkronisasi tidak dikenali.'];
 }
-

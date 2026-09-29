@@ -226,6 +226,34 @@ class ShopeeCurl {
         return false;
     }
 
+  public function getCompletedAdsTopups($cookie, $page = 1, $pageSize = 24) {
+    preg_match('/SPC_CDS=([^;]+)/', $cookie, $matches);
+    $spcCds = $matches[1] ?? '';
+    if ($spcCds === '') {
+      return false;
+    }
+
+    $query = http_build_query([
+      'SPC_CDS' => $spcCds,
+      'SPC_CDS_VER' => 2,
+      'page_size' => max(1, min(24, (int)$pageSize)),
+      'page_number' => max(1, (int)$page),
+      'biz_id' => 1,
+      'status' => 'completed'
+    ]);
+    $endpoint = 'https://seller.shopee.co.id/api/valueadded/v1/search_order_list/?' . $query;
+    $response = $this->request('GET', $endpoint, $cookie, [], [
+      'Origin: https://seller.shopee.co.id',
+      'Referer: https://seller.shopee.co.id/portal/value-add/ads/order/list/completed?supplierId=1'
+    ]);
+
+    if (!is_array($response) || (isset($response['code']) && (int)$response['code'] !== 0)) {
+      return false;
+    }
+
+    return $response;
+  }
+
     /**
      * Mengambil ringkasan status iklan toko dari Seller Centre.
      * Endpoint ini tidak membutuhkan campaign_id sehingga aman dipakai untuk

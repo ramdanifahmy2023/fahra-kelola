@@ -1,4 +1,4 @@
-<section id="ads-monitor" data-endpoint="<?= htmlspecialchars(burl . '/procads/summary', ENT_QUOTES, 'UTF-8'); ?>" aria-labelledby="ads-title">
+<section id="ads-monitor" data-endpoint="<?= htmlspecialchars(burl . '/procads/summary', ENT_QUOTES, 'UTF-8'); ?>" data-topups-endpoint="<?= htmlspecialchars(burl . '/procads/topups', ENT_QUOTES, 'UTF-8'); ?>" aria-labelledby="ads-title">
   <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
     <div>
       <h2 id="ads-title" class="text-2xl font-black tracking-tight text-base-content">Monitoring iklan</h2>
@@ -39,6 +39,26 @@
   </div>
   <div id="ads-grid" class="grid min-w-0 grid-cols-1 gap-5" aria-busy="true"></div>
   <p class="mt-4 text-xs text-base-content">Jumlah pesanan mengikuti kartu Pesanan Seller Centre. Penjualan memakai atribusi total Shopee. Nilai antarjenis iklan tidak dijumlahkan. Tanda - berarti metrik belum tersedia, belum terverifikasi untuk jenis iklan ini, atau rasio tidak dapat dihitung.</p>
+  <section class="mt-10 border-t border-base-content/15 pt-7" aria-labelledby="ads-topups-title">
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 id="ads-topups-title" class="text-xl font-black tracking-tight text-base-content">Riwayat topup saldo iklan</h2>
+        <p class="mt-1 text-sm text-base-content">Total pesanan topup iklan yang berhasil, termasuk PPN. Periode mulai Agustus 2026.</p>
+      </div>
+      <p class="text-xs text-base-content/60" data-topups-updated>Belum tersinkron</p>
+    </div>
+    <p class="mb-4 text-xs text-base-content/60">Draft tanpa arah desain · ENERGY 1 · RHYTHM 1 · MOTION 1</p>
+    <div id="ads-topups-state" class="mb-4 rounded-lg border border-base-content/15 bg-base-100 p-3 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan topup…</div>
+    <div class="overflow-x-auto rounded-xl border border-base-content/15 bg-base-100">
+      <table class="w-full min-w-[22rem] text-left text-sm">
+        <caption class="sr-only">Total topup saldo iklan termasuk PPN per bulan</caption>
+        <thead class="border-b border-base-content/15 text-xs text-base-content/60">
+          <tr><th scope="col" class="px-4 py-3 font-bold">Bulan</th><th scope="col" class="px-4 py-3 text-right font-bold">Total topup termasuk PPN</th></tr>
+        </thead>
+        <tbody id="ads-topups-rows" class="divide-y divide-base-content/10"></tbody>
+      </table>
+    </div>
+  </section>
 </section>
 <template id="ads-card-template">
   <article class="min-w-0 overflow-hidden rounded-xl border border-base-content/20 bg-base-100 text-base-content">

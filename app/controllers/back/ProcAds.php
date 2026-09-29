@@ -26,4 +26,11 @@ class ProcAds extends Controller {
     $shops = $this->m('AdsMonitor')->summary($shopId > 0 ? $shopId : null, false, $period, $channel);
     $this->json(['status' => 'success', 'period' => $period, 'channel' => $channel, 'shops' => $shops, 'refreshed_at' => date('c')]);
   }
+
+  public function topups() {
+    $this->requireAjax();
+    $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
+    $report = $this->m('AdsMonitor')->topupSummary($shopId > 0 ? $shopId : null);
+    $this->json(['status' => 'success', 'report' => $report]);
+  }
 }
