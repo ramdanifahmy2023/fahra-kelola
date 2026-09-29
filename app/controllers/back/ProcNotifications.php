@@ -19,7 +19,11 @@ class ProcNotifications extends Controller {
       $limit=max(10,min(100,(int)($_GET['limit'] ?? 10)));
       $offset=max(0,(int)($_GET['offset'] ?? 0));
       $rows=$model->notifications($user,$unread,$limit,$offset);
+      $chatCursor=null;
+      try { $chatCursor=$this->m('ChatIncomingNotifications')->cursor(); }
+      catch (Throwable $e) { $chatCursor=null; }
       $this->json(['status'=>'success','summary'=>$summary,'unread_count'=>$summary['unread'],'notifications'=>$rows,
+        'chat_cursor'=>$chatCursor,
         'has_more'=>($unread?$summary['unread']:$summary['total'])>$offset+count($rows),'offset'=>$offset,'evaluation_available'=>$available]);
     } catch(Throwable $e) { $this->json(['status'=>'error','message'=>'Notifikasi belum dapat dimuat. Coba lagi.'],500); }
   }

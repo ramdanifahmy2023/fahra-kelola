@@ -69,25 +69,10 @@ class ProcChat extends Controller {
   }
 
   public function send() {
-    $this->requirePost();
-    $shopId = (int)($_POST['shop_id'] ?? 0);
-    $conversationId = trim((string)($_POST['conversation_id'] ?? ''));
-    $message = trim((string)($_POST['message'] ?? ''));
-    if ($shopId < 1 || $conversationId === '' || $message === '') $this->json(['status' => 'error', 'message' => 'Toko, percakapan, dan pesan wajib diisi.'], 422);
-    if (mb_strlen($message) > 2000) $this->json(['status' => 'error', 'message' => 'Pesan maksimal 2.000 karakter.'], 422);
-    $result = $this->monitor()->send($shopId, $conversationId, $message, trim((string)($_POST['request_id'] ?? '')));
-    $result['attempted'] = !empty($result['request_id']);
-    if (!empty($result['request_id'])) $this->m('SyncJob')->enqueueType($shopId, 'chat');
-    $this->json(['status' => !empty($result['ok']) ? 'success' : 'error'] + $result, !empty($result['ok']) ? 200 : (!empty($result['ambiguous']) ? 409 : 502));
+    $this->json(['status'=>'error','attempted'=>false,'message'=>'Chat Shopdash hanya untuk membaca. Balas pesan melalui Shopee.'],405);
   }
 
   public function mark_read() {
-    $this->requirePost();
-    $shopId = (int)($_POST['shop_id'] ?? 0);
-    $conversationId = trim((string)($_POST['conversation_id'] ?? ''));
-    if ($shopId < 1 || $conversationId === '') $this->json(['status' => 'error', 'message' => 'Toko dan percakapan wajib dipilih.'], 422);
-    $result = $this->monitor()->markRead($shopId, $conversationId, !empty($_POST['reopen']));
-    if (empty($result['ok'])) $this->json(['status' => 'error', 'message' => $result['message'] ?? 'Status pesan gagal diperbarui.'], 502);
-    $this->json(['status' => 'success', 'message' => $result['message'] ?? 'Percakapan diperbarui.']);
+    $this->json(['status'=>'error','attempted'=>false,'message'=>'Status chat Shopee hanya dapat diubah melalui Shopee.'],405);
   }
 }

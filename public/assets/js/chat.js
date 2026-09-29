@@ -2,7 +2,6 @@
   const $ = id => document.getElementById(id);
   const page = $('chat-page'), api = page.dataset.api, shell = $('chat-shell');
   const state = {shop: Number(page.dataset.shop), shops: [], rows: [], selected: null, version: 0, listVersion: 0, detailVersion: 0, loading: false, popup: false};
-  const drafts = new Map(), sending = new Set(), actions = new Set(), intents = new Map();
   const key = row => row ? `${row.shop_id}:${row.remote_conversation_id}` : '';
   const selectedKey = () => key(state.selected);
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -16,37 +15,11 @@
     return result;
   }
   const target = row => ({shop_id: row.shop_id, conversation_id: row.remote_conversation_id});
-  function intentFor(id) {
-    if (!intents.has(id)) {
-      try { const saved = JSON.parse(sessionStorage.getItem('chat-intent:' + id)); if (saved) intents.set(id, saved); } catch (_) {}
-    }
-    return intents.get(id);
-  }
-  function saveIntent(id, intent) {
-    if (intent) intents.set(id, intent); else intents.delete(id);
-    try { if (intent) sessionStorage.setItem('chat-intent:' + id, JSON.stringify(intent)); else sessionStorage.removeItem('chat-intent:' + id); } catch (_) {}
-  }
-  function saveDraft() { if (state.selected) drafts.set(selectedKey(), $('chat-message').value); }
-  function compose(message) {
-    const row = state.selected, id = selectedKey(), intent = intentFor(id);
-    const pending = sending.has(id) || (intent && intent.pending);
-    const disabled = !row || state.detailLoading || row.status === 'closed' || Number(row.is_blocked) || pending;
-    $('chat-message').disabled = Boolean(disabled); $('chat-send').disabled = Boolean(disabled);
-    $('chat-mark-read').disabled = !row || row.status === 'closed' || actions.has(id);
-    $('chat-reopen').classList.toggle('hidden', !row || row.status !== 'closed');
-    $('chat-reopen').disabled = actions.has(id) || Boolean(Number(row?.is_blocked));
-    const fallback = !pending && Boolean(state.sendError?.[id]);
-    $('chat-send-fallback').classList.toggle('hidden', !fallback);
-    $('chat-send-fallback').classList.toggle('flex', fallback);
-    $('chat-compose-state').textContent = message || (pending ? 'Pengiriman belum terkonfirmasi. Perbarui pesan; jangan kirim ulang.' : Number(row?.is_blocked) ? 'Percakapan diblokir di Shopee.' : row?.status === 'closed' ? 'Percakapan ditutup. Pilih Chat Lagi untuk membalas.' : state.detailLoading ? 'Memuat percakapan…' : 'Enter untuk kirim, Shift+Enter untuk baris baru. Maksimal 2.000 karakter.');
-  }
   function choose(row) {
-    saveDraft(); state.selected = row; state.version++; state.detailVersion++;
+    state.selected = row; state.version++; state.detailVersion++;
     $('chat-detail').classList.toggle('hidden', !row); $('chat-detail-empty').classList.toggle('hidden', Boolean(row));
     shell.classList.toggle('chat-detail-open', Boolean(row));
     $('chat-floating-launcher').classList.toggle('hidden', Boolean(row) || state.popup);
-    $('chat-message').value = row ? (drafts.get(key(row)) || '') : '';
-    state.detailLoading = Boolean(row); compose();
     if (row) {
       $('chat-detail-buyer').textContent = row.buyer_name || 'Pembeli';
       $('chat-detail-meta').textContent = (row.shop_name || '') + ' · ' + label(row.status);
@@ -98,16 +71,10 @@
     try {
       const result = await request('/messages?' + new URLSearchParams(target(row)));
       if (version !== state.version || detailVersion !== state.detailVersion) return;
-      state.selected = {...row, ...result.conversation}; state.detailLoading = false;
-      const id = key(row), intent = intentFor(id), delivery = result.outbox?.find(item => item.request_id === intent?.request_id);
-      let feedback = '';
-      if (delivery?.status === 'sent') { saveIntent(id, null); drafts.delete(id); $('chat-message').value = ''; feedback = 'Terkirim dan dikonfirmasi Shopee.'; }
-      else if (delivery?.status === 'failed') { saveIntent(id, null); feedback = delivery.error_message || 'Pengiriman ditolak Shopee. Pesan dapat diperbaiki lalu dikirim lagi.'; }
-      else if (delivery && intent) { intent.pending = true; saveIntent(id, intent); }
-      const rejected = result.outbox?.[0];
-      if (rejected?.status === 'failed') { state.sendError ||= {}; state.sendError[id] = rejected.error_message; }
-      compose(feedback || state.sendError?.[id]);
-      $('chat-detail-meta').textContent = (row.shop_name || '') + ' · ' + label(state.selected.status);
+      state.selected = {...row, ...result.conversation};
+      const id = key(row);
+      $('chat-detail-buyer').textContent = state.selected.buyer_name || 'Pembeli';
+      $('chat-detail-meta').textContent = (state.selected.shop_name || '') + ' · ' + label(state.selected.status);
       const sync = result.sync;
       const shopError = state.shops.find(shop => Number(shop.shop_id) === Number(row.shop_id))?.error_message;
       $('chat-history-state').textContent = sync?.error_message || shopError || (sync?.requested_at ? 'Pembaruan masuk antrean. Menunggu sinkronisasi selesai.' : sync?.synced_at ? `Riwayat diperbarui ${date(sync.synced_at)}. Riwayat lama mungkin belum lengkap; lihat Shopee untuk pesan sebelumnya.` : 'Riwayat belum disinkronkan. Menunggu sinkronisasi selesai.');
@@ -119,7 +86,7 @@
         if (nearEnd || state.lastRendered !== id) box.scrollTop = box.scrollHeight;
         state.lastRendered = id;
       }
-    } catch (error) { if (version === state.version && detailVersion === state.detailVersion) { state.detailLoading = true; compose(error.message); $('chat-history-state').textContent = error.message; } }
+    } catch (error) { if (version === state.version && detailVersion === state.detailVersion) { $('chat-history-state').textContent = error.message; $('chat-messages').textContent = 'Riwayat belum dapat dimuat. Pilih Perbarui pesan untuk mencoba lagi.'; delete $('chat-messages').dataset.signature; } }
     finally { if (state.detailRequest === version) state.detailRequest = null; }
   }
   async function queueRefresh(row) {
@@ -132,8 +99,6 @@
     try {
       const result = await request('/overview'); state.shops = result.shops || [];
       for (const [id, prop] of [['unread','unread_count'],['conversations','conversation_count'],['active','active_count'],['expired','expired_shops']]) $('chat-total-' + id).textContent = Number(result.totals?.[prop] || 0).toLocaleString('id-ID');
-      $('chat-floating-unread').textContent = Number(result.totals?.unread_count || 0).toLocaleString('id-ID');
-      $('chat-floating-unread').classList.toggle('hidden', !Number(result.totals?.unread_count));
       renderShops();
       const problems = state.shops.filter(shop => shop.error_message || shop.session_expired || !shop.sync_enabled);
       $('chat-session-warning').classList.toggle('hidden', !problems.length);
@@ -144,43 +109,6 @@
     } catch (error) { notice(error.message, true); }
     finally { state.loading = false; }
   }
-  async function changeStatus(reopen) {
-    const row = state.selected, id = key(row); if (!row || actions.has(id)) return;
-    actions.add(id); compose(reopen ? 'Mengaktifkan percakapan…' : 'Memperbarui status…');
-    let feedback;
-    try { const result = await request('/mark_read', {...target(row), reopen:reopen ? '1' : ''}); feedback = result.message; if (id === selectedKey()) await loadMessages(); }
-    catch (error) { feedback = error.message; }
-    finally { actions.delete(id); if (id === selectedKey()) compose(feedback); }
-  }
-  $('chat-compose').addEventListener('submit', async event => {
-    event.preventDefault(); const row = state.selected, id = key(row), text = $('chat-message').value.trim();
-    if (!row || !text || $('chat-message').disabled || sending.has(id)) return;
-    const intent = intentFor(id) || {request_id:crypto.randomUUID()}; intent.pending = true;
-    saveIntent(id, intent); drafts.set(id, text); sending.add(id); compose('Mengirim dan menunggu konfirmasi Shopee…');
-    let feedback;
-    try {
-      const result = await request('/send', {...target(row), message:text, request_id:intent.request_id});
-      saveIntent(id, null); drafts.delete(id); if (state.sendError) delete state.sendError[id]; feedback = result.message;
-      if (id === selectedKey()) { $('chat-message').value = ''; await loadMessages(); }
-    } catch (error) {
-      // A lost response can follow server acceptance. Keep the intent until reconciliation.
-      if (error.result?.delivery_status === 'failed' || error.result?.attempted === false || [400,401,403,405,422].includes(error.httpStatus)) saveIntent(id, null);
-      feedback = error.message;
-      state.sendError ||= {}; state.sendError[id] = feedback;
-      if (intentFor(id)?.pending) feedback += ' Status belum pasti. Perbarui pesan sebelum mengirim lagi.';
-    } finally { sending.delete(id); if (id === selectedKey()) compose(feedback); }
-  });
-  $('chat-message').addEventListener('input', saveDraft);
-  $('chat-copy-reply').addEventListener('click', async () => {
-    const id = selectedKey(), text = $('chat-message').value;
-    try {
-      if (!text.trim()) { compose('Belum ada balasan untuk disalin.'); return; }
-      await navigator.clipboard.writeText(text);
-      if (id === selectedKey()) compose('Balasan disalin. Pilih pembeli dan toko yang sesuai di Chat Shopee.');
-    } catch (_) { if (id === selectedKey()) compose('Salin teks balasan secara manual, lalu buka Chat Shopee.'); }
-  });
-  $('chat-message').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); if (!$('chat-send').disabled) $('chat-compose').requestSubmit(); } });
-  $('chat-mark-read').addEventListener('click', () => changeStatus(false)); $('chat-reopen').addEventListener('click', () => changeStatus(true));
   $('chat-mobile-back').addEventListener('click', () => choose(null));
   $('chat-refresh-thread').addEventListener('click', async () => { const row = state.selected; if (!row) return; try { await queueRefresh(row); await loadMessages(); } catch (error) { if (key(row) === selectedKey()) $('chat-history-state').textContent = error.message; } });
   $('chat-refresh').addEventListener('click', async () => {
@@ -210,7 +138,9 @@
     if (event.shiftKey && (document.activeElement === first || !shell.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && (document.activeElement === last || !shell.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
   });
-  choose(null); overview();
+  choose(null);
+  if (state.shop > 0 && page.dataset.conversation) choose({shop_id:state.shop,remote_conversation_id:page.dataset.conversation});
+  overview();
   setInterval(() => { if (!document.hidden) loadMessages(); }, 5000);
   setInterval(() => {
     if (document.hidden) return;

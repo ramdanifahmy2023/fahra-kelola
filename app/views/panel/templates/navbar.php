@@ -18,7 +18,7 @@
         <li><button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false"><span class="material-symbols-outlined text-base">dark_mode</span><span class="flex-1 text-left">Gelap</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
       </ul>
     </div>
-    <div id="notification-menu" data-endpoint="<?= htmlspecialchars(burl.'/procnotifications',ENT_QUOTES,'UTF-8'); ?>" data-base="<?= htmlspecialchars(burl,ENT_QUOTES,'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(),ENT_QUOTES,'UTF-8'); ?>">
+    <div id="notification-menu" data-endpoint="<?= htmlspecialchars(burl.'/procnotifications',ENT_QUOTES,'UTF-8'); ?>" data-base="<?= htmlspecialchars(burl,ENT_QUOTES,'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(),ENT_QUOTES,'UTF-8'); ?>" data-user="<?= (int)(authUser()['id'] ?? 0); ?>">
       <button type="button" id="notification-button" class="btn btn-ghost btn-square" aria-label="Notifikasi" aria-expanded="false" aria-controls="notification-panel">
         <span class="material-symbols-outlined notification-bell-icon" aria-hidden="true">notifications</span>
         <span id="notification-badge" hidden>0</span>
@@ -30,10 +30,11 @@
           <div class="notification-filters" role="group" aria-label="Tampilkan notifikasi"><button type="button" data-notification-filter="new" aria-pressed="true">Baru</button><button type="button" data-notification-filter="active" aria-pressed="false">Semua aktif</button></div>
           <button type="button" id="notification-reload" class="btn" aria-label="Muat ulang notifikasi"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
         </div>
+        <div class="notification-sound"><button type="button" id="notification-sound-toggle" class="btn" aria-pressed="false" aria-describedby="notification-sound-status">Aktifkan bunyi chat</button><p id="notification-sound-status">Bunyi hanya untuk chat baru saat Shopdash terbuka.</p></div>
         <p id="notification-error" role="alert" tabindex="-1" hidden></p>
         <p id="notification-source-warning" hidden>Pemeriksaan terbaru belum berhasil. Menampilkan notifikasi tersimpan.</p>
         <div id="notification-list"><p class="notification-empty">Memuat notifikasi…</p></div>
-        <footer class="notification-footer"><button type="button" id="notification-mark-all" class="btn">Tandai daftar dibaca</button><p>Dibaca hanya untuk akun Anda; masalah tetap aktif sampai selesai.</p><div class="notification-pagination"><button type="button" id="notification-prev" class="btn" aria-label="Halaman notifikasi sebelumnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button><span id="notification-page-status"></span><button type="button" id="notification-next" class="btn" aria-label="Halaman notifikasi berikutnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button></div></footer>
+        <footer class="notification-footer"><button type="button" id="notification-mark-all" class="btn">Tandai daftar dibaca</button><p>Dibaca hanya untuk akun Anda. Status chat Shopee tetap; masalah operasional tetap aktif sampai selesai.</p><div class="notification-pagination"><button type="button" id="notification-prev" class="btn" aria-label="Halaman notifikasi sebelumnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button><span id="notification-page-status"></span><button type="button" id="notification-next" class="btn" aria-label="Halaman notifikasi berikutnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button></div></footer>
       </section>
     </div>
     <div id="sync-detail-card" class="hidden h-9 max-w-[205px] items-center gap-2 rounded-lg border border-primary/15 bg-primary/8 px-2.5 transition-all duration-300">

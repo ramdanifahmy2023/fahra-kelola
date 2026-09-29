@@ -5,10 +5,12 @@ class ChatMonitor extends BaseModel {
   private $staleSeconds = 30;
   private $schemaReady = false;
   private $chatClient;
+  private $incomingNotifications;
 
-  public function __construct($db = null, $client = null) {
+  public function __construct($db = null, $client = null, $incomingNotifications = null) {
     $this->db = $db ?: new Database();
     $this->chatClient = $client;
+    $this->incomingNotifications = $incomingNotifications;
   }
 
   public function ensureSchema() {
@@ -87,12 +89,26 @@ class ChatMonitor extends BaseModel {
       if (trim($sql) === '') continue;
       $this->db->query($sql); $this->db->exe();
     }
+    $this->db->query('SHOW COLUMNS FROM chat_thread_sync');
+    if (!in_array('latest_message_id',array_column($this->db->getAll(),'Field'),true)) {
+      try { $this->db->query('ALTER TABLE chat_thread_sync ADD COLUMN latest_message_id VARCHAR(80) NULL'); $this->db->exe(); }
+      catch (PDOException $e) { if ((int)($e->errorInfo[1] ?? 0)!==1060) throw $e; }
+    }
     $this->schemaReady = true;
   }
 
   private function client() {
     require_once __DIR__ . '/ShopeeChat.php';
     return $this->chatClient ?: new ShopeeChat();
+  }
+
+  private function incoming() {
+    if ($this->incomingNotifications === false) return null;
+    if (!$this->incomingNotifications) {
+      require_once __DIR__.'/ChatIncomingNotifications.php';
+      $this->incomingNotifications = new ChatIncomingNotifications($this->db);
+    }
+    return $this->incomingNotifications;
   }
 
   private function shops($shopId = null) {
@@ -228,6 +244,7 @@ class ChatMonitor extends BaseModel {
     $session = $this->session($shop);
     if (empty($session['ok'])) return $this->saveError($shop, !empty($session['expired']), $session['message'] ?? 'Sesi chat Shopee tidak tersedia.');
 
+    $this->incoming()?->startShop((int)$shopId);
     $snapshot = $this->snapshot($shopId) ?: [];
     $cursor = [
       'direction' => empty($snapshot['last_message_id']) ? 'older' : 'latest',
@@ -340,7 +357,7 @@ class ChatMonitor extends BaseModel {
   }
 
   private function syncDetails(array $shop, array $session) {
-    $this->db->query("SELECT c.* FROM chat_conversations c JOIN shops s ON s.id = c.shop_id LEFT JOIN chat_thread_sync t ON t.shop_id = c.shop_id AND t.conversation_id = c.remote_conversation_id WHERE c.shop_id = :id AND " . $this->ownedSql() . " AND (t.retry_at IS NULL OR t.retry_at <= UTC_TIMESTAMP()) AND (t.synced_at IS NULL OR t.requested_at IS NOT NULL OR c.latest_message_at > t.synced_at) ORDER BY t.requested_at IS NULL, t.requested_at DESC, c.latest_message_at DESC LIMIT 4");
+    $this->db->query("SELECT c.* FROM chat_conversations c JOIN shops s ON s.id = c.shop_id LEFT JOIN chat_thread_sync t ON t.shop_id = c.shop_id AND t.conversation_id = c.remote_conversation_id WHERE c.shop_id = :id AND " . $this->ownedSql() . " AND (t.retry_at IS NULL OR t.retry_at <= UTC_TIMESTAMP()) AND (t.synced_at IS NULL OR t.requested_at IS NOT NULL OR NOT (c.latest_message_id <=> t.latest_message_id)) ORDER BY t.requested_at IS NULL, t.requested_at DESC, c.latest_message_at DESC LIMIT 4");
     $this->db->bind('id', (int)$shop['id']); $rows = $this->db->getAll();
     $failure = null;
     foreach (array_slice($rows, 0, 3) as $conversation) {
@@ -348,9 +365,12 @@ class ChatMonitor extends BaseModel {
       $id = $conversation['remote_conversation_id'];
       $response = $this->client()->getMessages($session, $shop['cookie'], $id, 100, 0);
       if (!empty($response['ok'])) {
-        foreach ($response['data'] as $message) {
+        $messages=$response['data'];
+        usort($messages,static fn($a,$b)=>strcmp((string)($a['created_at'] ?? ''),(string)($b['created_at'] ?? '')));
+        foreach ($messages as $message) {
           if (!is_array($message) || empty($message['id']) || (!empty($message['conversation_id']) && (string)$message['conversation_id'] !== $id)) continue;
           $this->upsertMessage($shop['id'], $id, $message, (int)$session['remote_user_id']);
+          $this->incoming()?->record((int)$shop['id'], $conversation, $message, (int)$session['remote_user_id']);
           if (!empty($message['request_id'])) {
             $this->db->query("UPDATE chat_outbox SET status = 'sent', remote_message_id = :message, error_message = NULL WHERE request_id = :request AND shop_id = :shop AND conversation_id = :conversation AND content_hash = :hash");
             foreach (['message' => (string)$message['id'], 'request' => (string)$message['request_id'], 'shop' => (int)$shop['id'], 'conversation' => $id, 'hash' => hash('sha256', (string)($message['content']['text'] ?? ''))] as $key => $value) $this->db->bind($key, $value);
@@ -362,6 +382,11 @@ class ChatMonitor extends BaseModel {
       $this->db->query("INSERT INTO chat_thread_sync (shop_id, conversation_id, synced_at, retry_at, error_message, history_count) VALUES (:shop, :conversation, :synced, :retry, :error, :count) ON DUPLICATE KEY UPDATE synced_at = COALESCE(VALUES(synced_at), synced_at), requested_at = IF(requested_at <= :started, NULL, requested_at), retry_at = VALUES(retry_at), error_message = VALUES(error_message), history_count = IF(VALUES(synced_at) IS NULL, history_count, VALUES(history_count))");
       foreach (['shop' => (int)$shop['id'], 'conversation' => $id, 'synced' => $ok ? $started : null, 'retry' => $ok ? null : gmdate('Y-m-d H:i:s', time() + 60), 'error' => $ok ? null : $failure, 'count' => $ok ? count($response['data']) : 0, 'started' => $started] as $key => $value) $this->db->bind($key, $value);
       $this->db->exe();
+      if ($ok) {
+        $this->db->query('UPDATE chat_thread_sync SET latest_message_id=:message WHERE shop_id=:shop AND conversation_id=:conversation');
+        foreach (['message'=>$conversation['latest_message_id'],'shop'=>(int)$shop['id'],'conversation'=>$id] as $key=>$value) $this->db->bind($key,$value);
+        $this->db->exe();
+      }
     }
     return ['ok' => $failure === null, 'message' => $failure, 'complete' => count($rows) <= 3];
   }

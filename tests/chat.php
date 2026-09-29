@@ -85,9 +85,10 @@ try {
     if (!trim($sql)) continue;
     $db->query(str_replace('CREATE TABLE IF NOT EXISTS', 'CREATE TEMPORARY TABLE', $sql)); $db->exe();
   }
+  $db->query('ALTER TABLE chat_thread_sync ADD COLUMN latest_message_id VARCHAR(80) NULL'); $db->exe();
   $db->query("INSERT INTO shops (id, shop_id, name, cookie, sync_status) VALUES (1,101,'Fixture A','fixture','connected'),(2,202,'Fixture B','fixture','connected')"); $db->exe();
   $db->query("INSERT INTO sync_schedules (shop_id,sync_type,enabled) VALUES (1,'chat',0),(2,'chat',0)"); $db->exe();
-  $client = new ChatFixtureClient(); $monitor = new ChatFixtureMonitor($db, $client);
+  $client = new ChatFixtureClient(); $monitor = new ChatFixtureMonitor($db, $client, false);
   $jobs = new ChatFixtureJobs($db);
   $firstJob=$jobs->enqueueType(1,'chat');
   checkChat($firstJob>0 && $jobs->enqueueType(1,'chat')===$firstJob, 'Manual requests share active chat job');

@@ -105,10 +105,11 @@ class Panel extends Controller {
   }
 
   public function chat() {
-    $data['judul'] = 'Live Chat - ' . app_name;
+    $data['judul'] = 'Chat Shopee - ' . app_name;
     $data['active_menu'] = 'chat';
     $data['shops'] = $this->m('Shop')->findAll();
     $data['active_shop_id'] = (int)($_GET['shop_id'] ?? 0);
+    $data['active_conversation_id'] = trim((string)($_GET['conversation_id'] ?? ''));
     $this->v('panel/templates/header', $data);
     $this->v('panel/chat', $data);
     $this->v('panel/templates/footer', $data);

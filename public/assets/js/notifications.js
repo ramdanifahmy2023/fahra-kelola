@@ -4,6 +4,65 @@
   const $=id=>document.getElementById('notification-'+id);
   const panel=$('panel'),bell=$('button');
   let unreadOnly=true,offset=0,rows=[],busy=false,revision=0,hasMore=false;
+  const soundKey='shopdash:chat-sound:'+root.dataset.user, cursorKey=soundKey+':cursor';
+  let audio=null,soundLoaded=false,soundBusy=false;
+  function stored(key){try{return localStorage.getItem(key);}catch{return null;}}
+  function soundReady(){return stored(soundKey)==='on'&&audio?.state==='running';}
+  function soundControls(message){
+    const supported=!!(navigator.locks&&(window.AudioContext||window.webkitAudioContext));
+    const ready=soundReady(),enabled=stored(soundKey)==='on';
+    $('sound-toggle').disabled=!supported||soundBusy;
+    $('sound-toggle').setAttribute('aria-pressed',String(ready));
+    $('sound-toggle').textContent=ready?'Matikan bunyi chat':enabled?'Aktifkan lagi bunyi chat':'Aktifkan bunyi chat';
+    $('sound-status').textContent=message||(!supported?'Browser ini belum mendukung bunyi chat antar-tab.':ready?'Bunyi aktif untuk chat baru saat halaman terlihat.':enabled?'Klik untuk mengaktifkan bunyi di halaman ini.':'Bunyi hanya untuk chat baru saat Shopdash terbuka.');
+  }
+  function playChatTone(){
+    if(!soundReady()||document.hidden)return;
+    const start=audio.currentTime;
+    for(const [offset,hz] of [[0,660],[.16,880]]){
+      const oscillator=audio.createOscillator(),gain=audio.createGain();
+      oscillator.type='sine';oscillator.frequency.value=hz;
+      gain.gain.setValueAtTime(0,start+offset);gain.gain.linearRampToValueAtTime(.045,start+offset+.02);gain.gain.linearRampToValueAtTime(0,start+offset+.14);
+      oscillator.connect(gain);gain.connect(audio.destination);
+      oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+      oscillator.start(start+offset);oscillator.stop(start+offset+.15);
+    }
+  }
+  async function chatSound(cursor,baseline=false){
+    if(!/^(0|[1-9]\d{0,19})$/.test(String(cursor))||!navigator.locks)return;
+    const first=!soundLoaded;soundLoaded=true;
+    try{
+      await navigator.locks.request(cursorKey,()=>{
+        let previous;try{previous=JSON.parse(stored(cursorKey));}catch{}
+        const valid=/^(0|[1-9]\d{0,19})$/.test(String(previous?.cursor)),fresh=valid&&Date.now()-Number(previous.at)<90000;
+        const advances=!valid||BigInt(cursor)>BigInt(previous.cursor);
+        // Claim once across tabs, and silently establish a baseline after loading or an outage.
+        const silent=first||baseline||!fresh;
+        if(!silent&&!soundReady()&&stored(soundKey)==='on')return;
+        localStorage.setItem(cursorKey,JSON.stringify({cursor:advances?String(cursor):previous.cursor,at:Date.now()}));
+        if(!silent&&advances&&soundReady())playChatTone();
+      });
+    }catch{soundControls('Bunyi belum aktif. Izinkan penyimpanan browser lalu coba lagi.');}
+  }
+  $('sound-toggle').addEventListener('click',async()=>{
+    if(soundBusy)return;soundBusy=true;
+    try{
+      if(soundReady()){localStorage.setItem(soundKey,'off');await audio.suspend();}
+      else{
+        const Audio=window.AudioContext||window.webkitAudioContext;
+        audio ||= new Audio();audio.onstatechange=()=>soundControls();
+        await audio.resume();
+        if(audio.state!=='running')throw new Error('Browser belum mengizinkan bunyi. Klik Aktifkan bunyi chat lagi.');
+        const data=await request('summary?limit=10');await chatSound(data.chat_cursor,true);
+        if(data.chat_cursor===null||data.chat_cursor===undefined)throw new Error('Data chat belum tersedia. Coba aktifkan bunyi lagi.');
+        localStorage.setItem(soundKey,'on');
+      }
+      soundControls();
+    }catch(e){soundControls(e.message||'Bunyi chat belum dapat diaktifkan.');}
+    finally{soundBusy=false;$('sound-toggle').disabled=false;}
+  });
+  window.addEventListener('storage',event=>{if(event.key===soundKey)soundControls();});
+  soundControls();
   const number=v=>new Intl.NumberFormat('id-ID').format(Number(v||0));
   const text=(tag,value,className='')=>{const el=document.createElement(tag);el.textContent=value;el.className=className;return el;};
   const icon=name=>{const el=text('span',name,'material-symbols-outlined');el.setAttribute('aria-hidden','true');return el;};
@@ -30,7 +89,7 @@
     for(const item of rows){
       const row=text('article','','notification-item');row.dataset.alertId=item.id;
       const heading=text('div','','notification-item-heading');
-      heading.append(icon(['inventory_2','local_shipping','link_off','sync_problem'].includes(item.icon)?item.icon:'notifications'));
+      heading.append(icon(['inventory_2','local_shipping','link_off','sync_problem','chat'].includes(item.icon)?item.icon:'notifications'));
       const body=text('div','','notification-item-body');
       const shop=text('div','','notification-shop');
       if(item.shop_logo && /^https?:\/\//.test(item.shop_logo)){
@@ -38,7 +97,7 @@
       }else shop.append(icon('storefront'));
       shop.append(text('span',item.shop_name||'Toko #'+item.shop_id));
       body.append(shop,text('h3',item.title),text('p',item.message));
-      const severity=text('span',item.stale?'Data perlu diperbarui':item.severity==='urgent'?'Mendesak':'Perlu perhatian','notification-severity');
+      const severity=text('span',item.stale?'Data perlu diperbarui':item.type==='chat_incoming'?'Pesan masuk':item.severity==='urgent'?'Mendesak':'Perlu perhatian','notification-severity');
       severity.dataset.level=item.stale?'stale':item.severity;body.append(severity);
       if(item.deadline)body.append(text('p','Batas kirim '+date(new Date(item.deadline*1000).toISOString().slice(0,19).replace('T',' ')),'notification-time'));
       body.append(text('p','Data: '+date(item.source_at),'notification-time'));
@@ -52,7 +111,7 @@
       body.append(actions);heading.append(body);row.append(heading);$('list').append(row);
     }
     if(!rows.length){
-      const message=unreadOnly&&s.total>0?'Tidak ada notifikasi baru. '+number(s.total)+' masalah masih aktif.':s.total>0?'Tidak ada notifikasi pada halaman ini.':'Belum ada masalah aktif yang terdeteksi.';
+      const message=unreadOnly&&s.total>0?'Tidak ada notifikasi baru. '+number(s.total)+' notifikasi tersimpan.':s.total>0?'Tidak ada notifikasi pada halaman ini.':'Belum ada notifikasi yang terdeteksi.';
       $('list').append(text('p',message,'notification-empty'));
     }
     $('mark-all').disabled=!rows.some(row=>row.unread)||busy;
@@ -68,6 +127,7 @@
       if(token!==revision)return;
       $('error').hidden=true;
       render(data,automatic&&!panel.hidden);
+      await chatSound(data.chat_cursor);
     }catch(e){if(token===revision)error(e.message);}
     finally{if(token===revision)$('reload').disabled=false;}
   }
