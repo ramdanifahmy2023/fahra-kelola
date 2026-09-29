@@ -19,7 +19,10 @@ class SyncQueue {
           OR NOT EXISTS (SELECT 1 FROM sync_job_orders t WHERE t.job_id = j.id AND t.status IN ('queued','retry','running'))
           OR EXISTS (SELECT 1 FROM sync_job_orders t WHERE t.job_id = j.id AND t.status IN ('queued','retry','running')
             AND (t.next_retry_at IS NULL OR t.next_retry_at <= NOW()) AND (t.lease_until IS NULL OR t.lease_until < NOW())))
-        ORDER BY j.updated_at ASC, j.id ASC LIMIT 1 FOR UPDATE");
+        ORDER BY CASE WHEN j.updated_at <= DATE_SUB(NOW(), INTERVAL 120 SECOND) THEN 0
+          WHEN j.sync_type = 'chat' OR (j.sync_type = 'orders' AND j.mode = 'diff') THEN 1
+          WHEN j.sync_type = 'orders' AND j.mode = 'full' THEN 3 ELSE 2 END,
+          j.updated_at ASC, j.id ASC LIMIT 1 FOR UPDATE");
       if ($jobId) $db->bind('job_id', (int)$jobId);
       if ($shopId) $db->bind('shop_id', (int)$shopId);
       $job = $db->single();

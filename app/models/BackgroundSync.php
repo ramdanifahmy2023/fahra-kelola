@@ -80,10 +80,11 @@ class BackgroundSync extends BaseModel {
       $fullDue = in_array($type, ['orders', 'products'], true)
         && (int)($row['full_interval_seconds'] ?? 0) > 0
         && (empty($row['last_full_at']) || strtotime((string)$row['last_full_at'] . ' UTC') <= time() - (int)$row['full_interval_seconds']);
-      if ($fullDue) $mode = 'full';
+      if ($fullDue && $type !== 'orders') $mode = 'full';
       $jobId = $type === 'orders'
-        ? $sync->enqueue((int)$row['shop_id'], $mode)
+        ? $sync->enqueue((int)$row['shop_id'], 'diff')
         : $sync->enqueueType((int)$row['shop_id'], $type, $mode);
+      if ($type === 'orders' && ($fullDue || $mode === 'full')) $sync->enqueue((int)$row['shop_id'], 'full');
       if ($jobId > 0) {
         $this->db->query("UPDATE sync_schedules SET last_enqueued_at = NOW(), next_run_at = DATE_ADD(NOW(), INTERVAL interval_seconds SECOND) WHERE shop_id = :shop_id AND sync_type = :sync_type");
         $this->db->bind('shop_id', (int)$row['shop_id']);
@@ -106,7 +107,8 @@ class BackgroundSync extends BaseModel {
     $this->ensureSchema();
     require_once __DIR__ . '/../helpers/SyncOutcome.php';
     if (!$ok && !$error) $error = 'Sinkronisasi gagal; data sumber belum berhasil diperbarui.';
-    $this->db->query("UPDATE sync_schedules SET last_success_at = CASE WHEN :ok = 1 THEN NOW() ELSE last_success_at END, last_full_at = CASE WHEN :ok2 = 1 AND :mode = 'full' THEN NOW() ELSE last_full_at END, last_error = CASE WHEN :ok3 = 1 THEN NULL ELSE :error END, next_run_at = DATE_ADD(NOW(), INTERVAL GREATEST(interval_seconds, :retry_delay) SECOND) WHERE shop_id = :shop_id AND sync_type = :sync_type");
+    $this->db->query("UPDATE sync_schedules SET last_success_at = CASE WHEN :ok = 1 THEN NOW() ELSE last_success_at END, last_full_at = CASE WHEN :ok2 = 1 AND :mode = 'full' THEN NOW() ELSE last_full_at END, last_error = CASE WHEN :ok3 = 1 THEN NULL ELSE :error END, next_run_at = CASE WHEN sync_type = 'orders' AND :result_mode = 'full' THEN next_run_at ELSE DATE_ADD(NOW(), INTERVAL GREATEST(interval_seconds, :retry_delay) SECOND) END WHERE shop_id = :shop_id AND sync_type = :sync_type");
+    $this->db->bind('result_mode', (string)$mode);
     $this->db->bind('retry_delay', $ok ? 0 : SyncOutcome::retryDelay($error));
     $this->db->bind('ok', $ok ? 1 : 0);
     $this->db->bind('ok2', $ok ? 1 : 0);

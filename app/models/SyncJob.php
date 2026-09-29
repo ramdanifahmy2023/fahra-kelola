@@ -179,8 +179,10 @@ class SyncJob extends BaseModel {
 
   public function enqueue($shopId, $mode = 'diff') {
     $this->ensureSchema();
-    $this->db->query("SELECT id, status FROM sync_jobs WHERE shop_id = :shop_id AND sync_type = 'orders' AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");
+    $mode = $mode === 'full' ? 'full' : 'diff';
+    $this->db->query("SELECT id, status FROM sync_jobs WHERE shop_id = :shop_id AND sync_type = 'orders' AND mode = :mode AND status IN ('queued','running') ORDER BY id DESC LIMIT 1");
     $this->db->bind('shop_id', $shopId);
+    $this->db->bind('mode', $mode);
     $existing = $this->db->single();
     if ($existing) {
       return (int)$existing['id'];

@@ -83,6 +83,10 @@ try {
   $background->markResult(2,'chat',true);
   $s=sqlSync("SELECT *,TIMESTAMPDIFF(SECOND,NOW(),next_run_at) AS delay FROM sync_schedules WHERE shop_id=2 AND sync_type='chat'")[0];
   checkSync($s['last_error']===null && $s['last_success_at']!==null && (int)$s['delay']<=30, 'Successful retry clears error and restores normal interval');
+  sqlSync("UPDATE sync_schedules SET next_run_at='2026-01-01 00:00:00' WHERE shop_id=1 AND sync_type='orders'");
+  $background->markResult(1,'orders',true,null,'full');
+  $s=sqlSync("SELECT * FROM sync_schedules WHERE shop_id=1 AND sync_type='orders'")[0];
+  checkSync($s['next_run_at']==='2026-01-01 00:00:00' && $s['last_full_at']!==null, 'History completion does not postpone the recent-order schedule');
   class ChatWriteRecorder {
     public $queries=[];
     public function query($sql) { $this->queries[]=$sql; }
