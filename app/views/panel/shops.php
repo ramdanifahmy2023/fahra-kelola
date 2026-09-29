@@ -40,7 +40,7 @@
         </tr>
         <?php else: ?>
         <?php foreach ($data['shops'] as $shop): ?>
-        <tr class="hover">
+        <tr class="hover" id="shop-<?= (int)$shop['id']; ?>">
           <td>
             <div class="flex items-center gap-3">
               <div class="avatar">

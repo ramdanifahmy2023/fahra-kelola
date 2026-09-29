@@ -60,9 +60,10 @@ Passing counts above are historical, not a promise about the current revision. R
 - XYZ Sniper MCP was used read-only to inspect project 1. Never persist its authentication token or captured credentials. Pagination beyond page 1 and backend write transport remain unverified.
 - Next phase: verify 9Router capabilities and rating pagination/transport, then implement discovery and AI drafts before an explicitly enabled sender. Users configure tone, support policies, target dates, and per-star handling in the foundation page.
 
-## Notification audit
+## Notifications
 
-- The bell currently serves stock alerts only. The [notification priority audit](ops/notification-priority-audit.md) records lifecycle issues, candidate shipping/session/sync/chat/ads alerts, and source-readiness limits. These are recommendations, not implemented detectors or approved thresholds. Read and resolved must remain separate concepts.
+- Phase one is implemented: stock lifecycle, shop/module connection issues, stalled orders/products sync, and verified shipping deadlines. Read state is per account/revision; read never means resolved. See [notification operations and verification](ops/notifications.md) for thresholds, schema, API and source limitations.
+- Operational evaluation is driven by authenticated panel polling (30-second shared throttle), not a new worker. Shipping requires recent detail and an explicit unshipped status; stale data cannot prove recovery. Chat, ad balance, returns and rating/AI-worker detectors remain future work from the [priority audit](ops/notification-priority-audit.md).
 
 ## Things that must be rechecked each session
 

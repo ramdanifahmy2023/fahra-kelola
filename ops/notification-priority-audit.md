@@ -2,7 +2,9 @@
 
 Tanggal: 2026-09-29. Basis source: `41339e0`. Lingkup: audit source dan SELECT agregat lokal; tanpa perubahan aplikasi, pengiriman pesan, atau pemanggilan Shopee. Ini rekomendasi, belum persetujuan implementasi. Tidak ada aturan tenggat/SLA Shopee yang diasumsikan; seluruh ambang contoh di bawah merupakan usulan pengaturan internal.
 
-## Kondisi sekarang
+> Tindak lanjut 2026-09-29: fase pertama telah diimplementasikan setelah persetujuan pengguna. Lihat [implementasi notifikasi](notifications.md) untuk perilaku aktual, ambang internal, pengujian, dan keterbatasan. Isi audit di bawah merekam kondisi sebelum implementasi.
+
+## Kondisi saat audit
 
 - Lonceng menggunakan `StockAlert`, bukan pusat notifikasi lintas modul. Hanya tipe `low_stock` ditemukan pada source dan tabel lokal. Produk aktif dengan total stok <15 menghasilkan warning; stok nol menjadi urgent.
 - Model sudah menyediakan fingerprint, severity, acknowledged/resolved timestamps dan silenced_until. Polling frontend 30 detik menampilkan maksimal delapan alert belum dibaca.

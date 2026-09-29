@@ -102,3 +102,9 @@ The path above is a placeholder. Do not bake a machine-specific npm cache hash i
 ## Git delivery
 
 Current intended remote/branch: `origin` / `main`; verify each session. User authorizes committing and pushing completed, tested work. Stage explicit task files, inspect the staged diff, commit, push without force, and verify the result. Leave unrelated work untouched. A successful push confirms repository publication, not a separate deployment or database migration.
+
+## Notification verification
+
+- `php tests/notifications.php`: policy/lifecycle/per-account receipts and detector checks using temporary tables.
+- `node tests/notifications-ui.cjs`: mocked notification writes, responsive bell and scoped order links; defaults to isolated server port 8131. Use `PLAYWRIGHT_MODULE` for an external Playwright install and `NOTIFICATION_TEST_URL` to change origin.
+- Read [notification operations](ops/notifications.md) before extending detectors; schema initialization is additive, operational evaluation reads local sources, and read receipts must preserve revision checks.

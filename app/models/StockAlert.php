@@ -2,10 +2,10 @@
 
 class StockAlert extends BaseModel {
   protected $table = 'alerts';
-  private static $schemaReady = false;
+  private $schemaReady = false;
 
   public function ensureSchema() {
-    if (self::$schemaReady) return;
+    if ($this->schemaReady) return;
     $this->db->query("CREATE TABLE IF NOT EXISTS alerts (
       id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
       fingerprint CHAR(64) NOT NULL,
@@ -28,7 +28,14 @@ class StockAlert extends BaseModel {
       KEY ix_alerts_entity (entity_type, entity_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci");
     $this->db->exe();
-    self::$schemaReady = true;
+    $this->db->query('SHOW COLUMNS FROM alerts');
+    $columns = array_column($this->db->getAll(), 'Field');
+    foreach (['revision'=>'BIGINT UNSIGNED NOT NULL DEFAULT 1', 'changed_at'=>'DATETIME NULL', 'payload'=>'LONGTEXT NULL'] as $name=>$definition) {
+      if (in_array($name,$columns,true)) continue;
+      try { $this->db->query("ALTER TABLE alerts ADD COLUMN {$name} {$definition}"); $this->db->exe(); }
+      catch (PDOException $e) { if ((int)($e->errorInfo[1] ?? 0) !== 1060) throw $e; }
+    }
+    $this->schemaReady = true;
   }
 
   public function reconcileShop($shopId) {
@@ -49,32 +56,37 @@ class StockAlert extends BaseModel {
       $stock = (int)$product['total_stock'];
       $severity = $stock === 0 ? 'urgent' : 'warning';
       $nextAction = $stock === 0 ? 'Segera restock atau nonaktifkan produk.' : 'Pantau stok dan siapkan restock.';
-      if (isset($existing[$fingerprint])) {
-        $row = $existing[$fingerprint];
-        $acknowledged = !empty($row['resolved_at']) ? null : $row['acknowledged_at'];
-        $this->db->query("UPDATE alerts SET severity = :severity, last_seen_at = NOW(), acknowledged_at = :acknowledged_at, resolved_at = NULL, next_action = :next_action WHERE id = :id");
-        $this->db->bind('severity', $severity);
-        $this->db->bind('acknowledged_at', $acknowledged);
-        $this->db->bind('next_action', $nextAction);
-        $this->db->bind('id', (int)$row['id']);
-        $this->db->exe();
-      } else {
-        $this->db->query("INSERT INTO alerts (fingerprint, shop_id, severity, type, entity_type, entity_id, first_seen_at, last_seen_at, next_action) VALUES (:fingerprint, :shop_id, :severity, 'low_stock', 'product', :entity_id, NOW(), NOW(), :next_action)");
-        $this->db->bind('fingerprint', $fingerprint);
-        $this->db->bind('shop_id', $shopId);
-        $this->db->bind('severity', $severity);
-        $this->db->bind('entity_id', $productId);
-        $this->db->bind('next_action', $nextAction);
-        $this->db->exe();
-      }
+      $this->putAlert($shopId, 'low_stock', 'product', $productId, $severity, [
+        'title'=>$stock === 0 ? 'Stok habis' : 'Stok kritis', 'message'=>$product['name'].' · stok '.$stock,
+        'action_label'=>'Periksa produk', 'path'=>'/panel/products?shop_id='.$shopId.'&stock=critical&highlight='.rawurlencode($productId),
+        'icon'=>'inventory_2', 'stage'=>0, 'source_at'=>gmdate('Y-m-d H:i:s'), 'next_action'=>$nextAction
+      ]);
     }
     foreach ($existing as $fingerprint => $row) {
       if (isset($seen[$fingerprint]) || !empty($row['resolved_at'])) continue;
-      $this->db->query("UPDATE alerts SET resolved_at = NOW() WHERE id = :id");
+      $this->db->query("UPDATE alerts SET resolved_at = UTC_TIMESTAMP() WHERE id = :id");
       $this->db->bind('id', (int)$row['id']);
       $this->db->exe();
     }
     return count($products);
+  }
+
+  public function putAlert(int $shopId, string $type, string $entityType, string $entityId, string $severity, array $payload): void {
+    $this->ensureSchema();
+    $escalates = "(resolved_at IS NOT NULL OR (severity <> 'urgent' AND VALUES(severity) = 'urgent') OR COALESCE(JSON_EXTRACT(payload,'$.stage'),0) < COALESCE(JSON_EXTRACT(VALUES(payload),'$.stage'),0))";
+    $this->db->query("INSERT INTO alerts (fingerprint,shop_id,type,entity_type,entity_id,severity,payload,next_action,first_seen_at,last_seen_at,changed_at)
+      VALUES (:fingerprint,:shop,:type,:entity_type,:entity_id,:severity,:payload,:action,UTC_TIMESTAMP(),UTC_TIMESTAMP(),UTC_TIMESTAMP())
+      ON DUPLICATE KEY UPDATE revision=revision+IF({$escalates},1,0), changed_at=IF({$escalates},UTC_TIMESTAMP(),changed_at),
+      acknowledged_at=IF({$escalates},NULL,acknowledged_at), silenced_until=IF({$escalates},NULL,silenced_until),
+      occurrence_count=occurrence_count+IF(resolved_at IS NOT NULL,1,0), resolved_at=NULL,
+      severity=VALUES(severity),payload=VALUES(payload),next_action=VALUES(next_action),last_seen_at=UTC_TIMESTAMP()");
+    foreach (['fingerprint'=>hash('sha256',$type.':'.$shopId.':'.$entityId),'shop'=>$shopId,'type'=>$type,'entity_type'=>$entityType,'entity_id'=>$entityId,'severity'=>$severity,'payload'=>json_encode($payload,JSON_UNESCAPED_UNICODE),'action'=>$payload['next_action'] ?? $payload['action_label']] as $key=>$value) $this->db->bind($key,$value);
+    $this->db->exe();
+  }
+
+  public function resolveAlert(int $shopId, string $type, string $entityId): void {
+    $this->db->query('UPDATE alerts SET resolved_at=UTC_TIMESTAMP() WHERE fingerprint=:fingerprint AND resolved_at IS NULL');
+    $this->db->bind('fingerprint',hash('sha256',$type.':'.$shopId.':'.$entityId)); $this->db->exe();
   }
 
   public function summary() {
@@ -95,6 +107,7 @@ class StockAlert extends BaseModel {
     $limit = max(1, min(100, (int)$limit));
     $where = ["a.resolved_at IS NULL"];
     if ((int)$shopId > 0) $where[] = 'a.shop_id = :shop_id';
+    $where[] = '(a.silenced_until IS NULL OR a.silenced_until <= UTC_TIMESTAMP())';
     if ($unreadOnly) $where[] = 'a.acknowledged_at IS NULL';
     $this->db->query("SELECT a.id, a.shop_id, s.name AS shop_name, a.severity, a.type, a.entity_id, p.name AS product_name, p.total_stock, a.first_seen_at, a.last_seen_at, a.acknowledged_at, a.next_action FROM alerts a LEFT JOIN shops s ON s.id = a.shop_id LEFT JOIN products p ON p.id = a.entity_id AND p.shop_id = a.shop_id WHERE " . implode(' AND ', $where) . " ORDER BY CASE WHEN a.severity = 'urgent' THEN 0 ELSE 1 END, a.last_seen_at DESC LIMIT {$limit}");
     if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);

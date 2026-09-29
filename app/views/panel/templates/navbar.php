@@ -18,16 +18,23 @@
         <li><button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false"><span class="material-symbols-outlined text-base">dark_mode</span><span class="flex-1 text-left">Gelap</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
       </ul>
     </div>
-    <div class="dropdown dropdown-end" id="notification-menu">
-      <button type="button" id="notification-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Notifikasi" aria-expanded="false" aria-controls="notification-panel" tabindex="0">
+    <div id="notification-menu" data-endpoint="<?= htmlspecialchars(burl.'/procnotifications',ENT_QUOTES,'UTF-8'); ?>" data-base="<?= htmlspecialchars(burl,ENT_QUOTES,'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(),ENT_QUOTES,'UTF-8'); ?>">
+      <button type="button" id="notification-button" class="btn btn-ghost btn-square" aria-label="Notifikasi" aria-expanded="false" aria-controls="notification-panel">
         <span class="material-symbols-outlined notification-bell-icon" aria-hidden="true">notifications</span>
-        <span id="notification-badge" class="badge badge-error absolute hidden text-error-content" aria-live="polite" aria-atomic="true">0</span>
+        <span id="notification-badge" hidden>0</span>
       </button>
-      <div id="notification-panel" tabindex="-1" aria-label="Daftar notifikasi" class="dropdown-content z-50 mt-2 overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 p-0 shadow-2xl">
-        <div class="flex items-center justify-between gap-3 border-b border-base-content/10 px-4 py-3"><div class="min-w-0"><div class="text-sm font-black">Notifikasi</div><div id="notification-summary" aria-live="polite" class="text-[10px] text-base-content/60">Memuat...</div></div><button type="button" id="notification-mark-all" class="btn btn-ghost btn-sm min-h-10 shrink-0 px-3">Tandai dibaca</button></div>
-        <div id="notification-list" class="max-h-[min(24rem,70vh)] overflow-y-auto p-2"><div class="px-3 py-8 text-center text-xs text-base-content/50">Memuat notifikasi...</div></div>
-        <div class="border-t border-base-content/10 px-4 py-2.5 text-center"><a href="<?= burl; ?>/panel" class="text-[11px] font-bold text-primary">Buka dashboard</a></div>
-      </div>
+      <span id="notification-live" class="sr-only" role="status" aria-atomic="true"></span>
+      <section id="notification-panel" aria-label="Notifikasi" hidden>
+        <header class="notification-heading"><div><h2>Notifikasi</h2><p id="notification-summary">Memuat notifikasi…</p></div><button type="button" id="notification-close" class="btn" aria-label="Tutup notifikasi"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></header>
+        <div class="notification-toolbar">
+          <div class="notification-filters" role="group" aria-label="Tampilkan notifikasi"><button type="button" data-notification-filter="new" aria-pressed="true">Baru</button><button type="button" data-notification-filter="active" aria-pressed="false">Semua aktif</button></div>
+          <button type="button" id="notification-reload" class="btn" aria-label="Muat ulang notifikasi"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
+        </div>
+        <p id="notification-error" role="alert" tabindex="-1" hidden></p>
+        <p id="notification-source-warning" hidden>Pemeriksaan terbaru belum berhasil. Menampilkan notifikasi tersimpan.</p>
+        <div id="notification-list"><p class="notification-empty">Memuat notifikasi…</p></div>
+        <footer class="notification-footer"><button type="button" id="notification-mark-all" class="btn">Tandai daftar dibaca</button><p>Dibaca hanya untuk akun Anda; masalah tetap aktif sampai selesai.</p><div class="notification-pagination"><button type="button" id="notification-prev" class="btn" aria-label="Halaman notifikasi sebelumnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_left</span></button><span id="notification-page-status"></span><button type="button" id="notification-next" class="btn" aria-label="Halaman notifikasi berikutnya" disabled><span class="material-symbols-outlined" aria-hidden="true">chevron_right</span></button></div></footer>
+      </section>
     </div>
     <div id="sync-detail-card" class="hidden h-9 max-w-[205px] items-center gap-2 rounded-lg border border-primary/15 bg-primary/8 px-2.5 transition-all duration-300">
       <span class="loading loading-spinner loading-xs text-primary"></span>
@@ -52,61 +59,7 @@
     </div>
   </div>
 </div>
-<style>
-  #notification-button {
-    width: 2.75rem;
-    height: 2.75rem;
-    min-height: 2.75rem;
-    overflow: visible;
-  }
-  #notification-button:focus-visible,
-  #notification-mark-all:focus-visible,
-  #notification-panel a:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-  .notification-bell-icon { font-size: 1.45rem; line-height: 1; }
-  #notification-badge {
-    top: -0.2rem;
-    right: -0.25rem;
-    z-index: 2;
-    min-width: 1.2rem;
-    height: 1.2rem;
-    padding: 0 0.25rem;
-    border: 2px solid var(--color-base-100);
-    border-radius: 999px;
-    font-size: 0.625rem;
-    font-weight: 800;
-    line-height: 1;
-    white-space: nowrap;
-    box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
-  }
-  #notification-panel {
-    width: min(23rem, calc(100vw - 1rem));
-    max-height: min(32rem, calc(100vh - 5rem));
-    max-height: min(32rem, calc(100dvh - 5rem - env(safe-area-inset-top)));
-  }
-  #notification-list { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-  @media (max-width: 639px) {
-    .panel-navbar-actions { gap: 0.25rem; }
-    #notification-button { width: 2.75rem; height: 2.75rem; }
-    #notification-panel {
-      position: fixed;
-      inset: calc(3.75rem + env(safe-area-inset-top)) 0.5rem auto auto;
-      left: 0.5rem;
-      right: 0.5rem;
-      width: auto;
-      max-width: none;
-      max-height: calc(100dvh - 4.5rem - env(safe-area-inset-top));
-      margin: 0;
-    }
-    #notification-panel > div:first-child { padding: 0.75rem; }
-    #notification-list { max-height: calc(100dvh - 11rem - env(safe-area-inset-top)); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    #notification-panel, #notification-panel * { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
-  }
-</style>
+
 <script>
 (() => {
   const drawer = document.getElementById('panel-drawer');
@@ -144,34 +97,6 @@
   window.addEventListener('shopdash:theme', event => renderTheme(event.detail?.mode));
   renderTheme();
 
-  const badge = document.getElementById('notification-badge');
-  const summary = document.getElementById('notification-summary');
-  const list = document.getElementById('notification-list');
-  const markAll = document.getElementById('notification-mark-all');
-  const number = value => new Intl.NumberFormat('id-ID').format(Number(value || 0));
-  const esc = value => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#039;','"':'&quot;'}[c]));
-  const date = value => value ? new Date(String(value).replace(' ', 'T') + 'Z').toLocaleString('id-ID', {day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit'}) : '-';
-  function render(payload) {
-    const unread = Number(payload.unread_count || 0);
-    if (badge) {
-      badge.textContent = unread > 99 ? '99+' : String(unread);
-      badge.classList.toggle('hidden', unread < 1);
-      const accessibleCount = unread > 99 ? '99 lebih' : number(unread);
-      document.getElementById('notification-button')?.setAttribute('aria-label', unread ? `Notifikasi, ${accessibleCount} belum dibaca` : 'Notifikasi');
-    }
-    const s = payload.summary || {};
-    if (summary) summary.textContent = unread ? `${number(unread)} belum dibaca · ${number(s.urgent)} urgent` : 'Tidak ada notifikasi baru';
-    const rows = payload.notifications || [];
-    if (list) list.innerHTML = rows.length ? rows.map(item => {
-      const urgent = item.severity === 'urgent';
-      const href = '<?= burl; ?>/panel/products?shop_id=' + encodeURIComponent(item.shop_id) + '&stock=critical&highlight=' + encodeURIComponent(item.entity_id || '');
-      return `<a href="${href}" data-alert-id="${item.id}" class="block rounded-xl px-3 py-3 transition-colors hover:bg-base-200"><div class="flex items-start gap-2.5"><span class="material-symbols-outlined mt-0.5 text-[19px] ${urgent ? 'text-error' : 'text-warning'}">${urgent ? 'error' : 'warning'}</span><div class="min-w-0 flex-1"><div class="flex items-start justify-between gap-2"><strong class="truncate text-xs">${esc(item.product_name || 'Produk')}</strong><span class="badge ${urgent ? 'badge-error' : 'badge-warning'} badge-xs shrink-0">${urgent ? 'Habis' : 'Kritis'}</span></div><div class="mt-1 text-[10px] text-base-content/55">${esc(item.shop_name || ('Toko #' + item.shop_id))} · stok <strong class="text-base-content">${number(item.total_stock)}</strong></div><div class="mt-1 text-[10px] text-base-content/45">${date(item.last_seen_at)}</div></div></div></a>`;
-    }).join('') : '<div class="px-3 py-8 text-center text-xs text-base-content/50"><span class="material-symbols-outlined mb-1 block text-3xl text-success">check_circle</span>Semua stok aman.</div>';
-  }
-  function load() { fetch('<?= burl; ?>/procnotifications/summary', {headers:{'X-Requested-With':'XMLHttpRequest'}, cache:'no-store'}).then(r => r.json()).then(data => { if (data.status === 'success') render(data); }).catch(() => { if (summary) summary.textContent = 'Notifikasi tidak tersedia'; }); }
-  document.addEventListener('click', event => { const item = event.target.closest('[data-alert-id]'); if (!item) return; const fd = new FormData(); fd.append('id', item.dataset.alertId); fetch('<?= burl; ?>/procnotifications/acknowledge', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}, body:fd}).catch(() => {}); });
-  if (markAll) markAll.addEventListener('click', event => { event.preventDefault(); event.stopPropagation(); fetch('<?= burl; ?>/procnotifications/acknowledge_all', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}}).then(() => load()).catch(() => {}); });
-  load();
-  window.setInterval(load, 30000);
 })();
 </script>
+<script src="<?= assets; ?>/js/notifications.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/notifications.js'); ?>" defer></script>
