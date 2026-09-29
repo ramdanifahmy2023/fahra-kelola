@@ -30,6 +30,14 @@ proses background melalui LaunchAgent, jadi status toko tidak bergantung pada me
 
 ## Git workflow
 
+### Penempatan file
+
+Ikuti struktur proyek yang sudah ada sebelum membuat file. Simpan dokumentasi teknis,
+audit, dan catatan verifikasi di `ops/`, pengujian di `tests/`, serta hasil sementara
+dan screenshot pengujian di `tmp/` yang tidak masuk Git. Gunakan nama file deskriptif
+dengan huruf kecil dan tanda hubung. Perbarui dokumen yang relevan bila sudah ada;
+jangan membuat catatan lepas di root proyek atau folder induknya.
+
 Commit each completed change with a clear message, then push the branch to the private GitHub repository:
 
 ```sh

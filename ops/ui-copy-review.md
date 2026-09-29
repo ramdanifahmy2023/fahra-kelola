@@ -2,6 +2,8 @@
 
 29 September 2026
 
+Audit awal: [Audit teks UI](ui-ux-audit-20260929.md).
+
 Arahan pengguna: kurangi teks keterangan agar halaman operasional lebih cepat dipindai. Pertahankan tampilan yang ada, angka, filter, label input, periode, serta peringatan yang memengaruhi keputusan pengguna. UI UX Pro Max dipakai sebagai panduan UX dan antislop sebagai filter teks berulang.
 
 Perubahan:
