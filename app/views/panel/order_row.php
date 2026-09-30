@@ -55,7 +55,7 @@ $needsSync = empty($ord['order_sn'])
         ?>
         <div class="flex items-start gap-2">
            <?php if($itemImg): ?>
-           <img src="<?= htmlspecialchars($itemImg); ?>" class="w-8 h-8 rounded object-cover border border-base-200 shrink-0" />
+           <img src="<?= htmlspecialchars($itemImg); ?>" alt="<?= htmlspecialchars('Produk: ' . $itemName, ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded object-cover border border-base-200 shrink-0" />
            <?php else: ?>
            <div class="w-8 h-8 rounded bg-base-200 border border-base-300 shrink-0 flex items-center justify-center">
              <span class="material-symbols-outlined text-[14px] opacity-50">image</span>

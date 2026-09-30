@@ -558,7 +558,7 @@
 #extensions-page .extension-download > p { margin-top: 10px; color: var(--sd-muted); font-size: .75rem; }
 #extensions-page .extensions-button { display: inline-flex; align-items: center; justify-content: center; flex-wrap: wrap; width: 100%; min-height: 46px; gap: 8px; padding: 11px 16px; border: 1px solid; border-radius: 12px; font-size: .875rem; font-weight: 700; line-height: 1.5; text-align: center; text-decoration: none; cursor: pointer; transition: background-color 150ms ease; }
 #extensions-page .extensions-button-primary { background: var(--color-primary); color: var(--color-primary-content); border-color: var(--color-primary-content); }
-#extensions-page .extensions-button-primary:hover { background: #f39b40; }
+#extensions-page .extensions-button-primary:hover { background: var(--color-secondary); }
 #extensions-page .extensions-button-secondary { background: var(--color-base-100); color: var(--color-base-content); border-color: var(--sd-muted); }
 #extensions-page .extensions-button-secondary:hover { background: var(--color-base-200); }
 #extensions-page .extensions-sections { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 12px; }
@@ -731,7 +731,7 @@
   .login-password-toggle:hover { background: var(--sd-tile-cream); color: var(--sd-ink); }
   .login-password-toggle .material-symbols-outlined { font-size: 1.05rem; }
   .login-submit { display: flex; min-height: 3.25rem; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1.15rem; padding: 0 1rem 0 1.15rem; border: 0; border-radius: .7rem; background: var(--sd-accent); color: var(--sd-ink); font-size: .8rem; font-weight: 900; cursor: pointer; box-shadow: .28rem .28rem 0 var(--sd-accent-2); transition: transform .2s ease, background .2s ease; }
-  .login-submit:hover { transform: translateY(-2px); background: #f39b40; }
+  .login-submit:hover { transform: translateY(-2px); background: var(--sd-accent-2); }
   .login-submit:focus-visible, .login-back:focus-visible, .login-password-toggle:focus-visible { outline: 2px solid var(--sd-accent); outline-offset: 3px; }
   .login-submit .material-symbols-outlined { font-size: 1.1rem; }
   .login-back { display: inline-flex; align-items: center; gap: .4rem; margin-top: 1.8rem; color: var(--sd-muted); font-size: .72rem; font-weight: 750; }
