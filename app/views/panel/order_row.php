@@ -62,7 +62,7 @@ $needsSync = empty($ord['order_sn'])
            </div>
            <?php endif; ?>
            <div class="flex-1 min-w-0">
-             <div class="js-floating-tooltip text-[11px] font-medium leading-tight line-clamp-2" data-tip="<?= htmlspecialchars($itemName); ?>"><?= htmlspecialchars($itemName); ?></div>
+             <div class="order-item-name"><?= htmlspecialchars($itemName); ?></div>
              <div class="text-[10px] opacity-70 mt-0.5">
                 <?php if($itemVar): ?>Var: <?= htmlspecialchars($itemVar); ?> | <?php endif; ?>Qty: <?= $itemQty; ?>
              </div>
@@ -153,7 +153,7 @@ $needsSync = empty($ord['order_sn'])
       <div class="flex min-w-[150px] flex-col items-start gap-1">
         <span class="badge <?= $statusBadge ?> badge-sm gap-1"><span class="h-1.5 w-1.5 rounded-full <?= $statusDot ?>"></span><?= htmlspecialchars($displayStatus); ?></span>
         <?php if (!empty($ord['status_description'])): ?>
-          <div class="js-floating-tooltip max-w-[150px] truncate text-[10px] text-error" data-tip="<?= htmlspecialchars($ord['status_description']); ?>">
+          <div class="order-status-description">
             <?= htmlspecialchars($ord['status_description']); ?>
           </div>
         <?php endif; ?>

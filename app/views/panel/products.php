@@ -1,3 +1,4 @@
+<section id="products-page" aria-label="Produk toko">
 <!-- Loading Overlay -->
 <div id="page-loader" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
   <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
@@ -45,18 +46,17 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 <?php if (!empty($data['focused_product_id'])): ?><div class="workspace-focus">Menampilkan produk dari pencarian atau notifikasi.<a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$data['active_shop_id']; ?>&stock=all&page=1">Lihat semua produk toko</a></div><?php endif; ?>
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
-  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
-  <div class="overflow-x-auto">
-    <table class="table w-full">
+  <div class="product-table-scroll overflow-x-auto">
+    <table role="table" class="product-table table w-full" aria-label="Daftar produk toko">
       <!-- head -->
       <thead class="bg-base-200/50 text-base-content">
         <tr>
-          <th>Nama Produk</th>
-          <th>Toko</th>
-          <th class="text-right">Harga</th>
-          <th class="text-center">Stok</th>
-          <th>Status</th>
-          <th class="text-center w-32">Aksi</th>
+          <th scope="col">Nama Produk</th>
+          <th scope="col">Toko</th>
+          <th scope="col" class="text-right">Harga tercatat</th>
+          <th scope="col" class="text-center">Stok</th>
+          <th scope="col">Status</th>
+          <th scope="col" class="text-center w-32">Aksi</th>
         </tr>
       </thead>
       <tbody>
@@ -73,52 +73,52 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
         <?php foreach ($data['products'] as $p): ?>
         <?php $productName = trim(str_replace(['<', '>'], '', (string)$p['name'])); ?>
         <tr id="product-<?= (int)$p['id']; ?>" class="hover">
-          <td>
-            <div class="flex items-center gap-3">
+          <td class="product-identity-cell">
+            <div class="product-identity">
               <div class="avatar">
                 <div class="w-12 h-12 rounded bg-base-200 flex items-center justify-center overflow-hidden border border-base-300">
                   <?php if (!empty($p['cover_image'])): ?>
-                    <img src="https://cf.shopee.co.id/file/<?= htmlspecialchars($p['cover_image']); ?>" alt="Product" class="w-full h-full object-cover" />
+                    <img src="https://cf.shopee.co.id/file/<?= htmlspecialchars($p['cover_image']); ?>" alt="" width="48" height="48" loading="lazy" class="product-cover w-full h-full object-cover" />
                   <?php else: ?>
                     <span class="material-symbols-outlined opacity-50">inventory_2</span>
                   <?php endif; ?>
                 </div>
               </div>
-              <div>
-                <div class="js-floating-tooltip w-full max-w-[30rem] truncate font-bold text-sm" data-tip="<?= htmlspecialchars($productName); ?>">
+              <div class="product-identity-copy">
+                <button type="button" class="product-name" data-product-details="<?= (int)$p['id']; ?>" aria-haspopup="dialog">
                   <?= htmlspecialchars($productName); ?>
-                </div>
-                <div class="text-[11px] opacity-60 font-medium">SKU: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
+                </button>
+                <div class="product-sku">SKU: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
               </div>
             </div>
           </td>
-          <td>
+          <td data-label="Toko">
             <div class="flex items-center gap-2">
-               <img src="<?= htmlspecialchars($activeShop['shop_logo'] ?: burl . '/public/assets/images/app_brands/shopee.png'); ?>" class="w-5 h-5 rounded object-cover shadow-sm" />
-               <span class="tooltip tooltip-top text-xs font-medium max-w-[100px] truncate" data-tip="<?= htmlspecialchars($activeShop['name']); ?>"><?= htmlspecialchars($activeShop['name']); ?></span>
+               <?php if (!empty($activeShop['shop_logo'])): ?><img src="<?= htmlspecialchars($activeShop['shop_logo']); ?>" alt="" width="24" height="24" class="product-shop-logo" /><?php else: ?><span class="material-symbols-outlined" aria-hidden="true">storefront</span><?php endif; ?>
+               <span class="product-shop-name"><?= htmlspecialchars($activeShop['name'] ?? 'Toko'); ?></span>
             </div>
           </td>
-          <td class="text-right">
-            <div class="font-semibold text-sm">Rp <?= number_format($p['price_min'], 0, ',', '.'); ?></div>
-            <?php if ($p['has_discount']): ?>
-              <div class="text-[11px] text-base-content/50 line-through">Rp <?= number_format($p['price_max'], 0, ',', '.'); ?></div>
+          <td data-label="Harga tercatat" class="text-right">
+            <div class="font-semibold text-sm"><?= isset($p['price_min']) ? 'Rp ' . number_format($p['price_min'], 0, ',', '.') : 'Belum tersedia'; ?></div>
+            <?php if (isset($p['price_min'], $p['price_max']) && $p['price_max'] > $p['price_min']): ?>
+              <div class="text-sm">sampai Rp <?= number_format($p['price_max'], 0, ',', '.'); ?></div>
             <?php endif; ?>
           </td>
-          <td class="text-center">
+          <td data-label="Stok" class="text-center">
             <span class="font-semibold text-sm <?= $p['total_stock'] == 0 ? 'text-error' : '' ?>"><?= number_format($p['total_stock'], 0, ',', '.'); ?></span>
           </td>
-          <td>
+          <td data-label="Status">
             <?php if ($p['status'] == 1): ?>
-              <span class="badge badge-success badge-sm text-white gap-1"><span class="w-1.5 h-1.5 rounded-full bg-white opacity-80"></span>Aktif</span>
+              <span class="product-state" data-state="active"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Aktif</span>
             <?php elseif ($p['status'] == 2): ?>
-              <span class="badge badge-error badge-sm text-white gap-1"><span class="w-1.5 h-1.5 rounded-full bg-white opacity-80"></span>Habis</span>
+              <span class="product-state" data-state="empty"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span>Habis</span>
             <?php else: ?>
-              <span class="badge badge-ghost badge-sm gap-1"><span class="w-1.5 h-1.5 rounded-full bg-base-content opacity-50"></span>Diarsipkan</span>
+              <span class="product-state" data-state="archived"><span class="material-symbols-outlined" aria-hidden="true">archive</span>Diarsipkan</span>
             <?php endif; ?>
           </td>
-          <td class="text-center">
-            <button class="tooltip tooltip-top btn btn-sm btn-ghost btn-square" data-tip="Detail">
-              <span class="material-symbols-outlined text-[18px]">visibility</span>
+          <td class="product-action-cell text-center">
+            <button type="button" class="btn btn-ghost product-detail-button" data-product-details="<?= (int)$p['id']; ?>" aria-haspopup="dialog" aria-label="Lihat rincian produk <?= htmlspecialchars($productName, ENT_QUOTES, 'UTF-8'); ?>">
+              <span class="material-symbols-outlined" aria-hidden="true">visibility</span><span>Rincian</span>
             </button>
           </td>
         </tr>
@@ -132,7 +132,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
   <div class="p-4 border-t border-base-200 flex items-center justify-between bg-base-100 flex-wrap gap-4">
     <div class="text-sm opacity-70 flex items-center gap-2">
       Menampilkan 
-      <select class="select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200 focus:outline-none" onchange="changeLimit(this.value, <?= $data['active_shop_id'] ?>)">
+      <select aria-label="Jumlah produk per halaman" class="select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200" onchange="changeLimit(this.value, <?= (int)$data['active_shop_id']; ?>)">
         <option value="10" <?= $data['limit'] == 10 ? 'selected' : '' ?>>10</option>
         <option value="20" <?= $data['limit'] == 20 ? 'selected' : '' ?>>20</option>
         <option value="50" <?= $data['limit'] == 50 ? 'selected' : '' ?>>50</option>
@@ -173,6 +173,16 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
     <?php endif; ?>
   </div>
 </div>
+
+<?php foreach (($data['products'] ?? []) as $p): ?>
+<template id="product-detail-<?= (int)$p['id']; ?>"><?php require __DIR__ . '/templates/product-detail.php'; ?></template>
+<?php endforeach; ?>
+<dialog id="product-detail-dialog" aria-labelledby="product-detail-title">
+  <header><h2 id="product-detail-title">Rincian produk</h2><button type="button" class="btn btn-ghost btn-square" id="product-detail-close" aria-label="Tutup rincian produk"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></header>
+  <div id="product-detail-content"></div>
+</dialog>
+</section>
+<script src="<?= assets; ?>/js/product-details.js?v=<?= filemtime(__DIR__.'/../../../public/assets/js/product-details.js'); ?>" defer></script>
 
 <script>
 let productSyncController = null;

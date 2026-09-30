@@ -1,3 +1,4 @@
+<section id="shops-page" aria-label="Toko terhubung">
 <!-- Page Header -->
 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <div class="min-w-0">
@@ -13,19 +14,18 @@
 
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
-  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
-  <div class="overflow-x-auto">
-    <table class="table w-full">
+  <div class="shop-table-scroll overflow-x-auto">
+    <table role="table" class="shop-table table w-full" aria-label="Daftar toko terhubung">
       <!-- head -->
       <thead class="bg-base-200/50 text-base-content">
         <tr>
-          <th>Nama Toko & Kontak</th>
-          <th>ID Toko</th>
-          <th class="text-right">Saldo Toko</th>
-          <th class="text-right">Kredit Iklan</th>
-          <th class="text-center">Jumlah Produk</th>
-          <th>Status</th>
-          <th class="text-center w-32">Aksi</th>
+          <th scope="col">Nama Toko & Kontak</th>
+          <th scope="col">ID Toko</th>
+          <th scope="col" class="text-right">Saldo Toko</th>
+          <th scope="col" class="text-right">Kredit Iklan</th>
+          <th scope="col" class="text-center">Jumlah Produk</th>
+          <th scope="col">Status</th>
+          <th scope="col" class="text-center w-32">Aksi</th>
         </tr>
       </thead>
       <tbody>
@@ -40,8 +40,9 @@
         </tr>
         <?php else: ?>
         <?php foreach ($data['shops'] as $shop): ?>
+        <?php $shopActionName = htmlspecialchars(json_encode($shop['name'] ?: 'Toko Belum Sinkron', JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>
         <tr class="hover" id="shop-<?= (int)$shop['id']; ?>">
-          <td>
+          <td class="shop-identity-cell">
             <div class="flex items-center gap-3">
               <div class="avatar">
                 <div class="w-10 h-10 rounded-lg bg-base-200 text-base-content flex items-center justify-center overflow-hidden">
@@ -58,34 +59,34 @@
               </div>
             </div>
           </td>
-          <td class="font-semibold text-xs opacity-70">
+          <td data-label="ID Toko" class="font-semibold text-xs opacity-70">
             <?= htmlspecialchars($shop['shop_id'] ?: '-'); ?>
           </td>
-          <td class="text-right font-semibold text-sm">
+          <td data-label="Saldo Toko" class="text-right font-semibold text-sm">
             Rp <?= number_format($shop['balances'] ?? 0, 0, ',', '.'); ?>
           </td>
-          <td class="text-right font-semibold text-sm">
+          <td data-label="Kredit Iklan" class="text-right font-semibold text-sm">
             Rp <?= number_format($shop['ads_credit'] ?? 0, 0, ',', '.'); ?>
           </td>
-          <td class="text-center font-semibold text-sm opacity-80">
+          <td data-label="Jumlah Produk" class="text-center font-semibold text-sm opacity-80">
             <?= $shop['total_products'] ?? 0; ?>
           </td>
-          <td>
+          <td data-label="Status">
             <?php if ($shop['sync_status'] === 'connected'): ?>
-              <span class="badge badge-success badge-sm text-success-content font-medium px-2 py-2.5">Aktif</span>
+              <span class="badge badge-sm shop-connection-state font-medium px-2 py-2.5" data-connection="connected"><span class="material-symbols-outlined" aria-hidden="true">check_circle</span>Terhubung</span>
             <?php elseif ($shop['sync_status'] === 'expired'): ?>
-              <span class="badge badge-error badge-sm text-error-content font-medium px-2 py-2.5">Koneksi Putus</span>
+              <span class="badge badge-sm shop-connection-state font-medium px-2 py-2.5" data-connection="expired"><span class="material-symbols-outlined" aria-hidden="true">link_off</span>Koneksi Putus</span>
             <?php else: ?>
               <span class="badge badge-ghost badge-sm font-medium px-2 py-2.5"><?= htmlspecialchars(ucfirst($shop['sync_status'] ?: 'Unknown')); ?></span>
             <?php endif; ?>
           </td>
-          <td class="text-center">
+          <td class="shop-action-cell text-center">
             <div class="flex items-center justify-center gap-1">
-              <button onclick="triggerEditCookie(<?= $shop['id']; ?>, '<?= addslashes(htmlspecialchars($shop['name'] ?: 'Toko Belum Sinkron')); ?>')" class="btn btn-sm btn-ghost btn-square text-warning tooltip" data-tip="Update Cookie">
-                <span class="material-symbols-outlined text-[18px]">key</span>
+              <button type="button" onclick="triggerEditCookie(<?= (int)$shop['id']; ?>, <?= $shopActionName; ?>)" class="btn btn-sm btn-ghost shop-connection-action" aria-label="Perbarui koneksi <?= htmlspecialchars($shop['name'] ?: 'Toko', ENT_QUOTES, 'UTF-8'); ?>">
+                <span class="material-symbols-outlined" aria-hidden="true">key</span><span>Perbarui koneksi</span>
               </button>
-              <button onclick="confirmDelete(<?= $shop['id']; ?>, '<?= addslashes(htmlspecialchars($shop['name'] ?: 'Toko Belum Sinkron')); ?>', '/procshops/delete')" class="btn btn-sm btn-ghost btn-square text-error tooltip" data-tip="Hapus">
-                <span class="material-symbols-outlined text-[18px]">delete</span>
+              <button type="button" onclick="confirmDelete(<?= (int)$shop['id']; ?>, <?= $shopActionName; ?>, '/procshops/delete')" class="btn btn-sm btn-ghost btn-square" aria-label="Hapus toko <?= htmlspecialchars($shop['name'] ?: 'Toko', ENT_QUOTES, 'UTF-8'); ?>">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
               </button>
             </div>
           </td>
@@ -238,3 +239,4 @@ document.addEventListener('DOMContentLoaded', function() {
     runQueue();
 });
 </script>
+</section>
