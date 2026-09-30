@@ -141,6 +141,18 @@ class Panel extends Controller {
     $validShopIds=array_map('intval',array_column($data['shops'],'id'));
     if (!in_array((int)$activeShopId,$validShopIds,true)) $activeShopId=$validShopIds[0] ?? 0;
     $data['active_shop_id'] = $activeShopId;
+
+    if (($_GET['view'] ?? '') === 'movement') {
+      $today = new DateTimeImmutable('today', new DateTimeZone('Asia/Jakarta'));
+      $start = $today->modify('-29 days')->format('Y-m-d');
+      $data['movement'] = $activeShopId ? $this->m('Product')->movementSummary((int)$activeShopId, $start, $today->format('Y-m-d')) : ['rows'=>[],'summary'=>[],'days'=>0];
+      $data['movement_shop_name'] = '';
+      foreach ($data['shops'] as $shop) if ((int)$shop['id'] === (int)$activeShopId) { $data['movement_shop_name'] = $shop['name']; break; }
+      $this->v('panel/templates/header', $data);
+      $this->v('panel/product-movement', $data);
+      $this->v('panel/templates/footer', $data);
+      return;
+    }
     
     // Pagination Logic
     $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;

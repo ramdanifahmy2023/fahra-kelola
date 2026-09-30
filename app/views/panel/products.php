@@ -33,6 +33,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
   </div>
   <div id="product-toolbar" class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
   <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>
+  <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>&view=movement" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">monitoring</span>Pergerakan produk</a>
   <button type="button" class="product-sync-action btn btn-primary btn-sm w-full gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
     <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
   </button>
