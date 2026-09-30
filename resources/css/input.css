@@ -1128,3 +1128,38 @@
   .product-detail-image { width: 48px; height: 48px; }
   .product-detail-facts { grid-template-columns: minmax(0,1fr); }
 }
+
+/* Product movement: store context, category filters, and compact mobile records. */
+#product-movement-page { min-width: 0; }
+.movement-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; width: 100%; }
+.movement-toolbar > a { min-height: 44px; }
+.movement-shop { flex: 1 1 220px; min-width: 0; }
+.movement-shop > label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+.movement-filters { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; margin-bottom: 20px; }
+.movement-filters > a { min-width: 0; min-height: 112px; text-decoration: none; }
+.movement-filters > a:last-child { grid-column: 1 / -1; min-height: 44px; display: flex; align-items: center; gap: 12px; }
+.movement-filters > a:last-child strong { margin: 0; font-size: 16px; }
+.movement-filters > a:active { background: var(--color-base-200); }
+.movement-guide { margin-bottom: 20px; padding: 14px 0; border-block: 1px solid var(--color-base-300); }
+.movement-guide summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.movement-guide summary::after { content: '+'; margin-left: auto; }
+.movement-guide[open] summary::after { content: '−'; }
+.movement-guide p { max-width: 72ch; padding-bottom: 8px; line-height: 1.6; }
+.movement-table { font-variant-numeric: tabular-nums; }
+.movement-table td { white-space: normal; }
+.movement-table td:first-child { overflow-wrap: anywhere; }
+@media (min-width: 640px) {
+  .movement-toolbar { width: auto; flex: 0 1 400px; }
+  .movement-filters { grid-template-columns: repeat(5,minmax(0,1fr)); }
+  .movement-filters > a:last-child { grid-column: auto; display: block; min-height: 112px; }
+  .movement-filters > a:last-child strong { margin-top: 8px; font-size: 20px; }
+}
+@media (max-width: 639px) {
+  .movement-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .movement-table, .movement-table tbody { display: block; width: 100%; }
+  .movement-table tr { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 16px; padding: 16px; border-bottom: 1px solid var(--color-base-300); }
+  .movement-table tr:last-child { border-bottom: 0; }
+  .movement-table td { display: block; padding: 0; border: 0; text-align: left; min-width: 0; }
+  .movement-table td:first-child, .movement-table td:nth-child(2) { grid-column: 1 / -1; }
+  .movement-table td:nth-child(n+3)::before { content: attr(data-label); display: block; margin-bottom: 4px; font-size: 12px; }
+}
