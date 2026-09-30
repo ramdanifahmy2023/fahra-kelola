@@ -1,6 +1,6 @@
 # Frontend comfort follow-up, 30 September 2026
 
-Status: implemented in worktree `feature/frontend-comfort-followup`, based on main `03254e4`. Native browser verification is blocked; this change is not ready to merge or deploy. The earlier audit is on branch `audit/frontend-comfort-20260930` at `anti-slop/audit-001-2026-09-30.md`.
+Status: implemented in worktree `feature/frontend-comfort-followup`, based on main `03254e4`, then approved by the user for integration into main on 30 September 2026 with the instruction “gabungkan ke main”. Native browser verification remains blocked and pending; integration must not be described as completed browser verification or a verified public deployment. The earlier audit is on branch `audit/frontend-comfort-20260930` at `anti-slop/audit-001-2026-09-30.md`.
 
 ## Scope after the other agents' updates
 
@@ -29,12 +29,12 @@ No business API, database record, preference, schedule, or worker was modified b
 
 The current execution sandbox refuses `php -S` with “Operation not permitted”. Playwright Chromium launch fails at the macOS MachPort bootstrap with “Permission denied (1100)”. The Computer Use tool rejects selecting Chrome with “Computer Use was not approved to use Google Chrome”. No browser result is claimed.
 
-Antislop R-35 requires “Exercise every interactive element” and “Check every theme and the mobile breakpoints”. R-03, R-25, R-32 and R-34 also need real layout/contrast/keyboard/theme checks. The delivery gate is therefore pending, not passed; do not merge or present this as a finished UI.
+Antislop R-35 requires “Exercise every interactive element” and “Check every theme and the mobile breakpoints”. R-03, R-25, R-32 and R-34 also need real layout/contrast/keyboard/theme checks. The delivery gate remains pending. The user's later explicit merge instruction takes precedence over the earlier hold; no browser check is claimed passed by that instruction.
 
 `php tests/frontend-comfort-render.php --preview > tmp/frontend-comfort/preview.html` creates an ignored standalone synthetic preview. It strips operational scripts and links; it contains no credentials or real shop/customer records. Its UI can run layout/dialog checks over five fixtures, widths 320/500/999/1600 and both themes once a browser is available. It also permits manual keyboard and zoom checks. No live endpoint is required for this first pass.
 
 Then run existing Products and workspace-comfort browser tests on a server for this worktree with synthetic sessions and mocked writes. Check actual product filtering, retained shop/page context, long names, missing images, close/Escape/focus, the existing order dialog, mobile labels, theme contrast and 200% zoom. Test shop add/connection dialogs without saving; preserve delete confirmation without submitting. Compare header/chat/notifications and ensure no global style regression. Do not assume the old 17px Shops page overflow is fixed until measured in the full panel shell.
 
-Before integration, inspect current main and other worktrees again, merge any new upstream commits into this branch, rebuild generated CSS, and rerun relevant checks. Keep this work isolated until the remaining gate passes.
+Integration checks: main was clean and remained at `03254e4`, an ancestor of this branch. The 15 database-free render checks and JavaScript unit checks passed again immediately before integration. Remote fetch failed because github.com could not be resolved, so the comparison is against local main; new remote-only commits could not be checked. The shared compiled CSS was already generated from the complete source containing the other agents' changes.
 
-The attempted `git push -u origin feature/frontend-comfort-followup` failed because the current environment could not resolve github.com. Changes are committed locally on this branch; main remains at the unchanged base commit above. Retry the branch push once network access is available. No merge or deployment has been performed.
+The earlier `git push -u origin feature/frontend-comfort-followup` failed because the environment could not resolve github.com. After local main integration, retry `git push origin main` once network access is available; use a normal push, never force. Fetch and reconcile remote changes first if necessary. No public deployment verification has been performed.

@@ -107,3 +107,8 @@ Use an ignored `tmp/` note for transient/private details. Persist a sanitized `o
 - Per-account filters/shop/position, navbar local search, mobile order cards/details, honest sync stages and grouped revision-specific reminders are implemented. Read [workspace comfort operations](ops/workspace-comfort.md) before extending these flows.
 - Explicit destination filters override preferences. Preserve timestamp-based stale-tab rejection, current-job sync denominators and per-account/revision snoozes. Do not infer new tenant isolation from preference storage.
 - Closed shared shop menus must not intercept pointer input. Browser tests use synthetic sessions and mocked operational writes; never test preference saves with a real account session.
+
+## Frontend comfort follow-up
+
+- On 2026-09-30 the user explicitly requested main integration after being informed that browser verification and remote push were blocked. Products now have stored-data details and labelled mobile summaries; Shops have mobile summaries and accessible connection actions; desktop order names/status reasons wrap. Existing chat/notification, Finance and worker logic is preserved. See [scope, checks and remaining verification](ops/frontend-comfort-followup.md).
+- Build, syntax, 15 database-free render checks and product-detail/action unit checks passed. Native browser layout, theme contrast, Escape/focus and full-panel regression remain pending; integration is not evidence that those checks passed. Retry browser verification and normal GitHub push when the environment allows them. Do not infer deployment success from local main integration.
