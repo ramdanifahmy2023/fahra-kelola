@@ -1,4 +1,4 @@
-<div class="navbar panel-navbar sticky top-0 z-30 min-h-14 border-b border-base-content/10 bg-base-100/75 px-3 backdrop-blur-xl sm:px-5">
+<div class="navbar panel-navbar sticky top-0 z-30 min-h-14 border-b border-base-content/10 bg-base-100 px-3 sm:px-5">
   <div class="flex-none lg:hidden">
     <button type="button" id="panel-menu-button" aria-label="Buka menu" aria-controls="panel-drawer" aria-expanded="false" class="btn btn-ghost btn-square">
       <span class="material-symbols-outlined" aria-hidden="true">menu</span>
@@ -51,7 +51,7 @@
     <?php $authUser = authUser() ?? []; $authName = trim((string)($authUser['name'] ?? 'Pengguna')); $authEmail = (string)($authUser['email'] ?? ''); $authInitial = strtoupper(substr($authName !== '' ? $authName : 'P', 0, 1)); ?>
     <div class="dropdown dropdown-end">
       <div tabindex="0" role="button" aria-label="Menu akun" class="panel-user-trigger btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
-        <div class="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-primary to-secondary text-xs font-black text-primary-content"><?= htmlspecialchars($authInitial, ENT_QUOTES); ?></div>
+        <div class="panel-user-avatar grid h-7 w-7 place-items-center rounded-md text-xs font-black"><?= htmlspecialchars($authInitial, ENT_QUOTES); ?></div>
         <span class="hidden max-w-28 truncate text-xs font-semibold sm:block"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span>
         <span class="panel-user-chevron material-symbols-outlined hidden text-base-content/50 sm:block" aria-hidden="true">expand_more</span>
       </div>

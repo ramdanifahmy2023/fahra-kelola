@@ -517,6 +517,12 @@
 @media (max-height: 600px) { #automation-page .automation-save { position: static; } }
 
 .panel-navbar #panel-menu-button:focus-visible, .panel-navbar .panel-mobile-brand:focus-visible { outline: 2px solid var(--color-base-content); outline-offset: 2px; }
+.panel-navbar { box-shadow: 0 1px 0 color-mix(in srgb, var(--color-base-content) 4%, transparent); }
+.panel-navbar .panel-user-avatar { background: var(--color-primary); color: var(--color-primary-content); }
+.panel-navbar :is(.btn-ghost,.panel-user-trigger):hover { background: var(--color-base-200); }
+.drawer > .drawer-side > aside { box-shadow: 1px 0 0 color-mix(in srgb, var(--color-neutral-content) 5%, transparent); }
+.drawer-side nav { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--color-neutral-content) 30%, transparent) transparent; }
+.drawer-side nav a[aria-current="page"] { font-weight: 750; }
 .panel-navbar .panel-mobile-brand { display: block; min-width: 0; max-width: 100%; height: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 44px; color: var(--color-base-content); }
 @media (min-width: 1024px) { .panel-navbar .panel-mobile-brand { display: none; } }
 @media (max-width: 639px) {

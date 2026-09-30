@@ -1,6 +1,6 @@
 <?php
 $active = $data['active_menu'] ?? '';
-$activeClass = 'bg-primary text-primary-content shadow-md shadow-primary/20';
+$activeClass = 'bg-primary text-primary-content';
 $inactiveClass = 'text-neutral-content/65 hover:bg-neutral-content/10 hover:text-neutral-content';
 $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-semibold transition-colors';
 ?>
@@ -17,9 +17,9 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
   <nav class="flex-1 overflow-y-auto px-3 py-5">
     <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">Menu utama</p>
     <div class="space-y-1">
-      <a href="<?= burl; ?>/panel" class="<?= $navItemClass; ?> <?= ($active == 'dashboard') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">grid_view</span><span>Dashboard</span></a>
-      <a href="<?= burl; ?>/panel/products" class="<?= $navItemClass; ?> <?= ($active == 'products') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">inventory_2</span><span>Produk</span></a>
-      <a href="<?= burl; ?>/panel/boost" class="<?= $navItemClass; ?> <?= ($active == 'boost') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">north</span><span>Naikkan Produk</span></a>
+      <a href="<?= burl; ?>/panel" class="<?= $navItemClass; ?> <?= ($active == 'dashboard') ? $activeClass : $inactiveClass; ?>" <?= $active == 'dashboard' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]">grid_view</span><span>Dashboard</span></a>
+      <a href="<?= burl; ?>/panel/products" class="<?= $navItemClass; ?> <?= ($active == 'products') ? $activeClass : $inactiveClass; ?>" <?= $active == 'products' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]">inventory_2</span><span>Produk</span></a>
+      <a href="<?= burl; ?>/panel/boost" class="<?= $navItemClass; ?> <?= ($active == 'boost') ? $activeClass : $inactiveClass; ?>" <?= $active == 'boost' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]">north</span><span>Naikkan Produk</span></a>
       <a href="<?= burl; ?>/panel/orders" class="<?= $navItemClass; ?> <?= ($active == 'orders') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">receipt_long</span><span>Pesanan</span></a>
       <a href="<?= burl; ?>/panel/customers" class="<?= $navItemClass; ?> <?= ($active == 'customers') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">group</span><span>Pelanggan</span></a>
       <a href="<?= burl; ?>/panel/ads" class="<?= $navItemClass; ?> <?= ($active == 'ads') ? $activeClass : $inactiveClass; ?>"><span class="material-symbols-outlined text-[19px]">campaign</span><span>Iklan</span></a>
