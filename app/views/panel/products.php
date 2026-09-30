@@ -19,8 +19,10 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
   #product-toolbar .product-sync-action { width: 100%; }
   #product-toolbar .dropdown { display: block; }
   @media (min-width: 640px) {
-    #product-toolbar { width: 24rem; max-width: 24rem; flex: 0 0 24rem; flex-direction: row; }
-    #product-toolbar .product-sync-action { width: auto; white-space: nowrap; }
+    #product-toolbar { width: auto; max-width: min(100%, 42rem); flex: 1 1 34rem; flex-direction: row; }
+    #product-toolbar > :is(a,button) { flex: 0 0 auto; white-space: nowrap; }
+    #product-toolbar > .form-control { min-width: 13rem; flex: 1 1 16rem; }
+    #product-toolbar .product-sync-action { width: auto; }
   }
 </style>
 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
