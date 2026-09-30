@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../helpers/OrderPresentation.php';
 $statusType = $ord['status_type'] ?? '';
 $isCompletedOrCancelled = (stripos($statusType, 'Completed') !== false || stripos($statusType, 'Cancelled') !== false);
 $needsSync = empty($ord['order_sn'])
@@ -154,7 +155,7 @@ $needsSync = empty($ord['order_sn'])
         <span class="badge <?= $statusBadge ?> badge-sm gap-1"><span class="h-1.5 w-1.5 rounded-full <?= $statusDot ?>"></span><?= htmlspecialchars($displayStatus); ?></span>
         <?php if (!empty($ord['status_description'])): ?>
           <div class="order-status-description">
-            <?= htmlspecialchars($ord['status_description']); ?>
+            <?= renderOrderStatusDescription($ord['status_description']); ?>
           </div>
         <?php endif; ?>
       </div>
