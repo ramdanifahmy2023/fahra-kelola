@@ -10,6 +10,10 @@ foreach ($pickerShops as $pickerShop) {
 $pickerQuery = isset($data['limit']) ? ['limit' => (int)$data['limit']] : [];
 if ($pickerPage === 'orders') $pickerQuery += ['startDate' => $data['start_date'], 'endDate' => $data['end_date']];
 if ($pickerPage === 'products' && ($data['stock_filter'] ?? '') === 'critical') $pickerQuery['stock'] = 'critical';
+if ($pickerPage === 'products' && ($data['movement_view'] ?? false)) {
+  $pickerQuery['view'] = 'movement';
+  if (!empty($data['movement_filter'])) $pickerQuery['movement'] = $data['movement_filter'];
+}
 ?>
 <div class="shop-picker dropdown dropdown-bottom dropdown-end">
   <button type="button" class="btn w-full justify-start gap-3 font-normal shadow-sm" id="selectedShopDisplay" aria-label="Pilih toko: <?= htmlspecialchars($pickerActive['name'] ?? 'Belum ada toko', ENT_QUOTES, 'UTF-8'); ?>" <?= !$pickerShops ? 'disabled' : ''; ?>>

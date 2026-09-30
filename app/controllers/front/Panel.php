@@ -143,6 +143,10 @@ class Panel extends Controller {
     $data['active_shop_id'] = $activeShopId;
 
     if (($_GET['view'] ?? '') === 'movement') {
+      $movementFilter = (string)($_GET['movement'] ?? '');
+      if (!in_array($movementFilter, ['fast', 'slow', 'dead', 'empty'], true)) $movementFilter = '';
+      $data['movement_view'] = true;
+      $data['movement_filter'] = $movementFilter;
       $today = new DateTimeImmutable('today', new DateTimeZone('Asia/Jakarta'));
       $start = $today->modify('-29 days')->format('Y-m-d');
       $data['movement'] = $activeShopId ? $this->m('Product')->movementSummary((int)$activeShopId, $start, $today->format('Y-m-d')) : ['rows'=>[],'summary'=>[],'days'=>0];
