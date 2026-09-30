@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../../helpers/OrderPresentation.php';
 $cardId=(int)$ord['id'];$cardStatus=trim((string)($ord['status_type'] ?? ''));
 $statusLabels=['completed'=>'Selesai','cancelled'=>'Dibatalkan','unpaid'=>'Belum dibayar','to ship'=>'Perlu dikirim','shipped'=>'Dikirim','shipping'=>'Dikirim','delivered'=>'Terkirim','order received'=>'Diterima'];
 $cardStatus=$statusLabels[strtolower($cardStatus)] ?? ($cardStatus ?: 'Status belum tersedia');
@@ -20,7 +21,7 @@ $cardEscape=static fn($v)=>htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');
   <details><summary>Lihat rincian pesanan</summary>
     <dl class="order-card-facts"><div><dt>Nomor pesanan</dt><dd><?= $cardEscape($ord['order_sn'] ?: '#'.$cardId); ?></dd></div><div><dt>Kurir</dt><dd><?= $cardEscape(($ord['shipping_cargo_label'] ?? $ord['shipping_cargo']) ?: 'Belum tersedia'); ?></dd></div><div><dt>Resi</dt><dd><?= $cardEscape($ord['tracking_number'] ?: 'Belum tersedia'); ?></dd></div><div><dt>Pembayaran</dt><dd><?= $cardEscape(($ord['payment_method_label'] ?? $ord['payment_method']) ?: 'Belum tersedia'); ?></dd></div><div><dt>Detail diperbarui</dt><dd><?= !empty($ord['detail_synced_at'])?$cardEscape((new DateTimeImmutable($ord['detail_synced_at'],new DateTimeZone('UTC')))->setTimezone(new DateTimeZone('Asia/Jakarta'))->format('d M Y, H.i')).' WIB':'Belum tersedia'; ?></dd></div></dl>
     <?php if (!empty($ord['tracking_number'])): ?><button type="button" class="btn order-copy-tracking" data-tracking="<?= $cardEscape($ord['tracking_number']); ?>">Salin resi</button><?php endif; ?>
-    <?php if (!empty($ord['status_description'])): ?><p><?= $cardEscape($ord['status_description']); ?></p><?php endif; ?>
+    <?php if (!empty($ord['status_description'])): ?><p><?= renderOrderStatusDescription($ord['status_description']); ?></p><?php endif; ?>
     <ul class="order-card-items"><?php foreach ($cardItems as $cardItem): ?><li><strong><?= $cardEscape($cardItem['name'] ?? 'Produk'); ?></strong><span><?= $cardEscape($cardItem['variation_name'] ?? ''); ?> · <?= (int)($cardItem['quantity'] ?? 1); ?> buah</span></li><?php endforeach; ?></ul>
   </details>
 </article>

@@ -10,7 +10,7 @@ $data = ['active_menu'=>'products', 'active_shop_id'=>1, 'shops'=>[$shop], 'prod
 $render = static function ($path, $data, $ord = null) use ($root) { ob_start(); require $root . '/app/views/panel/' . $path . '.php'; return ob_get_clean(); };
 $productHtml = $render('products', $data);
 $shopHtml = $render('shops', ['shops'=>[$shop,array_replace($shop,['id'=>2,'sync_status'=>'expired','shop_logo'=>''])]]);
-$ord = ['id'=>21,'order_sn'=>'UJI-21','created_at'=>'2026-09-30 00:00:00','order_type'=>'normal','total_price'=>0,'status_type'=>'Cancelled','status_description'=>str_repeat('Alasan pembatalan lengkap yang perlu dapat dibaca. ',5),'payment_method'=>'','shipping_cargo'=>'','tracking_number'=>'','items'=>[['name'=>$product['name'],'quantity'=>1,'variation_name'=>'Uji']]];
+$ord = ['id'=>21,'order_sn'=>'UJI-21','created_at'=>'2026-09-30 00:00:00','order_type'=>'normal','total_price'=>0,'status_type'=>'To Ship','status_description'=>'Kamu bisa atur pengiriman maks. 1 hari sebelum batas waktu pengiriman berakhir. &lt;a href="https://seller.shopee.co.id/edu/article/7093"&gt;Pelajari Lebih Lanjut.&lt;/a&gt;','payment_method'=>'','shipping_cargo'=>'','tracking_number'=>'','items'=>[['name'=>$product['name'],'quantity'=>1,'variation_name'=>'Uji']]];
 $orderHtml = '<section id="orders-page"><div class="overflow-x-auto"><table class="table"><tbody>' . $render('order_row', [], $ord) . '</tbody></table></div></section>';
 
 $check = static function ($condition, $message) { if (!$condition) throw new RuntimeException($message); };
@@ -26,6 +26,8 @@ $check(str_contains($productHtml,'data-label="Stok"'), 'Mobile stock has a visib
 $check(str_contains($shopHtml,'aria-label="Perbarui koneksi'), 'Shop actions have accessible names');
 $check(str_contains($shopHtml,'data-label="ID Toko"'), 'Mobile shop ID has a visible label');
 $check(str_contains($orderHtml,'order-status-description'), 'Full order reason is rendered');
+$check(str_contains($orderHtml,'<a href="https://seller.shopee.co.id/edu/article/7093"'), 'Order status education link is rendered as a link');
+$check(!str_contains($orderHtml,'&lt;a href='), 'Order status education link is not shown as escaped markup');
 $check(!str_contains($orderHtml,'js-floating-tooltip'), 'Order identity and status no longer depend on hover');
 $emptyData = array_replace($data,['products'=>[],'shops'=>[],'active_shop_id'=>0,'total_products'=>0,'total_pages'=>1]);
 $check(str_contains($render('products',$emptyData),'Belum ada produk'), 'Empty products retain an explanation');
