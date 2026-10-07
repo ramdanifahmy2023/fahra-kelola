@@ -12,8 +12,8 @@ class Product extends BaseModel {
         $endUtc = $end->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s');
         $days = max(1, (int)$start->diff($end)->days + 1);
         $this->db->query("SELECT p.id,p.shop_id,p.name,p.cover_image,p.parent_sku,p.total_stock,p.status,
-          COALESCE(SUM(CASE WHEN LOWER(COALESCE(o.status_type,'')) IN ('completed','delivered','order received','order_received','to confirm receive') THEN COALESCE(oi.quantity,0) ELSE 0 END),0) units_sold,
-          MAX(CASE WHEN LOWER(COALESCE(o.status_type,'')) IN ('completed','delivered','order received','order_received','to confirm receive') THEN o.created_at END) last_sold_at,
+          COALESCE(SUM(CASE WHEN LOWER(TRIM(COALESCE(o.status_type,''))) IN ('completed','delivered','order received','order_received','to confirm receive','selesai','pesanan diterima','sudah kirim','telah dikirim','terkirim','diterima') THEN COALESCE(oi.quantity,0) ELSE 0 END),0) units_sold,
+          MAX(CASE WHEN LOWER(TRIM(COALESCE(o.status_type,''))) IN ('completed','delivered','order received','order_received','to confirm receive','selesai','pesanan diterima','sudah kirim','telah dikirim','terkirim','diterima') THEN o.created_at END) last_sold_at,
           s.name shop_name
           FROM products p JOIN shops s ON s.id=p.shop_id
           LEFT JOIN order_items oi ON oi.product_id=p.id
