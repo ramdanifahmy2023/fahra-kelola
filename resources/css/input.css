@@ -279,6 +279,9 @@
 #finance-page .finance-cost-summary > div { min-width: 0; padding: 12px; background: var(--color-base-100); }
 #finance-page .finance-cost-summary span { display: block; font-size: .75rem; }
 #finance-page .finance-cost-summary strong { display: block; margin-top: 3px; font-size: 1.1rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+#finance-page .finance-cost-target { display: grid; gap: 3px; margin-bottom: 16px; padding: 12px; border-left: 3px solid var(--color-base-content); background: var(--color-base-200); }
+#finance-page .finance-cost-target span { font-size: .75rem; }
+#finance-page .finance-cost-target strong { overflow-wrap: anywhere; }
 #finance-page .finance-health-row { padding-block: 16px; border-bottom: 1px solid var(--color-base-300); }
 #finance-page .finance-health-row:last-child { border-bottom: 0; }
 #finance-page .finance-health-row header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
@@ -306,6 +309,8 @@
   #finance-page .finance-search label { grid-column: 1 / -1; }
   #finance-page .finance-cost-summary { grid-template-columns: repeat(3,minmax(0,1fr)); }
   #finance-page .finance-cost-bulk { grid-template-columns: minmax(110px,1fr) minmax(150px,1fr) auto; }
+  #finance-page .finance-cost-toolbar { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  #finance-page .finance-cost-toolbar > .finance-cost-bulk { grid-column: 1 / -1; }
 }
 @container finance (min-width: 920px) {
   #finance-page .finance-balances { grid-template-columns: repeat(3,minmax(0,1fr)); }
@@ -313,8 +318,9 @@
   #finance-page .finance-filters { grid-template-columns: minmax(240px,1.5fr) minmax(0,1fr) auto; }
   #finance-page dl { grid-template-columns: repeat(4,minmax(0,1fr)); }
   #finance-page .finance-secondary { grid-template-columns: repeat(3,minmax(0,1fr)); }
-  #finance-page .finance-cost-toolbar { grid-template-columns: minmax(180px,260px) minmax(0,1fr); align-items: end; }
+  #finance-page .finance-cost-toolbar { grid-template-columns: minmax(180px,240px) minmax(180px,240px) minmax(0,1fr); align-items: end; }
   #finance-page .finance-cost-toolbar > .finance-help { margin: 0; align-self: center; }
+  #finance-page .finance-cost-toolbar > .finance-cost-bulk { grid-column: 1 / -1; }
 }
 @container finance (max-width: 719px) {
   #finance-page .finance-table, #finance-page .finance-table :is(tbody,tr,td) { display: block; width: 100%; }

@@ -48,16 +48,19 @@ $financeDashboard=!empty($data['finance_dashboard']);
     <div class="finance-section-heading"><div><h2>HPP produk</h2><p>Satu angka modal per unit, untuk setiap produk atau varian di setiap toko.</p></div><div class="finance-cost-actions"><button id="finance-cost-export" class="btn" type="button">Unduh katalog HPP</button><button id="finance-cost-health" class="btn" type="button">Audit data order</button><button id="finance-open-cost-batch" class="btn btn-primary" type="button">Impor HPP batch</button></div></div>
     <form id="finance-cost-search-form" class="finance-search"><label for="finance-cost-search">SKU atau produk</label><input class="input" id="finance-cost-search" maxlength="100" placeholder="Cari SKU, produk, atau varian"><button class="btn" type="submit">Cari</button></form>
     <div class="finance-cost-toolbar">
+      <div><label for="finance-cost-shop">Toko HPP</label><select class="select" id="finance-cost-shop"><option value="">Semua toko dalam scope</option><?php foreach ($data['shops'] as $shop): ?><option value="<?= (int)$shop['id']; ?>"><?= htmlspecialchars($shop['name'],ENT_QUOTES,'UTF-8'); ?></option><?php endforeach; ?></select></div>
       <div><label for="finance-cost-status">Status HPP</label><select class="select" id="finance-cost-status"><option value="all">Semua produk</option><option value="missing">HPP belum diisi</option><option value="filled">HPP sudah diisi</option><option value="archived">Produk arsip</option></select></div>
       <p id="finance-cost-selection" class="finance-help" role="status" hidden></p>
       <div class="finance-cost-bulk"><label for="finance-cost-bulk-value">HPP terpilih (Rp)</label><input class="input" type="number" id="finance-cost-bulk-value" min="0" max="1000000000" step="1" inputmode="numeric" placeholder="Contoh: 25000"><label for="finance-cost-bulk-date">Berlaku mulai</label><input class="input" type="date" id="finance-cost-bulk-date" min="2015-01-01" max="2100-01-01"><button id="finance-cost-bulk-apply" class="btn" type="button" disabled>Isi HPP terpilih</button></div>
     </div>
+    <p id="finance-cost-scope" class="finance-help" role="status"></p>
     <div id="finance-cost-summary" class="finance-cost-summary" aria-live="polite"></div>
     <p class="finance-help">Perubahan HPP mengikuti tanggal pesanan dibuat (WIB). Riwayat modal tetap tersimpan saat produk diarsipkan. HPP di sini tidak mengubah harga jual di Shopee. Untuk batch, gunakan ID toko, ID produk, dan ID varian dari daftar ini.</p>
     <div id="finance-cost-list" aria-live="polite"></div><div id="finance-cost-pagination" class="finance-pagination"></div>
   </section>
   <dialog id="finance-cost-dialog" aria-labelledby="finance-cost-title">
     <div class="finance-dialog-heading"><h2 id="finance-cost-title">Atur HPP</h2><button type="button" id="finance-close-cost" class="btn" aria-label="Tutup formulir HPP">Tutup</button></div>
+    <div class="finance-cost-target"><span>Toko target</span><strong id="finance-cost-shop-target"></strong></div>
     <p id="finance-cost-item"></p>
     <form id="finance-cost-form">
       <label for="finance-cost-value">Modal per unit (Rp)</label><input class="input" type="number" id="finance-cost-value" min="0" max="1000000000" step="1" required inputmode="numeric">

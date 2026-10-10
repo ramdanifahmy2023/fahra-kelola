@@ -29,11 +29,26 @@
   preparePeriod();
   let applied, tab = ['summary','details','cost'].includes(params.get('tab')) ? params.get('tab') : 'summary';
   let summarySequence = 0, listSequence = 0, timer, detailPage = 1, costPage = 1, editing, proof, dialogSequence = 0, batchProof, batchRows, batchSequence = 0;
-  let detailSearch = '', costSearch = '', costStatus = ['all','filled','missing','archived'].includes(params.get('cost_status')) ? params.get('cost_status') : 'all', costRows = [], costSelection = new Set(), lastStoresMarkup = '';
+  let detailSearch = '', costSearch = '', costStatus = ['all','filled','missing','archived'].includes(params.get('cost_status')) ? params.get('cost_status') : 'all', costShop = params.get('cost_shop') || '', costRows = [], costSelection = new Set(), lastStoresMarkup = '';
   const query = extra => new URLSearchParams({...applied,...extra}).toString();
   const readFilters = () => ({shops:$('shops').selectedOptions.length===$('shops').options.length ? '' : Array.from($('shops').selectedOptions, o => o.value).join(','),period:$('period').value,start:$('start').value,end:$('end').value});
+  const costQuery = extra => query({...extra,shops:costShop || applied.shops || ''});
+  const costScopeIds = () => costShop ? new Set([costShop]) : new Set(applied.shops ? applied.shops.split(',').filter(Boolean) : Array.from($('shops').options,o=>o.value));
+  function syncCostShopOptions() {
+    if (dashboard || !$('cost-shop')) return;
+    const selected=new Set(applied.shops ? applied.shops.split(',').filter(Boolean) : Array.from($('shops').options,o=>o.value));
+    if (costShop && !selected.has(costShop)) costShop='';
+    Array.from($('cost-shop').options).forEach(option=>{
+      const available=!option.value || selected.has(option.value);
+      option.hidden=!available; option.disabled=!available;
+    });
+    $('cost-shop').value=costShop;
+    const selectedName=costShop ? $('cost-shop').selectedOptions[0]?.textContent : '';
+    const scope=costShop ? `Menampilkan HPP untuk ${selectedName}.` : applied.shops ? 'Menampilkan HPP untuk toko yang dipilih di atas.' : 'Menampilkan HPP untuk semua toko.';
+    $('cost-scope').textContent=scope;
+  }
   function url() {
-    const p = new URLSearchParams({...applied,...(dashboard ? {} : {tab,...(tab==='details' ? {category:$('category').value,state:$('category').value==='1' ? $('state').value : ''} : tab==='cost' ? {cost_status:costStatus} : {})})}); history.replaceState(null,'',location.pathname + '?' + p + location.hash);
+    const p = new URLSearchParams({...applied,...(dashboard ? {} : {tab,...(tab==='details' ? {category:$('category').value,state:$('category').value==='1' ? $('state').value : ''} : tab==='cost' ? {cost_status:costStatus,cost_shop:costShop} : {})})}); history.replaceState(null,'',location.pathname + '?' + p + location.hash);
     if($('open')) $('open').href=root.dataset.base+'/panel/finance?'+p;
   }
   function publishFilters() {
@@ -236,9 +251,12 @@
   }
   function renderCostToolbar() {
     const count=costSelection.size;
+    const selectedRows=[...costSelection].map(index=>costRows[index]).filter(Boolean);
+    const shops=new Set(selectedRows.map(row=>String(row.shop_id)));
+    const mixed=shops.size>1;
     $('cost-selection').hidden=!count;
-    $('cost-selection').textContent=count ? `${count} baris dipilih. Isi HPP yang sama untuk semua baris terpilih.` : '';
-    $('cost-bulk-apply').disabled=!count;
+    $('cost-selection').textContent=!count ? '' : mixed ? `${count} baris dari ${shops.size} toko dipilih. Bulk HPP hanya dapat dilakukan untuk satu toko.` : `${count} baris dari satu toko dipilih. Isi HPP yang sama untuk semua baris terpilih.`;
+    $('cost-bulk-apply').disabled=!count || mixed;
   }
   function csvCell(value) { return `"${String(value ?? '').replace(/"/g,'""')}"`; }
   function downloadCsv(filename,headers,rows) {
@@ -246,7 +264,7 @@
     const link=document.createElement('a'); link.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'})); link.download=filename; link.click(); setTimeout(()=>URL.revokeObjectURL(link.href),0);
   }
   function downloadCatalog() {
-    api('catalogExport?'+query({search:costSearch,status:costStatus})).then(result=>downloadCsv('katalog-hpp.csv',
+    api('catalogExport?'+costQuery({search:costSearch,status:costStatus})).then(result=>downloadCsv('katalog-hpp.csv',
       ['shop_id','shop_name','product_id','product_name','model_id','variation_name','parent_sku','variant_sku','sku','status','unit_cost','valid_from'],
       (result.rows||[]).map(row=>[row.shop_id,row.shop_name,row.product_id,row.product_name,row.model_id,row.variation_name,row.parent_sku,row.variant_sku,row.sku,row.status,row.unit_cost===null?'':row.unit_cost,row.valid_from||'']))
     ).catch(e=>error(e.message));
@@ -267,7 +285,7 @@
     target.textContent=kind==='detail' ? 'Memuat rincian penghasilan…' : 'Memuat produk dan HPP…'; $(kind+'-pagination').replaceChildren(); if(kind==='cost') $('cost-summary').textContent='Memuat ringkasan HPP…';
     $('detail-scope').textContent=$('category').value==='1' ? 'Seluruh pending pada pembaruan terbaru, tanpa filter tanggal.' : day(applied.start)+' sampai '+day(applied.end)+', berdasarkan tanggal dana dilepas.';
     try {
-      const result=await api((kind==='detail' ? 'details?' : 'catalog?')+query(kind==='detail' ? {category:$('category').value,state:$('category').value==='1' ? $('state').value : '',page:detailPage,search:detailSearch} : {page:costPage,search:costSearch,status:costStatus}));
+      const result=await api((kind==='detail' ? 'details?' : 'catalog?')+(kind==='detail' ? query({category:$('category').value,state:$('category').value==='1' ? $('state').value : '',page:detailPage,search:detailSearch}) : costQuery({page:costPage,search:costSearch,status:costStatus})));
       if(sequence!==listSequence)return;
       if(kind==='cost') { costRows=result.rows||[]; costSelection=new Set([...costSelection].filter(index=>index<costRows.length)); renderCostSummary(result.summary||{}); renderCostToolbar(); }
       if(!result.rows.length) target.innerHTML=`<p class="finance-empty">${kind==='detail' ? 'Belum ada rincian untuk pilihan ini. Jika saldo belum tersedia, klik Perbarui saldo Shopee. Jika memakai pencarian, coba nomor pesanan lain.' : 'Tidak ada produk yang cocok. Coba SKU lain atau sinkronkan produk di halaman Produk.'}</p>`;
@@ -298,7 +316,8 @@
   async function openCost(item) {
     editing=item; invalidatePreview(); const sequence=++dialogSequence;
     $('cost-error').hidden=true; $('cost-value').value=item.unit_cost ?? ''; $('cost-date').value=root.dataset.today;
-    $('cost-item').textContent=`${item.shop_name} · ${item.product_name} · ${item.variation_name || 'Tanpa varian'} · SKU: ${item.sku || 'belum diisi'}`;
+    $('cost-shop-target').textContent=item.shop_name || 'Toko tidak diketahui';
+    $('cost-item').textContent=`${item.product_name} · ${item.variation_name || 'Produk tanpa varian'} · ID produk: ${item.product_id} · ${item.model_id==='0' ? 'Produk tanpa varian' : 'ID varian: '+item.model_id} · SKU varian: ${item.variant_sku || 'belum diisi'}`;
     $('cost-history').textContent='Memuat riwayat…'; $('cost-dialog').showModal(); $('cost-value').focus();
     try {
       const result=await api('history?'+new URLSearchParams({shop_id:item.shop_id,product_id:item.product_id,model_id:item.model_id}));
@@ -336,6 +355,11 @@
     if(!parsed.length) throw new Error('Data batch hanya berisi header.');
     return parsed;
   }
+  function validateBatchScope(rows) {
+    const allowed=costScopeIds();
+    const outside=rows.filter(row=>!allowed.has(String(row.shop_id)));
+    if (outside.length) throw new Error(costShop ? 'Ada baris batch dari toko lain. Pilih Toko HPP yang sesuai atau ubah shop_id pada file.' : 'Ada baris batch di luar toko yang dipilih pada filter Keuangan.');
+  }
   function invalidateBatch() {
     batchProof=null; $('save-cost-batch').disabled=true; $('cost-batch-preview').hidden=true;
   }
@@ -354,7 +378,7 @@
     invalidateBatch(); $('cost-batch-error').hidden=true; $('preview-cost-batch').disabled=true;
     const sequence=++batchSequence;
     try {
-      const rows=parseBatchText($('cost-batch-input').value); batchRows=rows; const result=await api('batchPreview',{rows});
+      const rows=parseBatchText($('cost-batch-input').value); validateBatchScope(rows); batchRows=rows; const result=await api('batchPreview',{rows});
       if(sequence!==batchSequence)return;
       $('cost-batch-preview').innerHTML=batchPreviewMarkup(result); $('cost-batch-preview').hidden=false;
       const preview=result.preview || result;
@@ -376,8 +400,9 @@
   $('cost-batch-file').addEventListener('change',async event=>{const file=event.target.files?.[0]; if(!file)return; $('cost-batch-input').value=await file.text(); invalidateBatch();});
   $('cost-batch-template').onclick=()=>{const blob=new Blob(['shop_id,product_id,model_id,unit_cost,valid_from\n'],{type:'text/csv;charset=utf-8'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='template-hpp.csv';link.click();URL.revokeObjectURL(link.href);};
   $('cost-export').onclick=downloadCatalog;
-  $('cost-health').onclick=async()=>{ $('cost-health-content').textContent='Memuat audit…'; $('cost-health-dialog').showModal(); try { renderHealth(await api('health?'+query())); } catch(e) { $('cost-health-content').innerHTML=`<p class="finance-notice">${esc(e.message)}</p>`; } };
+  $('cost-health').onclick=async()=>{ $('cost-health-content').textContent='Memuat audit…'; $('cost-health-dialog').showModal(); try { renderHealth(await api('health?'+costQuery({}))); } catch(e) { $('cost-health-content').innerHTML=`<p class="finance-notice">${esc(e.message)}</p>`; } };
   $('close-cost-health').onclick=()=>$('cost-health-dialog').close();
+  $('cost-shop').addEventListener('change',()=>{costShop=$('cost-shop').value; costPage=1; costSelection.clear(); syncCostShopOptions(); url(); loadList();});
   $('cost-status').value=costStatus;
   $('cost-status').addEventListener('change',()=>{costStatus=$('cost-status').value; costPage=1; costSelection.clear(); url(); loadList();});
   $('cost-bulk-date').value=root.dataset.today;
@@ -422,7 +447,7 @@
   for(const field of ['start','end']) $(field).addEventListener('input',draft);
   $('filters').addEventListener('submit',event=>{
     event.preventDefault(); if($('start').value>$('end').value){error('Tanggal mulai harus sebelum atau sama dengan tanggal akhir.');return;}
-    applied=readFilters(); $('filter-draft').hidden=true; detailPage=costPage=1; url(); publishFilters(); loadSummary(true); loadList();
+    applied=readFilters(); $('filter-draft').hidden=true; detailPage=costPage=1; costSelection.clear(); syncCostShopOptions(); url(); publishFilters(); loadSummary(true); loadList();
   });
   if(!dashboard) {
   root.querySelectorAll('[data-finance-tab]').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.financeTab)));
@@ -456,6 +481,7 @@
   document.addEventListener('visibilitychange',()=>{if(!document.hidden){clearTimeout(timer);refreshView();}});
   applied=readFilters();
   if(requested.some(id=>id && !Array.from($('shops').options).some(o=>o.value===id)))applied.shops=params.get('shops');
+  syncCostShopOptions();
   window.shopdashFinance={get filters(){return {...applied};},esc,money,stamp,day,icon};
   if(dashboard){tab='summary';url();}else setTab(tab);
   publishFilters(); loadSummary(true);
