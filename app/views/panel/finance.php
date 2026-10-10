@@ -45,9 +45,9 @@ $financeDashboard=!empty($data['finance_dashboard']);
     <div id="finance-detail-list" aria-live="polite"></div><div id="finance-detail-pagination" class="finance-pagination"></div>
   </section>
   <section id="finance-cost-panel" class="finance-surface" aria-label="HPP produk" hidden>
-    <div class="finance-section-heading"><div><h2>HPP produk</h2><p>Satu angka modal per unit, untuk setiap varian di setiap toko.</p></div></div>
+    <div class="finance-section-heading"><div><h2>HPP produk</h2><p>Satu angka modal per unit, untuk setiap produk atau varian di setiap toko.</p></div><button id="finance-open-cost-batch" class="btn" type="button">Impor HPP batch</button></div>
     <form id="finance-cost-search-form" class="finance-search"><label for="finance-cost-search">SKU atau produk</label><input class="input" id="finance-cost-search" maxlength="100" placeholder="Cari SKU, produk, atau varian"><button class="btn" type="submit">Cari</button></form>
-    <p class="finance-help">Perubahan HPP mengikuti tanggal pesanan dibuat (WIB). Riwayat modal tetap tersimpan saat produk diarsipkan. HPP di sini tidak mengubah harga jual di Shopee.</p>
+    <p class="finance-help">Perubahan HPP mengikuti tanggal pesanan dibuat (WIB). Riwayat modal tetap tersimpan saat produk diarsipkan. HPP di sini tidak mengubah harga jual di Shopee. Untuk batch, gunakan ID toko, ID produk, dan ID varian dari daftar ini.</p>
     <div id="finance-cost-list" aria-live="polite"></div><div id="finance-cost-pagination" class="finance-pagination"></div>
   </section>
   <dialog id="finance-cost-dialog" aria-labelledby="finance-cost-title">
@@ -62,6 +62,18 @@ $financeDashboard=!empty($data['finance_dashboard']);
       <div class="finance-dialog-actions"><button id="finance-preview-cost" class="btn" type="submit">Periksa dampak</button><button id="finance-save-cost" class="btn btn-primary" type="button" disabled>Simpan HPP</button></div>
     </form>
     <details class="finance-explanation"><summary>Riwayat modal</summary><div id="finance-cost-history"></div></details>
+  </dialog>
+  <dialog id="finance-cost-batch-dialog" aria-labelledby="finance-cost-batch-title">
+    <div class="finance-dialog-heading"><h2 id="finance-cost-batch-title">Impor HPP batch</h2><button type="button" id="finance-close-cost-batch" class="btn" aria-label="Tutup impor HPP batch">Tutup</button></div>
+    <p>Tempel CSV atau TSV dengan kolom: <code>shop_id,product_id,model_id,unit_cost,valid_from</code>. Produk tanpa varian memakai <code>model_id</code> 0. SKU utama dan SKU varian hanya petunjuk di daftar.</p>
+    <div class="finance-batch-actions"><label class="finance-file-field">File CSV<input class="input" id="finance-cost-batch-file" type="file" accept=".csv,text/csv"></label><button id="finance-cost-batch-template" class="btn" type="button">Unduh template</button></div>
+    <form id="finance-cost-batch-form">
+      <label for="finance-cost-batch-input">Data batch</label><textarea class="input finance-batch-input" id="finance-cost-batch-input" rows="8" spellcheck="false" placeholder="shop_id,product_id,model_id,unit_cost,valid_from&#10;1,12345,0,25000,2026-10-01"></textarea>
+      <p class="finance-help">Maksimal 500 baris. Setiap kombinasi toko, produk, varian, dan tanggal hanya boleh muncul sekali.</p>
+      <div id="finance-cost-batch-preview" class="finance-notice" role="status" hidden></div>
+      <p id="finance-cost-batch-error" class="finance-notice" role="alert" hidden></p>
+      <div class="finance-dialog-actions"><button id="finance-preview-cost-batch" class="btn" type="submit">Periksa baris</button><button id="finance-save-cost-batch" class="btn btn-primary" type="button" disabled>Simpan batch</button></div>
+    </form>
   </dialog>
   <?php else: require __DIR__.'/templates/dashboard-activity.php'; endif; ?>
   <?php require __DIR__.'/templates/shop-logos.php'; ?>

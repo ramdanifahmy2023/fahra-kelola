@@ -91,7 +91,12 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
                 <button type="button" class="product-name" data-product-details="<?= (int)$p['id']; ?>" aria-haspopup="dialog">
                   <?= htmlspecialchars($productName); ?>
                 </button>
-                <div class="product-sku">SKU: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
+                <div class="product-sku">SKU utama: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
+                <?php if ((int)($p['variant_count'] ?? 0) > 0): ?>
+                  <div class="product-sku product-sku-variants">
+                    SKU varian: <?= (int)($p['variant_sku_count'] ?? 0); ?>/<?= (int)$p['variant_count']; ?> terisi
+                  </div>
+                <?php endif; ?>
               </div>
             </div>
           </td>

@@ -263,6 +263,13 @@
 #finance-page .finance-table th:first-child { width: 37%; }
 #finance-page .finance-table td :is(span,small) { display: block; margin-top: 4px; }
 #finance-page .finance-table td strong { font-weight: 600; }
+#finance-page .finance-batch-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 16px; }
+#finance-page .finance-batch-actions .btn { display: inline-flex; align-items: center; justify-content: center; }
+#finance-page .finance-file-field { display: grid; flex: 1 1 220px; gap: 6px; margin: 0; }
+#finance-page .finance-batch-input { min-height: 12rem; resize: vertical; font-family: ui-monospace,SFMono-Regular,Menlo,monospace; font-size: .875rem; line-height: 1.5; }
+#finance-page .finance-batch-table-wrap { margin-top: 16px; overflow-x: auto; }
+#finance-page .finance-batch-errors { margin: 12px 0 0; padding-left: 1.25rem; }
+#finance-page .finance-batch-invalid { color: var(--color-error); font-weight: 650; }
 #finance-page dialog { width: min(620px,calc(100% - 24px)); max-height: calc(100dvh - 32px); margin: auto; padding: 24px; border: 1px solid var(--color-base-300); border-radius: 12px; background: var(--color-base-100); color: var(--color-base-content); overflow-y: auto; }
 #finance-page dialog::backdrop { background: rgb(0 0 0 / .55); }
 #finance-page dialog label { margin-top: 16px; }

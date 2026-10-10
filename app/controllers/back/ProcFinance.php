@@ -23,6 +23,15 @@ class ProcFinance extends Controller {
     if (!is_array($data)) throw new InvalidArgumentException('Formulir tidak valid.');
     return $data;
   }
+  private function batchInput(): array {
+    if ($_SERVER['REQUEST_METHOD']!=='POST') $this->json(['status'=>'error','message'=>'Gunakan POST.'],405);
+    if (!authVerifyCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) $this->json(['status'=>'error','message'=>'Sesi formulir berakhir. Muat ulang halaman.'],403);
+    $body=file_get_contents('php://input',false,null,0,262145);
+    if (strlen($body)>262144) $this->json(['status'=>'error','message'=>'Batch HPP terlalu besar. Gunakan paling banyak 500 baris.'],413);
+    $data=json_decode($body,true);
+    if (!is_array($data)) throw new InvalidArgumentException('Formulir batch tidak valid.');
+    return $data;
+  }
   private function range(array $data): array { return FinancePolicy::range($data['start'] ?? null,$data['end'] ?? null); }
   private function previewKey(): string {
     if (empty($_SESSION['finance_preview_key'])) $_SESSION['finance_preview_key']=bin2hex(random_bytes(32));
@@ -40,7 +49,12 @@ class ProcFinance extends Controller {
     $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); $preview=$m->preview($input); $expires=time()+600;
     return ['preview'=>$preview,'expires'=>$expires,'token'=>FinanceCost::token($preview,$expires,$this->previewKey())];
   }); }
+  public function batchPreview(): void { $this->run(function () {
+    $input=$this->batchInput(); $m=$this->m('FinanceCost'); $m->ensureSchema(); $preview=$m->batchPreview($input); $expires=time()+600;
+    return ['preview'=>$preview,'expires'=>$expires,'token'=>$preview['errors'] ? null : FinanceCost::batchToken($preview,$expires,$this->previewKey())];
+  }); }
   public function save(): void { $this->run(function () { $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->save($input,(int)authUser()['id'],$this->previewKey()); }); }
+  public function batchSave(): void { $this->run(function () { $input=$this->batchInput(); $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->batchSave($input,(int)authUser()['id'],$this->previewKey()); }); }
   public function sync(): void { $this->run(function () {
     $input=$this->input(); $m=$this->m('Finance'); $shops=$m->shops($input['shops'] ?? '');
     if (!$shops) throw new InvalidArgumentException('Tambahkan toko terlebih dahulu.');

@@ -28,7 +28,7 @@
   }
   preparePeriod();
   let applied, tab = ['summary','details','cost'].includes(params.get('tab')) ? params.get('tab') : 'summary';
-  let summarySequence = 0, listSequence = 0, timer, detailPage = 1, costPage = 1, editing, proof, dialogSequence = 0;
+  let summarySequence = 0, listSequence = 0, timer, detailPage = 1, costPage = 1, editing, proof, dialogSequence = 0, batchProof, batchRows, batchSequence = 0;
   let detailSearch = '', costSearch = '', lastStoresMarkup = '';
   const query = extra => new URLSearchParams({...applied,...extra}).toString();
   const readFilters = () => ({shops:$('shops').selectedOptions.length===$('shops').options.length ? '' : Array.from($('shops').selectedOptions, o => o.value).join(','),period:$('period').value,start:$('start').value,end:$('end').value});
@@ -266,8 +266,79 @@
       $('cost-history').innerHTML=result.rows.length ? '<ul>'+result.rows.map(r=>`<li>Mulai ${esc(day(r.valid_from))}: ${esc(money(Number(r.unit_cost)))} per unit</li>`).join('')+'</ul>' : '<p>HPP produk ini belum pernah diisi.</p>';
     } catch(e) { if(sequence===dialogSequence)$('cost-history').textContent=e.message; }
   }
+  function parseBatchText(text) {
+    const rows=[], source=String(text||'').replace(/^\uFEFF/,''); let fields=[], field='', quoted=false;
+    for(let i=0;i<source.length;i++) {
+      const char=source[i], next=source[i+1];
+      if(char==='"' && quoted && next==='"') { field+='"'; i++; continue; }
+      if(char==='"') { quoted=!quoted; continue; }
+      if(!quoted && (char===',' || char==='\t')) { fields.push(field.trim()); field=''; continue; }
+      if(!quoted && (char==='\n' || char==='\r')) {
+        if(char==='\r' && next==='\n') i++;
+        fields.push(field.trim()); field='';
+        if(fields.some(Boolean)) rows.push(fields);
+        fields=[]; continue;
+      }
+      field+=char;
+    }
+    if(quoted) throw new Error('Tanda kutip CSV belum ditutup.');
+    fields.push(field.trim()); if(fields.some(Boolean)) rows.push(fields);
+    if(!rows.length) throw new Error('Isi data batch terlebih dahulu.');
+    const header=rows[0].map(value=>value.toLowerCase().replace(/\s+/g,'_'));
+    const columns=['shop_id','product_id','model_id','unit_cost','valid_from'];
+    const hasHeader=columns.every(column=>header.includes(column));
+    const start=hasHeader?1:0, indexes=hasHeader?Object.fromEntries(columns.map(column=>[column,header.indexOf(column)])):Object.fromEntries(columns.map((column,index)=>[column,index]));
+    const parsed=[];
+    for(let index=start;index<rows.length;index++) {
+      const values=rows[index];
+      parsed.push({row_no:index+1,...Object.fromEntries(columns.map(column=>[column,values[indexes[column]]??'']))});
+    }
+    if(!parsed.length) throw new Error('Data batch hanya berisi header.');
+    return parsed;
+  }
+  function invalidateBatch() {
+    batchProof=null; $('save-cost-batch').disabled=true; $('cost-batch-preview').hidden=true;
+  }
+  function batchPreviewMarkup(result) {
+    const errorRows=new Map((result.errors||[]).map(error=>[Number(error.row_no),error.message]));
+    const summary=result.summary||{};
+    const rows=(result.rows||[]).map(row=>{
+      const message=errorRows.get(Number(row.row_no));
+      return `<tr><td data-label="Baris">${esc(row.row_no)}</td><td data-label="Toko">${esc(row.shop_name||row.shop_id)}</td><td data-label="Produk / varian">${esc(row.product_name||row.product_id)}<small>${esc(row.variation_name||'Tanpa varian')}</small></td><td data-label="SKU">${esc(row.sku||'SKU belum diisi')}</td><td data-label="HPP lama">${esc(row.previous_cost===null?'Belum diisi':money(row.previous_cost))}</td><td data-label="HPP baru">${esc(money(row.unit_cost))}</td><td data-label="Status">${message?`<span class="finance-batch-invalid">${esc(message)}</span>`:'Siap'}</td></tr>`;
+    }).join('');
+    const errors=(result.errors||[]).map(error=>`<li>Baris ${esc(error.row_no)}: ${esc(error.message)}</li>`).join('');
+    return `<strong>${esc(summary.valid||0)} dari ${esc(summary.total||0)} baris siap.</strong>${summary.changed?` <span>${esc(summary.changed)} HPP akan berubah.</span>`:''}${summary.errors?`<ul class="finance-batch-errors">${errors}</ul>`:''}${rows?`<div class="finance-batch-table-wrap"><table class="finance-table"><thead><tr><th>Baris</th><th>Toko</th><th>Produk / varian</th><th>SKU</th><th>HPP lama</th><th>HPP baru</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}`;
+  }
+  async function previewBatch() {
+    invalidateBatch(); $('cost-batch-error').hidden=true; $('preview-cost-batch').disabled=true;
+    const sequence=++batchSequence;
+    try {
+      const rows=parseBatchText($('cost-batch-input').value); batchRows=rows; const result=await api('batchPreview',{rows});
+      if(sequence!==batchSequence)return;
+      $('cost-batch-preview').innerHTML=batchPreviewMarkup(result); $('cost-batch-preview').hidden=false;
+      if(result.token && !(result.preview?.errors||[]).length) { batchProof={rows,expires:result.expires,token:result.token}; $('save-cost-batch').disabled=false; }
+      else $('cost-batch-error').textContent='Perbaiki baris yang ditandai sebelum menyimpan.';
+      $('cost-batch-error').hidden=!(result.preview?.errors||[]).length;
+    } catch(e) { $('cost-batch-error').textContent=e.message; $('cost-batch-error').hidden=false; }
+    finally { $('preview-cost-batch').disabled=false; }
+  }
+  function openBatch() { invalidateBatch(); batchRows=null; $('cost-batch-input').value=''; $('cost-batch-file').value=''; $('cost-batch-error').hidden=true; $('cost-batch-dialog').showModal(); $('cost-batch-input').focus(); }
+  function closeBatch() { $('cost-batch-dialog').close(); }
   const costInput=()=>({shop_id:editing.shop_id,product_id:editing.product_id,model_id:editing.model_id,version:editing.version,unit_cost:$('cost-value').value,valid_from:$('cost-date').value});
   if(!dashboard) {
+  $('open-cost-batch').onclick=openBatch;
+  $('close-cost-batch').onclick=closeBatch;
+  $('cost-batch-dialog').addEventListener('close',()=>{batchSequence++;invalidateBatch();});
+  $('cost-batch-input').addEventListener('input',invalidateBatch);
+  $('cost-batch-form').addEventListener('submit',event=>{event.preventDefault();previewBatch();});
+  $('cost-batch-file').addEventListener('change',async event=>{const file=event.target.files?.[0]; if(!file)return; $('cost-batch-input').value=await file.text(); invalidateBatch();});
+  $('cost-batch-template').onclick=()=>{const blob=new Blob(['shop_id,product_id,model_id,unit_cost,valid_from\n'],{type:'text/csv;charset=utf-8'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='template-hpp.csv';link.click();URL.revokeObjectURL(link.href);};
+  $('save-cost-batch').onclick=async()=>{
+    if(!batchProof)return; $('save-cost-batch').disabled=true; $('preview-cost-batch').disabled=true; $('cost-batch-error').hidden=true;
+    try { const result=await api('batchSave',{rows:batchProof.rows,expires:batchProof.expires,token:batchProof.token}); closeBatch(); $('status').textContent=`${result.saved} HPP tersimpan. Riwayat modal diperbarui.`; costPage=1; loadList(); }
+    catch(e) { $('cost-batch-error').textContent=e.message; $('cost-batch-error').hidden=false; invalidateBatch(); }
+    finally { $('preview-cost-batch').disabled=false; }
+  };
   $('cost-form').addEventListener('input',invalidatePreview);
   $('cost-form').addEventListener('submit',async event=>{
     event.preventDefault(); invalidatePreview(); $('cost-error').hidden=true; $('preview-cost').disabled=true;

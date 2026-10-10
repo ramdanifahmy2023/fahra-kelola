@@ -20,7 +20,13 @@ $detailStatus = match ((int)$p['status']) { 1 => 'Aktif', 2 => 'Habis', default 
   <dl class="product-detail-facts">
     <div><dt>Status</dt><dd><?= $detailEscape($detailStatus); ?></dd></div>
     <div><dt>Stok</dt><dd><?= isset($p['total_stock']) ? number_format((int)$p['total_stock'], 0, ',', '.') . ' buah' : 'Belum tersedia'; ?></dd></div>
-    <div><dt>SKU</dt><dd><?= $detailEscape($p['parent_sku'] ?: 'Belum tersedia'); ?></dd></div>
+    <div><dt>SKU utama</dt><dd><?= $detailEscape($p['parent_sku'] ?: 'Belum tersedia'); ?></dd></div>
+    <?php if ((int)($p['variant_count'] ?? 0) > 0): ?>
+    <div><dt>SKU varian</dt><dd>
+      <?php if (!empty($p['variant_skus'])): ?><?= $detailEscape($p['variant_skus']); ?><?php else: ?>Belum tersedia<?php endif; ?>
+      <span class="text-xs opacity-70"><?= (int)($p['variant_sku_count'] ?? 0); ?>/<?= (int)$p['variant_count']; ?> varian memiliki SKU</span>
+    </dd></div>
+    <?php endif; ?>
     <div><dt>ID produk</dt><dd><?= $detailEscape($p['id']); ?></dd></div>
     <div><dt>Harga tercatat</dt><dd><?= $detailPrice($p['price_min'] ?? null, $p['price_max'] ?? null); ?></dd></div>
     <div><dt>Harga jual</dt><dd><?= $detailPrice($p['selling_price_min'] ?? null, $p['selling_price_max'] ?? null); ?></dd></div>

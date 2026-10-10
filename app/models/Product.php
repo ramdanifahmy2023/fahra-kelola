@@ -3,6 +3,31 @@
 class Product extends BaseModel {
     protected $table = 'products';
 
+    private function panelSelect(): string {
+        return "SELECT p.*,
+          COUNT(m.id) AS variant_count,
+          COUNT(CASE WHEN NULLIF(TRIM(m.sku), '') IS NOT NULL THEN 1 END) AS variant_sku_count,
+          COUNT(CASE WHEN NULLIF(TRIM(m.sku), '') IS NULL THEN 1 END) AS missing_variant_sku_count,
+          GROUP_CONCAT(DISTINCT NULLIF(TRIM(m.sku), '') ORDER BY m.sku SEPARATOR ', ') AS variant_skus
+          FROM {$this->table} p
+          LEFT JOIN product_models m ON m.product_id = p.id AND m.deleted_at IS NULL";
+    }
+
+    public function findPanelPaginated($shopId, $limit = 10, $offset = 0, $critical = false) {
+        $where = 'p.shop_id = :shop_id AND p.deleted_at IS NULL';
+        if ($critical) $where .= ' AND p.status = 1 AND p.total_stock < 15';
+        $this->db->query($this->panelSelect() . " WHERE {$where} GROUP BY p.id ORDER BY p.id DESC LIMIT " . (int)$limit . " OFFSET " . (int)$offset);
+        $this->db->bind('shop_id', (int)$shopId);
+        return $this->db->getAll();
+    }
+
+    public function findPanelById($shopId, $productId) {
+        $this->db->query($this->panelSelect() . ' WHERE p.shop_id = :shop_id AND p.id = :product_id AND p.deleted_at IS NULL GROUP BY p.id LIMIT 1');
+        $this->db->bind('shop_id', (int)$shopId);
+        $this->db->bind('product_id', (int)$productId);
+        return $this->db->single();
+    }
+
     public function movementSummary(int $shopId, string $startDate, string $endDate): array {
         $start = DateTimeImmutable::createFromFormat('!Y-m-d', $startDate, new DateTimeZone('Asia/Jakarta'));
         $end = DateTimeImmutable::createFromFormat('!Y-m-d', $endDate, new DateTimeZone('Asia/Jakarta'));

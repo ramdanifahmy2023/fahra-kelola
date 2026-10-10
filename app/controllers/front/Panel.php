@@ -176,9 +176,10 @@ class Panel extends Controller {
         $data['total_products'] = $criticalFilter ? $productModel->countCritical($activeShopId) : $productModel->countWhere(['shop_id' => $activeShopId]);
         $data['total_pages'] = ceil($data['total_products'] / $limit);
         $data['current_page'] = $page;
-        $data['products'] = $criticalFilter ? $productModel->findCriticalPaginated($activeShopId, $limit, $offset) : $productModel->findWherePaginated(['shop_id' => $activeShopId], $limit, $offset);
+        $data['products'] = $productModel->findPanelPaginated($activeShopId, $limit, $offset, $criticalFilter);
         if (!empty($_GET['highlight'])) {
-          $data['products']=$productModel->findWhere(['id'=>(int)$_GET['highlight'],'shop_id'=>(int)$activeShopId]);
+          $highlighted = $productModel->findPanelById($activeShopId, (int)$_GET['highlight']);
+          $data['products'] = $highlighted ? [$highlighted] : [];
           $data['total_products']=count($data['products']);$data['total_pages']=1;$data['current_page']=1;
           $data['focused_product_id']=(int)$_GET['highlight'];
         }
