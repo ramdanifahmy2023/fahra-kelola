@@ -9,9 +9,11 @@ class FinanceCost extends Finance {
         CONVERT(COALESCE(m.sku,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci variant_sku,
         CONVERT(p.name USING utf8mb4) COLLATE utf8mb4_unicode_ci product_name,
         CONVERT(COALESCE(m.name,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci variation_name,
+        CONVERT(COALESCE(m.image,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci variant_image,
+        CONVERT(COALESCE(p.cover_image,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci product_image,
         CASE WHEN m.id IS NULL THEN 0 ELSE 1 END has_variant,0 archived
       FROM products p LEFT JOIN product_models m ON m.product_id=p.id AND m.deleted_at IS NULL WHERE p.deleted_at IS NULL
-      UNION ALL SELECT h.shop_id,h.product_id,h.model_id,h.sku,h.sku parent_sku,h.sku variant_sku,h.product_name,h.variation_name,CASE WHEN h.model_id=0 THEN 0 ELSE 1 END has_variant,1 archived
+      UNION ALL SELECT h.shop_id,h.product_id,h.model_id,h.sku,h.sku parent_sku,h.sku variant_sku,h.product_name,h.variation_name,CONVERT('' USING utf8mb4) COLLATE utf8mb4_unicode_ci variant_image,CONVERT('' USING utf8mb4) COLLATE utf8mb4_unicode_ci product_image,CASE WHEN h.model_id=0 THEN 0 ELSE 1 END has_variant,1 archived
       FROM finance_cost_heads h WHERE NOT EXISTS (SELECT 1 FROM products p LEFT JOIN product_models m ON m.product_id=p.id AND m.deleted_at IS NULL WHERE p.shop_id=h.shop_id AND p.id=h.product_id AND COALESCE(m.id,0)=h.model_id AND p.deleted_at IS NULL)";
   }
 
@@ -142,7 +144,7 @@ class FinanceCost extends Finance {
       $previous=null;
       foreach (($staged[$row['identity']] ?? []) as $version) if ($version['valid_from']<=$row['valid_from'] && ($previous===null || $version['valid_from']>$previous['valid_from'])) $previous=$version;
       $row['expected_version']=$base+$offset; $row['previous_cost']=$previous['unit_cost'] ?? null;
-      $row['shop_name']=$item['shop_name'] ?? ''; $row['product_name']=$item['product_name']; $row['variation_name']=$item['variation_name']; $row['sku']=$item['sku']; $row['parent_sku']=$item['parent_sku'] ?? ''; $row['variant_sku']=$item['variant_sku'] ?? ''; $row['archived']=(bool)$item['archived'];
+      $row['shop_name']=$item['shop_name'] ?? ''; $row['product_name']=$item['product_name']; $row['variation_name']=$item['variation_name']; $row['sku']=$item['sku']; $row['parent_sku']=$item['parent_sku'] ?? ''; $row['variant_sku']=$item['variant_sku'] ?? ''; $row['variant_image']=$item['variant_image'] ?? ''; $row['product_image']=$item['product_image'] ?? ''; $row['archived']=(bool)$item['archived'];
       if ($row['previous_cost']===null || (int)$row['previous_cost']!==$row['unit_cost']) $changed++;
       $staged[$row['identity']][]=['valid_from'=>$row['valid_from'],'unit_cost'=>$row['unit_cost']];
       unset($row['identity']);

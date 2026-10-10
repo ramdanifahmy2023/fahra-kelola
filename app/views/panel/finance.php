@@ -60,6 +60,7 @@ $financeDashboard=!empty($data['finance_dashboard']);
   </section>
   <dialog id="finance-cost-dialog" aria-labelledby="finance-cost-title">
     <div class="finance-dialog-heading"><h2 id="finance-cost-title">Atur HPP</h2><button type="button" id="finance-close-cost" class="btn" aria-label="Tutup formulir HPP">Tutup</button></div>
+    <div id="finance-cost-image" class="finance-cost-dialog-image" aria-label="Foto produk atau varian"></div>
     <div class="finance-cost-target"><span>Toko target</span><strong id="finance-cost-shop-target"></strong></div>
     <p id="finance-cost-item"></p>
     <form id="finance-cost-form">

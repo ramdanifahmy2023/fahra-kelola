@@ -36,8 +36,8 @@ try {
   $f->execute(str_replace('CREATE TABLE IF NOT EXISTS','CREATE TEMPORARY TABLE',file_get_contents('../database/migrations/20260930_finance_wallet.sql')));
   $tables[]='finance_wallet';
   $f->execute("INSERT INTO shops (id,shop_id,name) VALUES (1,101,'First'),(2,202,'Second')");
-  $f->execute("INSERT INTO products (id,shop_id,name,parent_sku) VALUES (10,1,'One','SAME'),(20,2,'Two','SAME'),(30,1,'Variants','PARENT')");
-  $f->execute("INSERT INTO product_models (id,product_id,name,sku) VALUES (31,30,'Red','SAME'),(32,30,'Blue','SAME')");
+  $f->execute("INSERT INTO products (id,shop_id,name,parent_sku,cover_image) VALUES (10,1,'One','SAME','one.jpg'),(20,2,'Two','SAME','two.jpg'),(30,1,'Variants','PARENT','parent.jpg')");
+  $f->execute("INSERT INTO product_models (id,product_id,name,sku,image) VALUES (31,30,'Red','SAME','red.jpg'),(32,30,'Blue','SAME','blue.jpg')");
   $f->execute("INSERT INTO orders (id,shop_id,order_sn,created_at) VALUES (1,1,'O1','2026-09-01 16:59:59'),(2,1,'O2','2026-09-01 17:00:00'),(3,2,'O3','2026-09-01 17:00:00'),(4,1,'O4','2026-09-03 17:00:00')");
   $f->execute("INSERT INTO order_items (order_id,product_id,model_id,quantity) VALUES (1,10,0,1),(2,10,0,2),(3,20,0,5),(4,10,0,3)");
   $shops=$f->shops(); $range=FinancePolicy::range('2026-09-01','2026-09-02');
@@ -115,7 +115,8 @@ try {
   financeCheck($f->repairPending($shops[0],$source)['checked']===0,'Identified orders are not requested again during repair');
   financeCheck($f->summary([$shops[0]],$range)['stores'][0]['pending']===30,'Status repair does not change income');
 
-  $catalog=$cost->catalog($shops,1,'SAME'); financeCheck($catalog['total']===4 && isset($catalog['summary']['missing'],$catalog['summary']['products']),'Catalog returns HPP completeness summary with product and variant IDs');
+  $catalog=$cost->catalog($shops,1,'SAME'); $variantImageRow=array_values(array_filter($catalog['rows'],static fn($row)=>(string)$row['product_id']==='30' && (string)$row['model_id']==='31'))[0] ?? [];
+  financeCheck($catalog['total']===4 && isset($catalog['summary']['missing'],$catalog['summary']['products']) && array_key_exists('variant_image',$catalog['rows'][0]) && array_key_exists('product_image',$catalog['rows'][0]) && $variantImageRow['variant_image']==='red.jpg' && $variantImageRow['product_image']==='parent.jpg','Catalog returns HPP completeness, product identity, and image fallbacks');
   $export=$cost->exportCatalog([$shops[0]],'SAME','all'); financeCheck($export['rows'][0]['product_id']!==null && array_key_exists('variant_sku',$export['rows'][0]),'Catalog export includes stable product and variant identity');
   $health=$cost->health($shops); financeCheck(count($health['shops'])===2 && isset($health['shops'][0]['order_items']['variant_without_model']),'Health audit reports per-shop order identity checks');
   $input=['shop_id'=>1,'product_id'=>'10','model_id'=>'0','unit_cost'=>'20000','valid_from'=>'2026-09-02','version'=>0];
@@ -149,7 +150,7 @@ try {
     ['row_no'=>5,'shop_id'=>'1','product_id'=>'30','model_id'=>'32','unit_cost'=>'10000','valid_from'=>'2099-09-10']
   ]];
   $batch=$cost->batchPreview($batchRows);
-  financeCheck($batch['summary']['valid']===4 && !$batch['errors'] && $batch['rows'][0]['previous_cost']===0 && (int)$batch['rows'][3]['model_id']===32,'Batch preview keeps dated previous cost and separate HPP for each variant');
+  financeCheck($batch['summary']['valid']===4 && !$batch['errors'] && $batch['rows'][0]['previous_cost']===0 && (int)$batch['rows'][2]['model_id']===31 && $batch['rows'][2]['variant_image']==='red.jpg' && (int)$batch['rows'][3]['model_id']===32,'Batch preview keeps dated previous cost, variant images, and separate HPP for each variant');
   $expires=time()+600; $cost->batchSave($batchRows+['expires'=>$expires,'token'=>FinanceCost::batchToken($batch,$expires,'test-secret')],1,'test-secret');
   financeCheck((int)$cost->history(['shop_id'=>1,'product_id'=>10,'model_id'=>0])[0]['unit_cost']===32000,'Batch saves multiple dates for one product');
   $duplicate=$cost->batchPreview(['rows'=>[$batchRows['rows'][0],$batchRows['rows'][0]]]);
