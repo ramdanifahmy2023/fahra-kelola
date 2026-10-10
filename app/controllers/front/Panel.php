@@ -177,8 +177,12 @@ class Panel extends Controller {
         $data['total_pages'] = ceil($data['total_products'] / $limit);
         $data['current_page'] = $page;
         $data['products'] = $productModel->findPanelPaginated($activeShopId, $limit, $offset, $criticalFilter);
+        $productVariants = $this->m('ProductModel');
+        foreach ($data['products'] as &$product) $product['variants'] = $productVariants->forProduct((int)$activeShopId,(int)$product['id']);
+        unset($product);
         if (!empty($_GET['highlight'])) {
           $highlighted = $productModel->findPanelById($activeShopId, (int)$_GET['highlight']);
+          if ($highlighted) $highlighted['variants'] = $productVariants->forProduct((int)$activeShopId,(int)$highlighted['id']);
           $data['products'] = $highlighted ? [$highlighted] : [];
           $data['total_products']=count($data['products']);$data['total_pages']=1;$data['current_page']=1;
           $data['focused_product_id']=(int)$_GET['highlight'];

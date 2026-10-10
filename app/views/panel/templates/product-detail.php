@@ -26,6 +26,7 @@ $detailStatus = match ((int)$p['status']) { 1 => 'Aktif', 2 => 'Habis', default 
       <?php if (!empty($p['variant_skus'])): ?><?= $detailEscape($p['variant_skus']); ?><?php else: ?>Belum tersedia<?php endif; ?>
       <span class="text-xs opacity-70"><?= (int)($p['variant_sku_count'] ?? 0); ?>/<?= (int)$p['variant_count']; ?> varian memiliki SKU</span>
     </dd></div>
+    <div class="product-detail-variants"><dt>Identitas varian</dt><dd><ul><?php foreach (($p['variants'] ?? []) as $variant): ?><li><strong><?= $detailEscape($variant['name'] ?: 'Tanpa nama varian'); ?></strong><span>ID varian: <?= $detailEscape($variant['id']); ?></span><span>SKU varian: <?= $detailEscape($variant['sku'] ?: 'Belum diisi'); ?></span></li><?php endforeach; ?></ul></dd></div>
     <?php endif; ?>
     <div><dt>ID produk</dt><dd><?= $detailEscape($p['id']); ?></dd></div>
     <div><dt>Harga tercatat</dt><dd><?= $detailPrice($p['price_min'] ?? null, $p['price_max'] ?? null); ?></dd></div>

@@ -115,7 +115,9 @@ try {
   financeCheck($f->repairPending($shops[0],$source)['checked']===0,'Identified orders are not requested again during repair');
   financeCheck($f->summary([$shops[0]],$range)['stores'][0]['pending']===30,'Status repair does not change income');
 
-  $catalog=$cost->catalog($shops,1,'SAME'); financeCheck($catalog['total']===4,'Duplicate SKU retained across variants and shops');
+  $catalog=$cost->catalog($shops,1,'SAME'); financeCheck($catalog['total']===4 && isset($catalog['summary']['missing'],$catalog['summary']['products']),'Catalog returns HPP completeness summary with product and variant IDs');
+  $export=$cost->exportCatalog([$shops[0]],'SAME','all'); financeCheck($export['rows'][0]['product_id']!==null && array_key_exists('variant_sku',$export['rows'][0]),'Catalog export includes stable product and variant identity');
+  $health=$cost->health($shops); financeCheck(count($health['shops'])===2 && isset($health['shops'][0]['order_items']['variant_without_model']),'Health audit reports per-shop order identity checks');
   $input=['shop_id'=>1,'product_id'=>'10','model_id'=>'0','unit_cost'=>'20000','valid_from'=>'2026-09-02','version'=>0];
   $preview=$cost->preview($input);
   financeCheck($preview['impact']['orders']===2 && $preview['impact']['units']===5 && $preview['impact']['missing_units']===5,'WIB boundary and local shop scope in preview');
@@ -125,6 +127,8 @@ try {
   financeThrows(fn()=>$cost->save($input+$proof,2,'test-secret'),409);
   financeCheck($cost->history(['shop_id'=>2,'product_id'=>20,'model_id'=>0])===[],'Other shop cost untouched');
   financeCheck((int)$cost->history($input)[0]['unit_cost']===20000,'Saved cost');
+  financeCheck($cost->catalog([$shops[0]],1,'','filled')['rows'][0]['status']==='filled','Filled HPP status filters by effective date');
+  financeCheck(count($cost->catalog([$shops[0]],1,'','missing')['rows'])>0,'Missing HPP status keeps unfilled variants visible');
   financeCheck($cost->orderCost(1,'1')['amount']===null,'Earlier order has no invented HPP');
   financeCheck($cost->orderCost(1,'2')['amount']===40000,'Per-order HPP uses quantity and WIB start');
   financeCheck($cost->orderCost(2,'2')['amount']===null,'Per-order HPP is shop scoped');
@@ -141,10 +145,11 @@ try {
   $batchRows=['rows'=>[
     ['row_no'=>2,'shop_id'=>'1','product_id'=>'10','model_id'=>'0','unit_cost'=>'31000','valid_from'=>'2099-09-10'],
     ['row_no'=>3,'shop_id'=>'1','product_id'=>'10','model_id'=>'0','unit_cost'=>'32000','valid_from'=>'2099-09-11'],
-    ['row_no'=>4,'shop_id'=>'1','product_id'=>'30','model_id'=>'31','unit_cost'=>'9000','valid_from'=>'2099-09-10']
+    ['row_no'=>4,'shop_id'=>'1','product_id'=>'30','model_id'=>'31','unit_cost'=>'9000','valid_from'=>'2099-09-10'],
+    ['row_no'=>5,'shop_id'=>'1','product_id'=>'30','model_id'=>'32','unit_cost'=>'10000','valid_from'=>'2099-09-10']
   ]];
   $batch=$cost->batchPreview($batchRows);
-  financeCheck($batch['summary']['valid']===3 && !$batch['errors'] && $batch['rows'][0]['previous_cost']===0,'Batch preview keeps dated previous cost and products without SKU dependency');
+  financeCheck($batch['summary']['valid']===4 && !$batch['errors'] && $batch['rows'][0]['previous_cost']===0 && (int)$batch['rows'][3]['model_id']===32,'Batch preview keeps dated previous cost and separate HPP for each variant');
   $expires=time()+600; $cost->batchSave($batchRows+['expires'=>$expires,'token'=>FinanceCost::batchToken($batch,$expires,'test-secret')],1,'test-secret');
   financeCheck((int)$cost->history(['shop_id'=>1,'product_id'=>10,'model_id'=>0])[0]['unit_cost']===32000,'Batch saves multiple dates for one product');
   $duplicate=$cost->batchPreview(['rows'=>[$batchRows['rows'][0],$batchRows['rows'][0]]]);

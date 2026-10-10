@@ -24,8 +24,9 @@ class OrderTestJob extends SyncJob {
 }
 class OrderTestSource extends ShopeeCurl {
   public $response;
+  public $detail;
   public function getOrderIndexList($cookie, $pageNumber = 1, $pageSize = 40, $nextPageSentinel = '') { return $this->response; }
-  public function getOneOrder($cookie, $orderId) { throw new RuntimeException('Fresh detail should not be requested'); }
+  public function getOneOrder($cookie, $orderId) { if ($this->detail === null) throw new RuntimeException('Fresh detail should not be requested'); return $this->detail; }
 }
 $now = strtotime('2026-09-29 00:00:00 UTC');
 $known = ['1' => ['created_at' => '2026-09-28 00:00:00', 'detail_synced_at' => '2026-09-29 00:00:00']];
@@ -38,7 +39,7 @@ checkOrder(!OrderSyncPolicy::continueIndex('full', [1], $known, '', $now), 'Miss
 checkOrder(!OrderSyncPolicy::needsDetail(['status_type'=>'completed','detail_synced_at'=>'2026-09-28 23:00:00'], $now), 'Fresh terminal details retained');
 checkOrder(OrderSyncPolicy::needsDetail(['status_type'=>'shipped','detail_synced_at'=>'2026-09-28 23:56:00'], $now), 'Active details refresh after three minutes');
 checkOrder(!OrderSyncPolicy::needsDetail(['sync_next_retry_at'=>'2026-09-29 01:00:00'], $now), 'Retry backoff preserved');
-$tables = ['orders', 'sync_jobs', 'sync_job_orders', 'sync_runs', 'sync_pages', 'sync_schedules'];
+$tables = ['orders', 'order_items', 'sync_jobs', 'sync_job_orders', 'sync_runs', 'sync_pages', 'sync_schedules'];
 try {
   foreach ($tables as $table) {
     $schema = orderSql("SHOW CREATE TABLE {$table}")[0]['Create Table'];
@@ -73,6 +74,20 @@ try {
   checkOrder((int)$sync->claimJob()['id'] === $diff, 'Recent orders receive priority over history');
   orderSql("UPDATE sync_jobs SET updated_at=DATE_SUB(NOW(),INTERVAL 3 MINUTE) WHERE id={$full}");
   checkOrder((int)$sync->claimJob()['id'] === $full, 'Aged history gets a turn');
+  orderSql("INSERT INTO orders (id,shop_id,status_type,created_at,detail_synced_at) VALUES (5,1,'shipped','2026-09-01','2026-09-01')");
+  $sync->queueOrder($full, 5);
+  $detailTaskId = (int)orderSql("SELECT id FROM sync_job_orders WHERE job_id={$full} AND order_id=5")[0]['id'];
+  $source->detail = ['order_sn'=>'O5','status_info_v2'=>['status'=>'shipped'],'create_time'=>strtotime('2026-09-01 00:00:00 UTC'),'order_items'=>[['item_id'=>10,'model_id'=>31,'amount'=>2,'order_price'=>9000,'product'=>['name'=>'Variants'],'item_model'=>['name'=>'Red']]]];
+  $detailTask = orderSql("SELECT * FROM sync_job_orders WHERE id={$detailTaskId}")[0]; $requestCount=0;
+  checkOrder(processOrder($db,$sync,$source,$detailTask,['id'=>1,'cookie'=>'fixture'],false,$requestCount), 'Order detail stores the current variant item');
+  $item = orderSql('SELECT product_id,model_id,quantity FROM order_items WHERE order_id=5')[0];
+  checkOrder((int)$item['product_id']===10 && (int)$item['model_id']===31 && (int)$item['quantity']===2, 'Variant model ID and quantity are stored');
+  orderSql("UPDATE sync_job_orders SET status='queued',completed_at=NULL WHERE id={$detailTaskId}");
+  orderSql("UPDATE orders SET detail_synced_at='2026-09-01',status_type='shipped' WHERE id=5");
+  $source->detail['order_items']=[['item_id'=>10,'model_id'=>32,'amount'=>3,'order_price'=>10000,'product'=>['name'=>'Variants'],'item_model'=>['name'=>'Blue']]];
+  checkOrder(processOrder($db,$sync,$source,$detailTask,['id'=>1,'cookie'=>'fixture'],false,$requestCount), 'Order detail refresh replaces stale variant item');
+  $items = orderSql('SELECT product_id,model_id,quantity FROM order_items WHERE order_id=5');
+  checkOrder(count($items)===1 && (int)$items[0]['model_id']===32 && (int)$items[0]['quantity']===3, 'Refresh leaves one authoritative variant row');
   echo "PASS: {$checks} order synchronization checks\n";
 } finally {
   foreach (array_reverse($tables) as $table) { $db->query("DROP TEMPORARY TABLE IF EXISTS {$table}"); $db->exe(); }

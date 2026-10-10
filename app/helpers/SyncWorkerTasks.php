@@ -218,33 +218,30 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
       }
     }
   }
-  $existingKeys = [];
-  $db->query("SELECT product_id, model_id FROM order_items WHERE order_id = :order_id");
-  $db->bind('order_id', $orderId);
-  foreach ($db->getAll() as $item) {
-    $existingKeys[$item['product_id'] . ':' . ($item['model_id'] ?? 0)] = true;
-  }
-  $newItems = [];
-  foreach (($detail['order_items'] ?? []) as $item) {
-    $productId = (int)($item['item_id'] ?? 0);
-    $modelId = (int)($item['model_id'] ?? 0);
-    $key = $productId . ':' . $modelId;
-    if ($productId < 1 || isset($existingKeys[$key])) {
-      continue;
+  if (array_key_exists('order_items', $detail)) {
+    $items = [];
+    foreach ((array)$detail['order_items'] as $item) {
+      $productId = (int)($item['item_id'] ?? 0);
+      if ($productId < 1) continue;
+      $items[] = [$orderId, $productId, (int)($item['model_id'] ?? 0), $item['product']['name'] ?? '', $item['item_model']['name'] ?? '', (int)($item['amount'] ?? 1), (int)($item['order_price'] ?? 0), $item['product']['images'][0] ?? ''];
     }
-    $existingKeys[$key] = true;
-    $newItems[] = [$orderId, $productId, $modelId, $item['product']['name'] ?? '', $item['item_model']['name'] ?? '', (int)($item['amount'] ?? 1), (int)($item['order_price'] ?? 0), $item['product']['images'][0] ?? ''];
-  }
-  if ($newItems) {
-    $values = [];
-    foreach ($newItems as $index => $item) {
-      $values[] = "(:a{$index},:b{$index},:c{$index},:d{$index},:e{$index},:f{$index},:g{$index},:h{$index})";
+    $db->begin();
+    try {
+      $db->query('DELETE FROM order_items WHERE order_id=:order_id');
+      $db->bind('order_id', $orderId);
+      $db->exe();
+      if ($items) {
+        $values = [];
+        foreach ($items as $index => $item) $values[] = "(:a{$index},:b{$index},:c{$index},:d{$index},:e{$index},:f{$index},:g{$index},:h{$index})";
+        $db->query("INSERT INTO order_items (order_id, product_id, model_id, name, variation_name, quantity, price, image) VALUES " . implode(',', $values));
+        foreach ($items as $index => $item) bindAll($db, ['a' . $index => $item[0], 'b' . $index => $item[1], 'c' . $index => $item[2], 'd' . $index => $item[3], 'e' . $index => $item[4], 'f' . $index => $item[5], 'g' . $index => $item[6], 'h' . $index => $item[7]]);
+        $db->exe();
+      }
+      $db->commit();
+    } catch (Throwable $error) {
+      $db->rollback();
+      throw $error;
     }
-    $db->query("INSERT INTO order_items (order_id, product_id, model_id, name, variation_name, quantity, price, image) VALUES " . implode(',', $values));
-    foreach ($newItems as $index => $item) {
-      bindAll($db, ['a' . $index => $item[0], 'b' . $index => $item[1], 'c' . $index => $item[2], 'd' . $index => $item[3], 'e' . $index => $item[4], 'f' . $index => $item[5], 'g' . $index => $item[6], 'h' . $index => $item[7]]);
-    }
-    $db->exe();
   }
   $sync->finishOrder((int)$task['id'], 'done');
   return true;

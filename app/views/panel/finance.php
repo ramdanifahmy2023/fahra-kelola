@@ -45,8 +45,14 @@ $financeDashboard=!empty($data['finance_dashboard']);
     <div id="finance-detail-list" aria-live="polite"></div><div id="finance-detail-pagination" class="finance-pagination"></div>
   </section>
   <section id="finance-cost-panel" class="finance-surface" aria-label="HPP produk" hidden>
-    <div class="finance-section-heading"><div><h2>HPP produk</h2><p>Satu angka modal per unit, untuk setiap produk atau varian di setiap toko.</p></div><button id="finance-open-cost-batch" class="btn" type="button">Impor HPP batch</button></div>
+    <div class="finance-section-heading"><div><h2>HPP produk</h2><p>Satu angka modal per unit, untuk setiap produk atau varian di setiap toko.</p></div><div class="finance-cost-actions"><button id="finance-cost-export" class="btn" type="button">Unduh katalog HPP</button><button id="finance-cost-health" class="btn" type="button">Audit data order</button><button id="finance-open-cost-batch" class="btn btn-primary" type="button">Impor HPP batch</button></div></div>
     <form id="finance-cost-search-form" class="finance-search"><label for="finance-cost-search">SKU atau produk</label><input class="input" id="finance-cost-search" maxlength="100" placeholder="Cari SKU, produk, atau varian"><button class="btn" type="submit">Cari</button></form>
+    <div class="finance-cost-toolbar">
+      <div><label for="finance-cost-status">Status HPP</label><select class="select" id="finance-cost-status"><option value="all">Semua produk</option><option value="missing">HPP belum diisi</option><option value="filled">HPP sudah diisi</option><option value="archived">Produk arsip</option></select></div>
+      <p id="finance-cost-selection" class="finance-help" role="status" hidden></p>
+      <div class="finance-cost-bulk"><label for="finance-cost-bulk-value">HPP terpilih (Rp)</label><input class="input" type="number" id="finance-cost-bulk-value" min="0" max="1000000000" step="1" inputmode="numeric" placeholder="Contoh: 25000"><label for="finance-cost-bulk-date">Berlaku mulai</label><input class="input" type="date" id="finance-cost-bulk-date" min="2015-01-01" max="2100-01-01"><button id="finance-cost-bulk-apply" class="btn" type="button" disabled>Isi HPP terpilih</button></div>
+    </div>
+    <div id="finance-cost-summary" class="finance-cost-summary" aria-live="polite"></div>
     <p class="finance-help">Perubahan HPP mengikuti tanggal pesanan dibuat (WIB). Riwayat modal tetap tersimpan saat produk diarsipkan. HPP di sini tidak mengubah harga jual di Shopee. Untuk batch, gunakan ID toko, ID produk, dan ID varian dari daftar ini.</p>
     <div id="finance-cost-list" aria-live="polite"></div><div id="finance-cost-pagination" class="finance-pagination"></div>
   </section>
@@ -63,9 +69,14 @@ $financeDashboard=!empty($data['finance_dashboard']);
     </form>
     <details class="finance-explanation"><summary>Riwayat modal</summary><div id="finance-cost-history"></div></details>
   </dialog>
+  <dialog id="finance-cost-health-dialog" aria-labelledby="finance-cost-health-title">
+    <div class="finance-dialog-heading"><h2 id="finance-cost-health-title">Audit data HPP dan order</h2><button type="button" id="finance-close-cost-health" class="btn" aria-label="Tutup audit data order">Tutup</button></div>
+    <p class="finance-help">Audit ini mencari HPP yang belum diisi, order varian yang tidak memiliki ID varian, ID varian yang tidak cocok dengan katalog, dan item order ganda.</p>
+    <div id="finance-cost-health-content" aria-live="polite">Memuat audit…</div>
+  </dialog>
   <dialog id="finance-cost-batch-dialog" aria-labelledby="finance-cost-batch-title">
     <div class="finance-dialog-heading"><h2 id="finance-cost-batch-title">Impor HPP batch</h2><button type="button" id="finance-close-cost-batch" class="btn" aria-label="Tutup impor HPP batch">Tutup</button></div>
-    <p>Tempel CSV atau TSV dengan kolom: <code>shop_id,product_id,model_id,unit_cost,valid_from</code>. Produk tanpa varian memakai <code>model_id</code> 0. SKU utama dan SKU varian hanya petunjuk di daftar.</p>
+    <p>Tempel CSV atau TSV dengan kolom: <code>shop_id,product_id,model_id,unit_cost,valid_from</code>. Produk tanpa varian memakai <code>model_id</code> 0. Untuk produk bervarian, gunakan ID varian dan SKU varian dari katalog.</p>
     <div class="finance-batch-actions"><label class="finance-file-field">File CSV<input class="input" id="finance-cost-batch-file" type="file" accept=".csv,text/csv"></label><button id="finance-cost-batch-template" class="btn" type="button">Unduh template</button></div>
     <form id="finance-cost-batch-form">
       <label for="finance-cost-batch-input">Data batch</label><textarea class="input finance-batch-input" id="finance-cost-batch-input" rows="8" spellcheck="false" placeholder="shop_id,product_id,model_id,unit_cost,valid_from&#10;1,12345,0,25000,2026-10-01"></textarea>

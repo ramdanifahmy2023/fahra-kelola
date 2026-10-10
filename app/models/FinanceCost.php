@@ -3,27 +3,63 @@ require_once __DIR__.'/Finance.php';
 
 class FinanceCost extends Finance {
   private function catalogSql(): string {
-    return "SELECT p.shop_id,p.id product_id,COALESCE(m.id,0) model_id,CONVERT(COALESCE(m.sku,p.parent_sku,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci sku,CONVERT(p.name USING utf8mb4) COLLATE utf8mb4_unicode_ci product_name,CONVERT(COALESCE(m.name,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci variation_name,0 archived FROM products p LEFT JOIN product_models m ON m.product_id=p.id AND m.deleted_at IS NULL WHERE p.deleted_at IS NULL
-      UNION ALL SELECT h.shop_id,h.product_id,h.model_id,h.sku,h.product_name,h.variation_name,1 archived FROM finance_cost_heads h WHERE NOT EXISTS (SELECT 1 FROM products p LEFT JOIN product_models m ON m.product_id=p.id AND m.deleted_at IS NULL WHERE p.shop_id=h.shop_id AND p.id=h.product_id AND COALESCE(m.id,0)=h.model_id AND p.deleted_at IS NULL)";
+    return "SELECT p.shop_id,p.id product_id,COALESCE(m.id,0) model_id,
+        CONVERT(CASE WHEN m.id IS NULL THEN COALESCE(p.parent_sku,'') ELSE COALESCE(m.sku,'') END USING utf8mb4) COLLATE utf8mb4_unicode_ci sku,
+        CONVERT(COALESCE(p.parent_sku,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci parent_sku,
+        CONVERT(COALESCE(m.sku,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci variant_sku,
+        CONVERT(p.name USING utf8mb4) COLLATE utf8mb4_unicode_ci product_name,
+        CONVERT(COALESCE(m.name,'') USING utf8mb4) COLLATE utf8mb4_unicode_ci variation_name,
+        CASE WHEN m.id IS NULL THEN 0 ELSE 1 END has_variant,0 archived
+      FROM products p LEFT JOIN product_models m ON m.product_id=p.id AND m.deleted_at IS NULL WHERE p.deleted_at IS NULL
+      UNION ALL SELECT h.shop_id,h.product_id,h.model_id,h.sku,h.sku parent_sku,h.sku variant_sku,h.product_name,h.variation_name,CASE WHEN h.model_id=0 THEN 0 ELSE 1 END has_variant,1 archived
+      FROM finance_cost_heads h WHERE NOT EXISTS (SELECT 1 FROM products p LEFT JOIN product_models m ON m.product_id=p.id AND m.deleted_at IS NULL WHERE p.shop_id=h.shop_id AND p.id=h.product_id AND COALESCE(m.id,0)=h.model_id AND p.deleted_at IS NULL)";
   }
 
-  public function catalog(array $shops,int $page=1,string $search=''): array {
+  public function catalog(array $shops,int $page=1,string $search='',string $status='all',int $limit=25): array {
     if (!$shops) return ['rows'=>[],'page'=>1,'total'=>0];
+    if (!in_array($status,['all','filled','missing','archived'],true)) throw new InvalidArgumentException('Status HPP tidak valid.');
     $ids=implode(',',array_map('intval',array_column($shops,'id')));
+    $today=(new DateTimeImmutable('now',new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
     $where="c.shop_id IN ({$ids})"; $params=[];
     if ($search!=='') { $where.=' AND (c.sku LIKE :q OR c.product_name LIKE :q2 OR c.variation_name LIKE :q3)'; $q='%'.addcslashes(mb_substr($search,0,100),'%_\\').'%'; $params=['q'=>$q,'q2'=>$q,'q3'=>$q]; }
+    if ($status==='archived') $where.=' AND c.archived=1';
+    if ($status==='filled') { $where.=' AND c.archived=0 AND EXISTS (SELECT 1 FROM finance_cost_versions cv WHERE cv.shop_id=c.shop_id AND cv.product_id=c.product_id AND cv.model_id=c.model_id AND cv.valid_from<=:status_date)'; $params['status_date']=$today; }
+    if ($status==='missing') { $where.=' AND c.archived=0 AND NOT EXISTS (SELECT 1 FROM finance_cost_versions cv WHERE cv.shop_id=c.shop_id AND cv.product_id=c.product_id AND cv.model_id=c.model_id AND cv.valid_from<=:status_date)'; $params['status_date']=$today; }
     $from='FROM ('.$this->catalogSql().') c JOIN shops s ON s.id=c.shop_id WHERE '.$where;
     $total=(int)$this->one('SELECT COUNT(*) total '.$from,$params)['total'];
-    $page=max(1,min($page,max(1,(int)ceil($total/25)))); $offset=($page-1)*25;
-    $rows=$this->rows('SELECT c.*,s.name shop_name '.$from." ORDER BY c.archived,c.product_name,c.model_id,c.shop_id LIMIT 25 OFFSET {$offset}",$params);
-    $today=(new DateTimeImmutable('now',new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
+    $limit=max(1,min(10000,$limit)); $page=max(1,min($page,max(1,(int)ceil($total/$limit)))); $offset=($page-1)*$limit;
+    $rows=$this->rows('SELECT c.*,s.name shop_name '.$from." ORDER BY c.archived,c.product_name,c.model_id,c.shop_id LIMIT {$limit} OFFSET {$offset}",$params);
+    $summaryWhere="c.shop_id IN ({$ids})"; $summaryParams=[];
+    if ($search!=='') { $summaryWhere.=' AND (c.sku LIKE :sq OR c.product_name LIKE :sq2 OR c.variation_name LIKE :sq3)'; $summaryParams['sq']=$q; $summaryParams['sq2']=$q; $summaryParams['sq3']=$q; }
+    if ($status==='archived') $summaryWhere.=' AND c.archived=1';
+    if ($status==='filled') { $summaryWhere.=' AND c.archived=0 AND EXISTS (SELECT 1 FROM finance_cost_versions cv WHERE cv.shop_id=c.shop_id AND cv.product_id=c.product_id AND cv.model_id=c.model_id AND cv.valid_from<=:summary_status_date)'; $summaryParams['summary_status_date']=$today; }
+    if ($status==='missing') { $summaryWhere.=' AND c.archived=0 AND NOT EXISTS (SELECT 1 FROM finance_cost_versions cv WHERE cv.shop_id=c.shop_id AND cv.product_id=c.product_id AND cv.model_id=c.model_id AND cv.valid_from<=:summary_status_date)'; $summaryParams['summary_status_date']=$today; }
+    $summary=$this->one('SELECT COUNT(*) total,COALESCE(SUM(c.archived=1),0) archived,COALESCE(SUM(c.archived=0 AND EXISTS (SELECT 1 FROM finance_cost_versions cv WHERE cv.shop_id=c.shop_id AND cv.product_id=c.product_id AND cv.model_id=c.model_id AND cv.valid_from<=:summary_filled_date)),0) filled,COALESCE(SUM(c.archived=0 AND NOT EXISTS (SELECT 1 FROM finance_cost_versions cv WHERE cv.shop_id=c.shop_id AND cv.product_id=c.product_id AND cv.model_id=c.model_id AND cv.valid_from<=:summary_missing_date)),0) missing,COUNT(DISTINCT CONCAT(c.shop_id,\':\',c.product_id)) products,COALESCE(SUM(c.has_variant=1),0) variants FROM ('.$this->catalogSql().') c WHERE '.$summaryWhere,$summaryParams+['summary_filled_date'=>$today,'summary_missing_date'=>$today]);
     foreach ($rows as &$row) {
       $key=$this->key($row); $head=$this->one('SELECT version FROM finance_cost_heads WHERE '.$this->where(),$key);
       $cost=$this->one('SELECT unit_cost,valid_from FROM finance_cost_versions WHERE '.$this->where().' AND valid_from<=:date ORDER BY valid_from DESC LIMIT 1',$key+['date'=>$today]);
       $row['version']=(int)($head['version'] ?? 0); $row['unit_cost']=$cost ? (int)$cost['unit_cost'] : null; $row['valid_from']=$cost['valid_from'] ?? null;
+      $row['status']=$row['archived'] ? 'archived' : ($cost ? 'filled' : 'missing');
       foreach (['product_id','model_id'] as $id) $row[$id]=(string)$row[$id];
     }
-    return ['rows'=>$rows,'page'=>$page,'total'=>$total];
+    return ['rows'=>$rows,'page'=>$page,'total'=>$total,'summary'=>array_map('intval',$summary ?: [])];
+  }
+
+  public function exportCatalog(array $shops,string $search='',string $status='all'): array {
+    return $this->catalog($shops,1,$search,$status,10000);
+  }
+
+  public function health(array $shops): array {
+    $result=[];
+    foreach ($shops as $shop) {
+      $shopId=(int)$shop['id'];
+      $catalog=$this->catalog([$shop],1,'','all',10000);
+      $variantWithoutModel=(int)($this->one('SELECT COUNT(*) total FROM order_items oi JOIN orders o ON o.id=oi.order_id AND o.shop_id=:shop_order JOIN products p ON p.id=oi.product_id AND p.shop_id=:shop_product AND p.deleted_at IS NULL JOIN product_models pm ON pm.product_id=p.id AND pm.deleted_at IS NULL WHERE COALESCE(oi.model_id,0)=0',['shop_order'=>$shopId,'shop_product'=>$shopId])['total'] ?? 0);
+      $invalidModel=(int)($this->one('SELECT COUNT(*) total FROM order_items oi JOIN orders o ON o.id=oi.order_id AND o.shop_id=:shop_join LEFT JOIN product_models pm ON pm.id=oi.model_id AND pm.product_id=oi.product_id AND pm.deleted_at IS NULL WHERE o.shop_id=:shop_filter AND oi.model_id IS NOT NULL AND oi.model_id>0 AND pm.id IS NULL',['shop_join'=>$shopId,'shop_filter'=>$shopId])['total'] ?? 0);
+      $duplicateRows=(int)($this->one('SELECT COUNT(*) total FROM (SELECT oi.order_id,oi.product_id,COALESCE(oi.model_id,0) model_id FROM order_items oi JOIN orders o ON o.id=oi.order_id WHERE o.shop_id=:shop GROUP BY oi.order_id,oi.product_id,COALESCE(oi.model_id,0) HAVING COUNT(*)>1) duplicates',['shop'=>$shopId])['total'] ?? 0);
+      $result[]=['shop_id'=>(string)$shopId,'shop_name'=>$shop['name'] ?? '','hpp'=>$catalog['summary'] ?? [],'order_items'=>['variant_without_model'=>$variantWithoutModel,'invalid_model'=>$invalidModel,'duplicate_rows'=>$duplicateRows],'status'=>($variantWithoutModel||$invalidModel||$duplicateRows||((int)($catalog['summary']['missing'] ?? 0)>0))?'attention':'ready'];
+    }
+    return ['shops'=>$result];
   }
 
   private function where(): string { return 'shop_id=:shop AND product_id=:product AND model_id=:model'; }
@@ -97,22 +133,23 @@ class FinanceCost extends Finance {
       } catch (InvalidArgumentException $error) { $errors[$index]=['row_no'=>$line,'message'=>$error->getMessage()]; }
     }
     $catalog=$this->catalogByKeys(array_values($keys)); $versions=$this->headVersionsByKeys(array_values($keys)); $dated=$this->datedCostsByKeys(array_values($keys));
-    $increments=[]; $changed=0;
+    $increments=[]; $changed=0; $staged=$dated;
     foreach ($rows as $index=>&$row) {
       $item=$catalog[$row['identity']] ?? null;
       if (!$item) { $errors[$index]=['row_no'=>$row['row_no'],'message'=>'Produk atau varian tidak ditemukan. Sinkronkan produk terlebih dahulu.']; continue; }
       $valid++;
       $base=(int)($versions[$row['identity']] ?? 0); $offset=(int)($increments[$row['identity']] ?? 0); $increments[$row['identity']]=$offset+1;
       $previous=null;
-      foreach (($dated[$row['identity']] ?? []) as $version) if ($version['valid_from']<=$row['valid_from'] && ($previous===null || $version['valid_from']>$previous['valid_from'])) $previous=$version;
+      foreach (($staged[$row['identity']] ?? []) as $version) if ($version['valid_from']<=$row['valid_from'] && ($previous===null || $version['valid_from']>$previous['valid_from'])) $previous=$version;
       $row['expected_version']=$base+$offset; $row['previous_cost']=$previous['unit_cost'] ?? null;
-      $row['shop_name']=$item['shop_name'] ?? ''; $row['product_name']=$item['product_name']; $row['variation_name']=$item['variation_name']; $row['sku']=$item['sku']; $row['archived']=(bool)$item['archived'];
+      $row['shop_name']=$item['shop_name'] ?? ''; $row['product_name']=$item['product_name']; $row['variation_name']=$item['variation_name']; $row['sku']=$item['sku']; $row['parent_sku']=$item['parent_sku'] ?? ''; $row['variant_sku']=$item['variant_sku'] ?? ''; $row['archived']=(bool)$item['archived'];
       if ($row['previous_cost']===null || (int)$row['previous_cost']!==$row['unit_cost']) $changed++;
+      $staged[$row['identity']][]=['valid_from'=>$row['valid_from'],'unit_cost'=>$row['unit_cost']];
       unset($row['identity']);
     }
     unset($row);
     ksort($errors);
-    return ['rows'=>array_values($rows),'errors'=>array_values($errors),'summary'=>['total'=>count($source),'valid'=>$valid,'errors'=>count($errors),'changed'=>$changed]];
+    return ['rows'=>array_values($rows),'errors'=>array_values($errors),'summary'=>['total'=>count($source),'valid'=>$valid,'errors'=>count($errors),'changed'=>$changed,'unchanged'=>max(0,$valid-$changed)]];
   }
 
   public function batchPreview(array $input): array {
