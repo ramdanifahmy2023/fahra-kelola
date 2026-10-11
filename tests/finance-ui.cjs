@@ -61,6 +61,8 @@ const session=require('./panel-test-session.cjs')(root),sid=session.sid;
     await page.locator('#finance-order-search').fill('NONEXISTENT-TEST'); await page.locator('#finance-order-search-form button').click();
     await page.locator('.finance-empty').waitFor();
     await page.locator('[data-finance-tab=cost]').click(); await page.locator('[data-edit-cost]').first().waitFor();
+    const costWidths=await page.locator('.finance-cost-table thead th').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().width));
+    assert.ok(costWidths[0] < costWidths[1], 'HPP checkbox column must stay narrower than product column');
     await page.selectOption('#finance-cost-shop','1'); await page.waitForFunction(()=>new URL(location.href).searchParams.get('cost_shop')==='1');
     assert.equal(await page.inputValue('#finance-cost-shop'),'1'); assert.match(await page.locator('#finance-cost-scope').innerText(),/Menampilkan HPP/);
     await page.locator('[data-edit-cost]').first().click(); await page.locator('#finance-cost-dialog').waitFor({state:'visible'});
