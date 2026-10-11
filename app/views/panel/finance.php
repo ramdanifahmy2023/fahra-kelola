@@ -2,12 +2,16 @@
 $financeToday=(new DateTimeImmutable('now',new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
 $financeDashboard=!empty($data['finance_dashboard']);
 ?>
-<section id="finance-page" data-dashboard="<?= $financeDashboard ? 'true' : 'false'; ?>" data-base="<?= htmlspecialchars(burl,ENT_QUOTES,'UTF-8'); ?>" data-endpoint="<?= htmlspecialchars(burl.'/procFinance',ENT_QUOTES,'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(),ENT_QUOTES,'UTF-8'); ?>" data-today="<?= $financeToday; ?>">
+<section id="finance-page" data-user="<?= (int)(authUser()['id'] ?? 0); ?>" data-dashboard="<?= $financeDashboard ? 'true' : 'false'; ?>" data-base="<?= htmlspecialchars(burl,ENT_QUOTES,'UTF-8'); ?>" data-endpoint="<?= htmlspecialchars(burl.'/procFinance',ENT_QUOTES,'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(),ENT_QUOTES,'UTF-8'); ?>" data-today="<?= $financeToday; ?>">
   <header class="finance-heading"><div><h1><?= $financeDashboard ? 'Dashboard' : 'Keuangan'; ?></h1><?php if (!$financeDashboard): ?><p>Saldo Shopee, rincian penghasilan, dan HPP produk.</p><?php endif; ?></div><div class="finance-actions"><button id="finance-sync" class="btn btn-primary" type="button" <?= !$data['shops'] ? 'disabled' : ''; ?>><span class="material-symbols-outlined" aria-hidden="true">sync</span>Perbarui saldo Shopee</button></div></header>
   <?php if (!$data['shops']): ?>
     <div class="finance-surface"><h2>Tambahkan toko untuk mulai</h2><p>Saldo dan HPP akan disimpan terpisah untuk setiap toko.</p><a class="btn" href="<?= burl; ?>/panel/shops">Kelola toko</a></div>
   <?php else: ?>
   <noscript>Aktifkan JavaScript untuk memilih toko, melihat saldo, dan mengisi HPP.</noscript>
+  <?php if (!$financeDashboard): ?>
+  <nav class="finance-tabs" aria-label="Bagian keuangan"><button type="button" data-finance-tab="summary" aria-pressed="true">Ringkasan toko</button><button type="button" data-finance-tab="details" aria-pressed="false">Rincian penghasilan</button><button type="button" data-finance-tab="cost" aria-pressed="false">HPP produk</button></nav>
+  <?php endif; ?>
+  <div id="finance-report-overview">
   <form id="finance-filters" class="finance-filters">
     <div class="finance-shop-field"><label for="finance-shops">Toko</label><select id="finance-shops" multiple><?php foreach ($data['shops'] as $shop): ?><option selected value="<?= (int)$shop['id']; ?>"><?= htmlspecialchars($shop['name'],ENT_QUOTES,'UTF-8'); ?></option><?php endforeach; ?></select><button id="finance-all-shops" type="button" class="finance-text-button">Pilih semua toko</button></div>
     <div><label for="finance-period">Periode laporan</label><select class="select" id="finance-period"><option value="month">Bulan ini</option><option value="today">Hari ini</option><option value="custom">Pilih tanggal sendiri</option></select></div>
@@ -29,9 +33,7 @@ $financeDashboard=!empty($data['finance_dashboard']);
   <div id="finance-secondary" class="finance-secondary finance-surface" aria-label="Omset, top up, dan biaya iklan selama periode pilihan"></div>
   <p class="finance-help">Top up adalah uang untuk mengisi saldo iklan. Biaya terpakai adalah pemakaiannya. Jangan dijumlahkan sebagai satu biaya. Riwayat top up tersedia sejak 1 Agustus 2026.</p>
   <section id="finance-pending-breakdown" class="finance-surface finance-pending-breakdown" aria-labelledby="finance-pending-title"><div class="finance-section-heading"><div><h2 id="finance-pending-title">Isi rincian Pending</h2><p>Sudah termasuk total Pending. Tidak dijumlahkan lagi.</p></div></div><div id="finance-pending-states"></div><details class="finance-explanation"><summary>Arti tahap pesanan</summary><p>Perlu dikirim: pengiriman belum diatur. Pickup / verifikasi kurir: pickup tercatat atau masih menunggu verifikasi jasa kirim. Dalam pengiriman: paket dalam perjalanan. Tiba, menunggu dilepas: barang sudah diterima, dananya masih ditahan Shopee.</p><p>Paket berbeda tahap dihitung sekali per pesanan. Retur proses belum berarti refund sudah dipotong.</p></details></section>
-  <?php if (!$financeDashboard): ?>
-  <nav class="finance-tabs" aria-label="Bagian keuangan"><button type="button" data-finance-tab="summary" aria-pressed="true">Ringkasan toko</button><button type="button" data-finance-tab="details" aria-pressed="false">Rincian penghasilan</button><button type="button" data-finance-tab="cost" aria-pressed="false">HPP produk</button></nav>
-  <?php endif; ?>
+  </div>
   <section id="finance-summary-panel" class="finance-surface" aria-label="Ringkasan per toko">
     <div class="finance-section-heading"><div><h2>Ringkasan per toko</h2><p id="finance-store-period">Pending dan Saldo Penjual: posisi terbaru. Angka lainnya mengikuti periode pilihan.</p></div><?php if ($financeDashboard): ?><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance"><span class="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span>Rincian &amp; HPP</a><?php endif; ?></div>
     <div id="finance-store-list"></div>
@@ -48,21 +50,32 @@ $financeDashboard=!empty($data['finance_dashboard']);
     <div class="finance-section-heading"><div><h2>HPP produk</h2><p>Satu angka modal per unit, untuk setiap produk atau varian di setiap toko.</p></div><div class="finance-cost-actions"><button id="finance-cost-export" class="btn" type="button">Unduh katalog HPP</button><button id="finance-cost-health" class="btn" type="button">Audit data order</button><button id="finance-open-cost-batch" class="btn btn-primary" type="button">Impor HPP batch</button></div></div>
     <form id="finance-cost-search-form" class="finance-search"><label for="finance-cost-search">SKU atau produk</label><input class="input" id="finance-cost-search" maxlength="100" placeholder="Cari SKU, produk, atau varian"><button class="btn" type="submit">Cari</button></form>
     <div class="finance-cost-toolbar">
-      <div><label for="finance-cost-shop">Toko HPP</label><select class="select" id="finance-cost-shop"><option value="">Semua toko dalam scope</option><?php foreach ($data['shops'] as $shop): ?><option value="<?= (int)$shop['id']; ?>"><?= htmlspecialchars($shop['name'],ENT_QUOTES,'UTF-8'); ?></option><?php endforeach; ?></select></div>
+      <div><label for="finance-cost-shop">Toko HPP</label><select class="select" id="finance-cost-shop"><option value="">Semua toko</option><?php foreach ($data['shops'] as $shop): ?><option value="<?= (int)$shop['id']; ?>"><?= htmlspecialchars($shop['name'],ENT_QUOTES,'UTF-8'); ?></option><?php endforeach; ?></select></div>
       <div><label for="finance-cost-status">Status HPP</label><select class="select" id="finance-cost-status"><option value="all">Semua produk</option><option value="missing">HPP belum diisi</option><option value="filled">HPP sudah diisi</option><option value="archived">Produk arsip</option></select></div>
-      <p id="finance-cost-selection" class="finance-help" role="status" hidden></p>
-      <div class="finance-cost-bulk"><label for="finance-cost-bulk-value">HPP terpilih (Rp)</label><input class="input" type="number" id="finance-cost-bulk-value" min="0" max="1000000000" step="1" inputmode="numeric" placeholder="Contoh: 25000"><label for="finance-cost-bulk-date">Berlaku mulai</label><input class="input" type="date" id="finance-cost-bulk-date" min="2015-01-01" max="2100-01-01"><button id="finance-cost-bulk-apply" class="btn" type="button" disabled>Isi HPP terpilih</button></div>
     </div>
     <p id="finance-cost-scope" class="finance-help" role="status"></p>
     <div id="finance-cost-summary" class="finance-cost-summary" aria-live="polite"></div>
-    <p class="finance-help">Perubahan HPP mengikuti tanggal pesanan dibuat (WIB). Riwayat modal tetap tersimpan saat produk diarsipkan. HPP di sini tidak mengubah harga jual di Shopee. Untuk batch, gunakan ID toko, ID produk, dan ID varian dari daftar ini.</p>
+    <details class="finance-explanation"><summary>Cara kerja HPP</summary><p>HPP berlaku mulai tanggal pesanan dibuat (WIB), bukan periode laporan. HPP di sini tidak mengubah harga jual di Shopee. Riwayat modal tetap tersimpan saat produk diarsipkan.</p><p>Untuk mengisi nominal yang sama, pilih beberapa varian dari satu toko. Untuk nominal berbeda, gunakan Atur HPP per varian atau unduh katalog, isi HPP, lalu impor file.</p></details>
+    <p id="finance-cost-selection-hint" class="finance-help">Pilih baris untuk mengisi HPP yang sama pada beberapa varian dalam satu toko.</p>
+    <form id="finance-cost-bulk-form" class="finance-cost-bulk-panel" hidden>
+      <div class="finance-cost-selection-heading"><p id="finance-cost-selection" role="status"></p><button id="finance-cost-clear-selection" class="btn" type="button">Batalkan pilihan</button></div>
+      <div class="finance-cost-bulk">
+        <div><label for="finance-cost-bulk-value">HPP per unit (Rp)</label><input class="input" type="number" id="finance-cost-bulk-value" min="0" max="1000000000" step="1" required inputmode="numeric" placeholder="Contoh: 25000"></div>
+        <div><label for="finance-cost-bulk-date">Berlaku mulai</label><input class="input" type="date" id="finance-cost-bulk-date" min="2015-01-01" max="2100-01-01" required></div>
+        <button id="finance-cost-bulk-apply" class="btn" type="submit" disabled>Periksa HPP terpilih</button>
+      </div>
+      <p class="finance-help">Pilihan hanya berlaku untuk halaman ini. Nominal berbeda? Gunakan Atur HPP pada masing-masing varian.</p>
+    </form>
+    <div id="finance-cost-feedback" class="finance-cost-feedback" role="status" tabindex="-1" hidden></div>
     <div id="finance-cost-list" aria-live="polite"></div><div id="finance-cost-pagination" class="finance-pagination"></div>
   </section>
   <dialog id="finance-cost-dialog" aria-labelledby="finance-cost-title">
     <div class="finance-dialog-heading"><h2 id="finance-cost-title">Atur HPP</h2><button type="button" id="finance-close-cost" class="btn" aria-label="Tutup formulir HPP">Tutup</button></div>
-    <div id="finance-cost-image" class="finance-cost-dialog-image" aria-label="Foto produk atau varian"></div>
-    <div class="finance-cost-target"><span>Toko target</span><strong id="finance-cost-shop-target"></strong></div>
-    <p id="finance-cost-item"></p>
+    <div class="finance-cost-item-heading">
+      <div id="finance-cost-image" class="finance-cost-dialog-image" aria-label="Foto produk atau varian"></div>
+      <div><h3 id="finance-cost-item"></h3><p id="finance-cost-variant"></p><div class="finance-cost-target"><span>Toko target</span><strong id="finance-cost-shop-target"></strong></div></div>
+    </div>
+    <div id="finance-cost-identities"></div><p id="finance-cost-copy-status" role="status"></p>
     <form id="finance-cost-form">
       <label for="finance-cost-value">Modal per unit (Rp)</label><input class="input" type="number" id="finance-cost-value" min="0" max="1000000000" step="1" required inputmode="numeric">
       <label for="finance-cost-date">Berlaku mulai tanggal pesanan dibuat</label><input class="input" type="date" id="finance-cost-date" min="2015-01-01" max="2100-01-01" required>
@@ -80,7 +93,9 @@ $financeDashboard=!empty($data['finance_dashboard']);
   </dialog>
   <dialog id="finance-cost-batch-dialog" aria-labelledby="finance-cost-batch-title">
     <div class="finance-dialog-heading"><h2 id="finance-cost-batch-title">Impor HPP batch</h2><button type="button" id="finance-close-cost-batch" class="btn" aria-label="Tutup impor HPP batch">Tutup</button></div>
-    <p>Tempel CSV atau TSV dengan kolom: <code>shop_id,product_id,model_id,unit_cost,valid_from</code>. Produk tanpa varian memakai <code>model_id</code> 0. Untuk produk bervarian, gunakan ID varian dan SKU varian dari katalog.</p>
+    <p id="finance-cost-batch-scope" class="finance-cost-target"></p>
+    <p>Unggah CSV atau tempel data dari spreadsheet. Gunakan katalog HPP untuk mendapatkan ID produk dan varian yang tepat.</p>
+    <details class="finance-explanation"><summary>Format kolom dan aturan impor</summary><p>Kolom wajib: <code>shop_id,product_id,model_id,unit_cost,valid_from</code>. Produk tanpa varian memakai <code>model_id</code> 0. SKU tidak wajib. Tanggal menggunakan format YYYY-MM-DD.</p></details>
     <div class="finance-batch-actions"><label class="finance-file-field">File CSV<input class="input" id="finance-cost-batch-file" type="file" accept=".csv,text/csv"></label><button id="finance-cost-batch-template" class="btn" type="button">Unduh template</button></div>
     <form id="finance-cost-batch-form">
       <label for="finance-cost-batch-input">Data batch</label><textarea class="input finance-batch-input" id="finance-cost-batch-input" rows="8" spellcheck="false" placeholder="shop_id,product_id,model_id,unit_cost,valid_from&#10;1,12345,0,25000,2026-10-01"></textarea>
