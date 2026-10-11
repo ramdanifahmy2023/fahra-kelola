@@ -75,6 +75,23 @@ class FinanceCost extends Finance {
     return $key;
   }
 
+  private function scope(array $input): ?array {
+    if (!array_key_exists('scope_shops',$input)) return null;
+    if (!is_array($input['scope_shops']) || !$input['scope_shops'] || count($input['scope_shops'])>500) throw new InvalidArgumentException('Scope toko tidak valid.');
+    $ids=[];
+    foreach ($input['scope_shops'] as $value) {
+      if (!ctype_digit((string)$value) || (int)$value<1) throw new InvalidArgumentException('Scope toko tidak valid.');
+      $ids[(int)$value]=true;
+    }
+    return array_keys($ids);
+  }
+
+  private function assertScope(array $input,array $key): ?array {
+    $scope=$this->scope($input);
+    if ($scope!==null && !in_array($key['shop'],$scope,true)) throw new InvalidArgumentException('Baris HPP berada di luar toko yang dipilih.');
+    return $scope;
+  }
+
   private function costValue(array $input): int {
     $value=(string)($input['unit_cost'] ?? '');
     if (!ctype_digit($value) || strlen($value)>10 || (int)$value>1000000000) throw new InvalidArgumentException('Isi HPP dalam rupiah bulat, dari 0 sampai 1 miliar.');
@@ -122,12 +139,12 @@ class FinanceCost extends Finance {
   private function batchRows(array $input): array {
     $source=$input['rows'] ?? null;
     if (!is_array($source) || !$source || count($source)>500) throw new InvalidArgumentException('Batch HPP harus berisi 1 sampai 500 baris.');
-    $rows=[]; $errors=[]; $keys=[]; $dates=[]; $valid=0;
+    $rows=[]; $errors=[]; $keys=[]; $dates=[]; $valid=0; $scope=$this->scope($input);
     foreach (array_values($source) as $index=>$raw) {
       $line=is_array($raw) ? (int)($raw['row_no'] ?? $index+1) : $index+1; $line=$line>0 ? $line : $index+1;
       if (!is_array($raw)) { $errors[$index]=['row_no'=>$line,'message'=>'Baris tidak dapat dibaca.']; continue; }
       try {
-        $key=$this->key($raw); $unit=$this->costValue($raw); $date=$this->costDate($raw);
+        $key=$this->key($raw); if ($scope!==null && !in_array($key['shop'],$scope,true)) throw new InvalidArgumentException('Baris ini berada di luar toko yang dipilih.'); $unit=$this->costValue($raw); $date=$this->costDate($raw);
         $identity=$key['shop'].':'.$key['product'].':'.$key['model']; $unique=$identity.':'.$date;
         if (isset($dates[$unique])) throw new InvalidArgumentException('Baris ini menggandakan target dan tanggal pada baris '.$dates[$unique].'.');
         $dates[$unique]=$line; $keys[$identity]=$key;
@@ -145,13 +162,18 @@ class FinanceCost extends Finance {
       foreach (($staged[$row['identity']] ?? []) as $version) if ($version['valid_from']<=$row['valid_from'] && ($previous===null || $version['valid_from']>$previous['valid_from'])) $previous=$version;
       $row['expected_version']=$base+$offset; $row['previous_cost']=$previous['unit_cost'] ?? null;
       $row['shop_name']=$item['shop_name'] ?? ''; $row['product_name']=$item['product_name']; $row['variation_name']=$item['variation_name']; $row['sku']=$item['sku']; $row['parent_sku']=$item['parent_sku'] ?? ''; $row['variant_sku']=$item['variant_sku'] ?? ''; $row['variant_image']=$item['variant_image'] ?? ''; $row['product_image']=$item['product_image'] ?? ''; $row['archived']=(bool)$item['archived'];
+      $next=$this->one('SELECT MIN(valid_from) next_date FROM finance_cost_versions WHERE '.$this->where().' AND valid_from>:date',$key+['date'=>$row['valid_from']])['next_date'] ?? '2100-01-02';
+      $start=FinancePolicy::date($row['valid_from'])->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+      $end=FinancePolicy::date($next)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+      $impact=$this->one("SELECT COUNT(DISTINCT x.order_id) orders,COALESCE(SUM(x.quantity),0) units,COALESCE(SUM(IF(x.cost IS NULL,x.quantity,0)),0) missing_units,COALESCE(SUM(x.quantity*x.cost),0) known_cost FROM (SELECT o.id order_id,oi.quantity,(SELECT v.unit_cost FROM finance_cost_versions v WHERE v.shop_id=o.shop_id AND v.product_id=oi.product_id AND v.model_id=COALESCE(oi.model_id,0) AND v.valid_from<=DATE(DATE_ADD(o.created_at,INTERVAL 7 HOUR)) ORDER BY v.valid_from DESC LIMIT 1) cost FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE o.shop_id=:shop AND oi.product_id=:product AND COALESCE(oi.model_id,0)=:model AND o.created_at>=:start AND o.created_at<:end AND o.deleted_at IS NULL) x",$key+['start'=>$start,'end'=>$end]);
+      $row['impact']=['orders'=>(int)($impact['orders'] ?? 0),'units'=>(int)($impact['units'] ?? 0),'missing_units'=>(int)($impact['missing_units'] ?? 0),'known_cost'=>(int)($impact['known_cost'] ?? 0),'new_cost'=>(int)($impact['units'] ?? 0)*$row['unit_cost']];
       if ($row['previous_cost']===null || (int)$row['previous_cost']!==$row['unit_cost']) $changed++;
       $staged[$row['identity']][]=['valid_from'=>$row['valid_from'],'unit_cost'=>$row['unit_cost']];
       unset($row['identity']);
     }
     unset($row);
     ksort($errors);
-    return ['rows'=>array_values($rows),'errors'=>array_values($errors),'summary'=>['total'=>count($source),'valid'=>$valid,'errors'=>count($errors),'changed'=>$changed,'unchanged'=>max(0,$valid-$changed)]];
+    return ['rows'=>array_values($rows),'errors'=>array_values($errors),'summary'=>['total'=>count($source),'valid'=>$valid,'errors'=>count($errors),'changed'=>$changed,'unchanged'=>max(0,$valid-$changed)],'scope_shops'=>$scope];
   }
 
   public function batchPreview(array $input): array {
@@ -159,7 +181,31 @@ class FinanceCost extends Finance {
   }
 
   public function history(array $input): array {
-    return $this->rows('SELECT valid_from,unit_cost,actor_id,created_at FROM finance_cost_versions WHERE '.$this->where().' ORDER BY valid_from DESC',$this->key($input));
+    $rows=$this->rows('SELECT valid_from,unit_cost,actor_id,created_at FROM finance_cost_versions WHERE '.$this->where().' ORDER BY valid_from ASC',$this->key($input));
+    $previous=null;
+    foreach ($rows as &$row) { $row['previous_cost']=$previous; $previous=(int)$row['unit_cost']; }
+    unset($row);
+    usort($rows,static fn($a,$b)=>strcmp((string)$b['valid_from'],(string)$a['valid_from']));
+    return $rows;
+  }
+
+  public function revert(array $input,int $actor): array {
+    $key=$this->key($input); $date=$this->costDate($input); $expected=(int)($input['version'] ?? -1);
+    if ($expected<0) throw new InvalidArgumentException('Versi HPP tidak valid. Muat ulang daftar terlebih dahulu.');
+    $this->db->begin();
+    try {
+      $head=$this->one('SELECT version FROM finance_cost_heads WHERE '.$this->where().' FOR UPDATE',$key);
+      if ((int)($head['version'] ?? -1)!==$expected) throw new RuntimeException('HPP sudah diubah anggota tim. Muat ulang riwayat lalu coba lagi.',409);
+      $current=$this->one('SELECT unit_cost FROM finance_cost_versions WHERE '.$this->where().' AND valid_from=:date',$key+['date'=>$date]);
+      if (!$current) throw new InvalidArgumentException('Versi HPP yang dipilih sudah tidak tersedia.');
+      $previous=$this->one('SELECT unit_cost FROM finance_cost_versions WHERE '.$this->where().' AND valid_from<:date ORDER BY valid_from DESC LIMIT 1',$key+['date'=>$date]);
+      if (!$previous) throw new InvalidArgumentException('Tidak ada HPP sebelumnya untuk dipulihkan. Isi nilai baru lewat formulir HPP.');
+      $new=(int)$previous['unit_cost']; $nextVersion=$expected+1;
+      $this->execute('UPDATE finance_cost_versions SET unit_cost=:cost,actor_id=:actor,created_at=UTC_TIMESTAMP() WHERE '.$this->where().' AND valid_from=:date',$key+['date'=>$date,'cost'=>$new,'actor'=>$actor]);
+      $this->execute('UPDATE finance_cost_heads SET version=:version,updated_at=UTC_TIMESTAMP() WHERE '.$this->where(),$key+['version'=>$nextVersion]);
+      $this->execute('INSERT INTO finance_cost_events (shop_id,product_id,model_id,valid_from,previous_cost,unit_cost,version,actor_id,created_at) VALUES (:shop,:product,:model,:date,:previous,:cost,:version,:actor,UTC_TIMESTAMP())',$key+['date'=>$date,'previous'=>(int)$current['unit_cost'],'cost'=>$new,'version'=>$nextVersion,'actor'=>$actor]);
+      $this->db->commit(); return ['version'=>$nextVersion,'unit_cost'=>$new];
+    } catch (Throwable $error) { $this->db->rollback(); throw $error; }
   }
 
   public function orderCost(int $shop,string $order): array {
@@ -169,6 +215,7 @@ class FinanceCost extends Finance {
 
   public function preview(array $input): array {
     $key=$this->key($input);
+    $scope=$this->assertScope($input,$key);
     $item=$this->one('SELECT c.* FROM ('.$this->catalogSql().') c JOIN shops s ON s.id=c.shop_id WHERE c.shop_id=:shop AND c.product_id=:product AND c.model_id=:model LIMIT 1',$key);
     if (!$item) throw new InvalidArgumentException('Produk tidak ditemukan di toko ini. Sinkronkan produk terlebih dahulu.');
     $value=$this->costValue($input); $date=$this->costDate($input);
@@ -180,7 +227,7 @@ class FinanceCost extends Finance {
     $impact=$this->one("SELECT COUNT(DISTINCT x.order_id) orders,COALESCE(SUM(x.quantity),0) units,COALESCE(SUM(IF(x.cost IS NULL,x.quantity,0)),0) missing_units,COALESCE(SUM(x.quantity*x.cost),0) known_cost FROM (SELECT o.id order_id,oi.quantity,(SELECT v.unit_cost FROM finance_cost_versions v WHERE v.shop_id=o.shop_id AND v.product_id=oi.product_id AND v.model_id=COALESCE(oi.model_id,0) AND v.valid_from<=DATE(DATE_ADD(o.created_at,INTERVAL 7 HOUR)) ORDER BY v.valid_from DESC LIMIT 1) cost FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE o.shop_id=:shop AND oi.product_id=:product AND COALESCE(oi.model_id,0)=:model AND o.created_at>=:start AND o.created_at<:end AND o.deleted_at IS NULL) x",$key+['start'=>$start,'end'=>$end]);
     foreach ($impact as &$number) $number=(int)$number;
     $impact['new_cost']=$impact['units']*$value;
-    return ['shop_id'=>$key['shop'],'product_id'=>(string)$key['product'],'model_id'=>(string)$key['model'],'sku'=>$item['sku'],'product_name'=>$item['product_name'],'variation_name'=>$item['variation_name'],'archived'=>(bool)$item['archived'],'unit_cost'=>(int)$value,'valid_from'=>$date,'until'=>$next==='2100-01-02' ? null : FinancePolicy::date($next)->modify('-1 day')->format('Y-m-d'),'version'=>$version,'impact'=>$impact];
+    return ['shop_id'=>$key['shop'],'product_id'=>(string)$key['product'],'model_id'=>(string)$key['model'],'sku'=>$item['sku'],'product_name'=>$item['product_name'],'variation_name'=>$item['variation_name'],'archived'=>(bool)$item['archived'],'unit_cost'=>(int)$value,'valid_from'=>$date,'until'=>$next==='2100-01-02' ? null : FinancePolicy::date($next)->modify('-1 day')->format('Y-m-d'),'version'=>$version,'scope_shops'=>$scope,'impact'=>$impact];
   }
 
   public static function token(array $preview,int $expires,string $secret): string {

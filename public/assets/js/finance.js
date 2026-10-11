@@ -7,8 +7,8 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const imageUrl = value => { const source=String(value || '').trim(); return !source ? '' : /^https?:\/\//i.test(source) ? source : 'https://cf.shopee.co.id/file/'+encodeURIComponent(source); };
   const imageSource = row => row?.variant_image ? 'Foto varian' : row?.product_image ? 'Foto produk utama' : 'Foto tidak tersedia';
-  const costVisualMarkup = (row,large=false) => { const source=imageUrl(row?.variant_image || row?.product_image); const label=imageSource(row); const alt=row?.variation_name ? `Foto ${row.variation_name}` : `Foto ${row?.product_name || 'produk'}`; return `<span class="finance-cost-thumb${large ? ' finance-cost-thumb-large' : ''}" data-cost-visual><span class="finance-cost-image-source">${esc(label)}</span>${source ? `<img data-cost-image src="${esc(source)}" alt="${esc(alt)}" loading="lazy"><span data-cost-image-fallback hidden>Foto tidak tersedia</span>` : ''}</span>`; };
-  function bindCostImages(container) { container.querySelectorAll('[data-cost-image]').forEach(image=>image.addEventListener('error',()=>{ image.hidden=true; const fallback=image.parentElement.querySelector('[data-cost-image-fallback]'); if(fallback){fallback.textContent='Foto tidak tersedia';fallback.hidden=false;} })); }
+  const costVisualMarkup = (row,large=false) => { const variant=imageUrl(row?.variant_image), product=imageUrl(row?.product_image), source=variant || product; const label=imageSource(row); const alt=row?.variation_name ? `Foto ${row.variation_name}` : `Foto ${row?.product_name || 'produk'}`; return `<span class="finance-cost-thumb${large ? ' finance-cost-thumb-large' : ''}" data-cost-visual><span class="finance-cost-image-source">${esc(label)}</span>${source ? `<img data-cost-image src="${esc(source)}"${variant && product ? ` data-cost-image-fallback-src="${esc(product)}"` : ''} alt="${esc(alt)}" loading="lazy"><span data-cost-image-fallback hidden>Foto tidak tersedia</span>` : ''}</span>`; };
+  function bindCostImages(container) { container.querySelectorAll('[data-cost-image]').forEach(image=>image.addEventListener('error',()=>{ const fallbackSrc=image.dataset.costImageFallbackSrc; if(fallbackSrc && !image.dataset.costImageFallbackTried){ image.dataset.costImageFallbackTried='1'; image.src=fallbackSrc; const source=image.parentElement.querySelector('.finance-cost-image-source'); if(source)source.textContent='Foto produk utama'; return; } image.hidden=true; const fallback=image.parentElement.querySelector('[data-cost-image-fallback]'); if(fallback){fallback.textContent='Foto tidak tersedia';fallback.hidden=false;} })); }
   const money = value => value === null || value === undefined ? 'Belum tersedia' : new Intl.NumberFormat('id-ID', {style:'currency',currency:'IDR',maximumFractionDigits:2}).format(value);
   const stamp = value => value ? new Date(value.replace(' ', 'T') + 'Z').toLocaleString('id-ID',{timeZone:'Asia/Jakarta',dateStyle:'medium',timeStyle:'short'}) + ' WIB' : 'belum pernah diperbarui';
   const day = value => {
@@ -38,6 +38,7 @@
   const readFilters = () => ({shops:$('shops').selectedOptions.length===$('shops').options.length ? '' : Array.from($('shops').selectedOptions, o => o.value).join(','),period:$('period').value,start:$('start').value,end:$('end').value});
   const costQuery = extra => query({...extra,shops:costShop || applied.shops || ''});
   const costScopeIds = () => costShop ? new Set([costShop]) : new Set(applied.shops ? applied.shops.split(',').filter(Boolean) : Array.from($('shops').options,o=>o.value));
+  const costScopePayload = () => ({scope_shops:[...costScopeIds()]});
   function syncCostShopOptions() {
     if (dashboard || !$('cost-shop')) return;
     const selected=new Set(applied.shops ? applied.shops.split(',').filter(Boolean) : Array.from($('shops').options,o=>o.value));
@@ -328,7 +329,13 @@
     try {
       const result=await api('history?'+new URLSearchParams({shop_id:item.shop_id,product_id:item.product_id,model_id:item.model_id}));
       if(sequence!==dialogSequence)return;
-      $('cost-history').innerHTML=result.rows.length ? '<ul>'+result.rows.map(r=>`<li>Mulai ${esc(day(r.valid_from))}: ${esc(money(Number(r.unit_cost)))} per unit</li>`).join('')+'</ul>' : '<p>HPP produk ini belum pernah diisi.</p>';
+      $('cost-history').innerHTML=result.rows.length ? '<ul>'+result.rows.map(r=>`<li><span>Mulai ${esc(day(r.valid_from))}: ${esc(money(Number(r.unit_cost)))} per unit</span>${r.previous_cost===null ? '' : `<button type="button" class="finance-history-action" data-revert-cost="${esc(r.valid_from)}">Pulihkan ${esc(money(Number(r.previous_cost)))}</button>`}</li>`).join('')+'</ul>' : '<p>HPP produk ini belum pernah diisi.</p>';
+      $('cost-history').querySelectorAll('[data-revert-cost]').forEach(button=>button.addEventListener('click',async()=>{
+        if(!confirm('Pulihkan HPP pada tanggal ini ke nilai sebelumnya?')) return;
+        button.disabled=true;
+        try { const result=await api('revert',{shop_id:editing.shop_id,product_id:editing.product_id,model_id:editing.model_id,version:editing.version,valid_from:button.dataset.revertCost}); editing={...editing,version:result.version,unit_cost:result.unit_cost}; $('status').textContent='HPP sebelumnya dipulihkan.'; await openCost(editing); loadList(); }
+        catch(error) { $('cost-error').textContent=error.message; $('cost-error').hidden=false; button.disabled=false; }
+      }));
     } catch(e) { if(sequence===dialogSequence)$('cost-history').textContent=e.message; }
   }
   function parseBatchText(text) {
@@ -375,20 +382,21 @@
     const summary=preview.summary||{};
     const rows=(preview.rows||[]).map(row=>{
       const message=errorRows.get(Number(row.row_no));
-      return `<tr><td data-label="Baris">${esc(row.row_no)}</td><td data-label="Toko">${esc(row.shop_name||row.shop_id)}</td><td data-label="Produk / varian"><div class="finance-cost-product"><div>${costVisualMarkup(row)}</div><div>${esc(row.product_name||row.product_id)}<small>Produk: ${esc(row.product_id)} · ${esc(row.variation_name||'Produk tanpa varian')}</small><small>${row.model_id==='0' ? 'Produk tanpa varian' : 'ID varian: '+esc(row.model_id)}</small></div></div></td><td data-label="SKU">${esc(row.variant_sku || row.sku || 'SKU varian belum diisi')}</td><td data-label="HPP lama">${esc(row.previous_cost===null?'Belum diisi':money(row.previous_cost))}</td><td data-label="HPP baru">${esc(money(row.unit_cost))}</td><td data-label="Status">${message?`<span class="finance-batch-invalid">${esc(message)}</span>`:'Siap'}</td></tr>`;
+      const impact=row.impact ? `${esc(row.impact.orders)} pesanan · ${esc(row.impact.units)} unit` : 'Belum dihitung';
+      return `<tr><td data-label="Baris">${esc(row.row_no)}</td><td data-label="Toko">${esc(row.shop_name||row.shop_id)}</td><td data-label="Produk / varian"><div class="finance-cost-product"><div>${costVisualMarkup(row)}</div><div>${esc(row.product_name||row.product_id)}<small>Produk: ${esc(row.product_id)} · ${esc(row.variation_name||'Produk tanpa varian')}</small><small>${row.model_id==='0' ? 'Produk tanpa varian' : 'ID varian: '+esc(row.model_id)}</small></div></div></td><td data-label="SKU">${esc(row.variant_sku || row.sku || 'SKU varian belum diisi')}</td><td data-label="HPP lama">${esc(row.previous_cost===null?'Belum diisi':money(row.previous_cost))}</td><td data-label="HPP baru">${esc(money(row.unit_cost))}</td><td data-label="Dampak order">${impact}</td><td data-label="Status">${message?`<span class="finance-batch-invalid">${esc(message)}</span>`:'Siap'}</td></tr>`;
     }).join('');
     const errors=(preview.errors||[]).map(error=>`<li>Baris ${esc(error.row_no)}: ${esc(error.message)}</li>`).join('');
-    return `<strong>${esc(summary.valid||0)} dari ${esc(summary.total||0)} baris siap.</strong>${summary.changed?` <span>${esc(summary.changed)} HPP akan berubah.</span>`:''}${summary.unchanged?` <span>${esc(summary.unchanged)} baris tidak berubah.</span>`:''}${summary.errors?`<ul class="finance-batch-errors">${errors}</ul>`:''}${rows?`<div class="finance-batch-table-wrap"><table class="finance-table"><thead><tr><th>Baris</th><th>Toko</th><th>Produk / varian</th><th>SKU varian</th><th>HPP lama</th><th>HPP baru</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}`;
+    return `<strong>${esc(summary.valid||0)} dari ${esc(summary.total||0)} baris siap.</strong>${summary.changed?` <span>${esc(summary.changed)} HPP akan berubah.</span>`:''}${summary.unchanged?` <span>${esc(summary.unchanged)} baris tidak berubah.</span>`:''}${summary.errors?`<ul class="finance-batch-errors">${errors}</ul>`:''}${rows?`<div class="finance-batch-table-wrap"><table class="finance-table"><thead><tr><th>Baris</th><th>Toko</th><th>Produk / varian</th><th>SKU varian</th><th>HPP lama</th><th>HPP baru</th><th>Dampak order</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`:''}`;
   }
   async function previewBatch() {
     invalidateBatch(); $('cost-batch-error').hidden=true; $('preview-cost-batch').disabled=true;
     const sequence=++batchSequence;
     try {
-      const rows=parseBatchText($('cost-batch-input').value); validateBatchScope(rows); batchRows=rows; const result=await api('batchPreview',{rows});
+      const rows=parseBatchText($('cost-batch-input').value); validateBatchScope(rows); batchRows=rows; const scope=costScopePayload(); const result=await api('batchPreview',{rows,...scope});
       if(sequence!==batchSequence)return;
       $('cost-batch-preview').innerHTML=batchPreviewMarkup(result); bindCostImages($('cost-batch-preview')); $('cost-batch-preview').hidden=false;
       const preview=result.preview || result;
-      if(result.token && !(preview.errors||[]).length) { batchProof={rows,expires:result.expires,token:result.token}; $('save-cost-batch').disabled=false; }
+      if(result.token && !(preview.errors||[]).length) { batchProof={rows,...scope,expires:result.expires,token:result.token}; $('save-cost-batch').disabled=false; }
       else $('cost-batch-error').textContent='Perbaiki baris yang ditandai sebelum menyimpan.';
       $('cost-batch-error').hidden=!(preview.errors||[]).length;
     } catch(e) { $('cost-batch-error').textContent=e.message; $('cost-batch-error').hidden=false; }
@@ -396,7 +404,7 @@
   }
   function openBatch() { invalidateBatch(); batchRows=null; $('cost-batch-input').value=''; $('cost-batch-file').value=''; $('cost-batch-error').hidden=true; $('cost-batch-dialog').showModal(); $('cost-batch-input').focus(); }
   function closeBatch() { $('cost-batch-dialog').close(); }
-  const costInput=()=>({shop_id:editing.shop_id,product_id:editing.product_id,model_id:editing.model_id,version:editing.version,unit_cost:$('cost-value').value,valid_from:$('cost-date').value});
+  const costInput=()=>({shop_id:editing.shop_id,product_id:editing.product_id,model_id:editing.model_id,version:editing.version,unit_cost:$('cost-value').value,valid_from:$('cost-date').value,...costScopePayload()});
   if(!dashboard) {
   $('open-cost-batch').onclick=openBatch;
   $('close-cost-batch').onclick=closeBatch;
@@ -421,7 +429,7 @@
   };
   $('save-cost-batch').onclick=async()=>{
     if(!batchProof)return; $('save-cost-batch').disabled=true; $('preview-cost-batch').disabled=true; $('cost-batch-error').hidden=true;
-    try { const result=await api('batchSave',{rows:batchProof.rows,expires:batchProof.expires,token:batchProof.token}); closeBatch(); $('status').textContent=`${result.saved} HPP tersimpan. Riwayat modal diperbarui.`; costPage=1; loadList(); }
+    try { const result=await api('batchSave',{rows:batchProof.rows,scope_shops:batchProof.scope_shops,expires:batchProof.expires,token:batchProof.token}); closeBatch(); $('status').textContent=`${result.saved} HPP tersimpan. Riwayat modal diperbarui.`; costPage=1; loadList(); }
     catch(e) { $('cost-batch-error').textContent=e.message; $('cost-batch-error').hidden=false; invalidateBatch(); }
     finally { $('preview-cost-batch').disabled=false; }
   };

@@ -47,6 +47,7 @@ class ProcFinance extends Controller {
   public function catalogExport(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->exportCatalog($m->shops($_GET['shops'] ?? ''),(string)($_GET['search'] ?? ''),(string)($_GET['status'] ?? 'all')); }); }
   public function health(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->health($m->shops($_GET['shops'] ?? '')); }); }
   public function history(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return ['rows'=>$m->history($_GET)]; }); }
+  public function revert(): void { $this->run(function () { $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->revert($input,(int)authUser()['id']); }); }
   public function preview(): void { $this->run(function () {
     $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); $preview=$m->preview($input); $expires=time()+600;
     return ['preview'=>$preview,'expires'=>$expires,'token'=>FinanceCost::token($preview,$expires,$this->previewKey())];

@@ -122,6 +122,7 @@ try {
   $input=['shop_id'=>1,'product_id'=>'10','model_id'=>'0','unit_cost'=>'20000','valid_from'=>'2026-09-02','version'=>0];
   $preview=$cost->preview($input);
   financeCheck($preview['impact']['orders']===2 && $preview['impact']['units']===5 && $preview['impact']['missing_units']===5,'WIB boundary and local shop scope in preview');
+  financeThrows(fn()=>$cost->preview($input+['scope_shops'=>['2']]));
   $expires=time()+600; $proof=['expires'=>$expires,'token'=>FinanceCost::token($preview,$expires,'test-secret')];
   financeThrows(fn()=>$cost->save($input,1,'test-secret'),409);
   $cost->save($input+$proof,1,'test-secret');
@@ -143,6 +144,8 @@ try {
   $preview=$cost->preview($input); $cost->save($input+['expires'=>$expires,'token'=>FinanceCost::token($preview,$expires,'test-secret')],1,'test-secret');
   financeCheck((int)$f->one('SELECT COUNT(*) n FROM finance_cost_events')['n']===3,'Every change audited');
   financeCheck($cost->orderCost(1,'2')['amount']===100000 && $cost->orderCost(1,'4')['amount']===0,'Retroactive HPP recalculates without overwriting later zero');
+  $reverted=$cost->revert(['shop_id'=>1,'product_id'=>10,'model_id'=>0,'version'=>3,'valid_from'=>'2026-09-04'],1);
+  financeCheck($reverted['unit_cost']===25000 && $cost->orderCost(1,'4')['amount']===75000,'Previous HPP can be restored with an optimistic version check');
   $batchRows=['rows'=>[
     ['row_no'=>2,'shop_id'=>'1','product_id'=>'10','model_id'=>'0','unit_cost'=>'31000','valid_from'=>'2099-09-10'],
     ['row_no'=>3,'shop_id'=>'1','product_id'=>'10','model_id'=>'0','unit_cost'=>'32000','valid_from'=>'2099-09-11'],
@@ -150,14 +153,14 @@ try {
     ['row_no'=>5,'shop_id'=>'1','product_id'=>'30','model_id'=>'32','unit_cost'=>'10000','valid_from'=>'2099-09-10']
   ]];
   $batch=$cost->batchPreview($batchRows);
-  financeCheck($batch['summary']['valid']===4 && !$batch['errors'] && $batch['rows'][0]['previous_cost']===0 && (int)$batch['rows'][2]['model_id']===31 && $batch['rows'][2]['variant_image']==='red.jpg' && (int)$batch['rows'][3]['model_id']===32,'Batch preview keeps dated previous cost, variant images, and separate HPP for each variant');
+  financeCheck($batch['summary']['valid']===4 && !$batch['errors'] && $batch['rows'][0]['previous_cost']===25000 && $batch['rows'][2]['impact']['units']===0 && (int)$batch['rows'][2]['model_id']===31 && $batch['rows'][2]['variant_image']==='red.jpg' && (int)$batch['rows'][3]['model_id']===32,'Batch preview keeps dated previous cost, order impact, variant images, and separate HPP for each variant');
   $expires=time()+600; $cost->batchSave($batchRows+['expires'=>$expires,'token'=>FinanceCost::batchToken($batch,$expires,'test-secret')],1,'test-secret');
   financeCheck((int)$cost->history(['shop_id'=>1,'product_id'=>10,'model_id'=>0])[0]['unit_cost']===32000,'Batch saves multiple dates for one product');
   $duplicate=$cost->batchPreview(['rows'=>[$batchRows['rows'][0],$batchRows['rows'][0]]]);
   financeCheck($duplicate['summary']['errors']===1 && $duplicate['errors'][0]['row_no']===2,'Batch rejects duplicate target dates');
   $f->execute('DELETE FROM products WHERE id=10');
   $archived=$cost->catalog([$shops[0]],1,'SAME')['rows'];
-  financeCheck(count($archived)===3 && (int)$archived[2]['archived']===1 && $archived[2]['unit_cost']===0,'Deleted catalog keeps history and explicit zero');
+  financeCheck(count($archived)===3 && (int)$archived[2]['archived']===1 && $archived[2]['unit_cost']===25000,'Deleted catalog keeps history and the effective restored HPP');
   financeThrows(fn()=>$cost->preview(['shop_id'=>2]+array_diff_key($input,['shop_id'=>true])));
 
   $transport=new class { public $response=['code'=>0,'data'=>[]]; public function request(...$args){return $this->response;} };

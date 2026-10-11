@@ -77,6 +77,8 @@ const session=require('./panel-test-session.cjs')(root),sid=session.sid;
     await page.locator('[data-edit-cost]').first().waitFor(); await page.locator('[data-edit-cost]').first().click();
     await page.setViewportSize({width:320,height:720});
     assert.ok(await page.locator('#finance-cost-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth));
+    const mobileActions=await page.locator('#finance-cost-dialog .finance-dialog-actions').boundingBox();
+    assert.ok(mobileActions && mobileActions.y+mobileActions.height<=720,'HPP actions remain reachable on mobile');
     await page.screenshot({path:path.join(output,'hpp-mobile.png')}); await page.keyboard.press('Escape');
     assert.equal(await page.locator('#finance-cost-dialog').isVisible(),false);
     await page.locator('#finance-open-cost-batch').click();
