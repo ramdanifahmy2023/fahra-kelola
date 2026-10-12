@@ -2,6 +2,28 @@
 require_once __DIR__.'/Finance.php';
 
 class FinanceCost extends Finance {
+  private function accountId(): int {
+    return function_exists('authAccountId') ? max(0, (int)authAccountId()) : 0;
+  }
+
+  private function assertOwnedShops(array $shopIds): void {
+    $account = $this->accountId();
+    if ($account < 1) return;
+    $ids = array_values(array_unique(array_filter(array_map('intval', $shopIds), static fn($id) => $id > 0)));
+    if (!$ids) return;
+    $holders = [];
+    $params = ['account' => $account];
+    foreach ($ids as $index => $id) {
+      $name = 'owned_shop_' . $index;
+      $holders[] = ':' . $name;
+      $params[$name] = $id;
+    }
+    $this->db->query('SELECT id FROM shops WHERE account_id=:account AND id IN (' . implode(',', $holders) . ')');
+    foreach ($params as $key => $value) $this->db->bind($key, $value);
+    $owned = array_map('intval', array_column($this->db->getAll(), 'id'));
+    if (count(array_diff($ids, $owned)) !== 0) throw new InvalidArgumentException('Toko tidak ditemukan.');
+  }
+
   private function catalogSql(): string {
     return "SELECT p.shop_id,p.id product_id,COALESCE(m.id,0) model_id,
         CONVERT(CASE WHEN m.id IS NULL THEN COALESCE(p.parent_sku,'') ELSE COALESCE(m.sku,'') END USING utf8mb4) COLLATE utf8mb4_unicode_ci sku,
@@ -19,6 +41,7 @@ class FinanceCost extends Finance {
 
   public function catalog(array $shops,int $page=1,string $search='',string $status='all',int $limit=25): array {
     if (!$shops) return ['rows'=>[],'page'=>1,'total'=>0];
+    $this->assertOwnedShops(array_column($shops, 'id'));
     if (!in_array($status,['all','filled','missing','archived'],true)) throw new InvalidArgumentException('Status HPP tidak valid.');
     $ids=implode(',',array_map('intval',array_column($shops,'id')));
     $today=(new DateTimeImmutable('now',new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
@@ -52,6 +75,7 @@ class FinanceCost extends Finance {
   }
 
   public function health(array $shops): array {
+    $this->assertOwnedShops(array_column($shops, 'id'));
     $result=[];
     foreach ($shops as $shop) {
       $shopId=(int)$shop['id'];
@@ -93,7 +117,9 @@ class FinanceCost extends Finance {
       if (!ctype_digit((string)$value) || (int)$value<1) throw new InvalidArgumentException('Scope toko tidak valid.');
       $ids[(int)$value]=true;
     }
-    return array_keys($ids);
+    $scope=array_keys($ids);
+    $this->assertOwnedShops($scope);
+    return $scope;
   }
 
   private function assertScope(array $input,array $key): ?array {
@@ -162,6 +188,7 @@ class FinanceCost extends Finance {
         $rows[$index]=['row_no'=>$line,'shop_id'=>$key['shop'],'product_id'=>$key['product'],'model_id'=>$key['model'],'unit_cost'=>$unit,'valid_from'=>$date,'identity'=>$identity];
       } catch (InvalidArgumentException $error) { $errors[$index]=['row_no'=>$line,'message'=>$error->getMessage()]; }
     }
+    $this->assertOwnedShops(array_map(static fn($key) => $key['shop'], array_values($keys)));
     $catalog=$this->catalogByKeys(array_values($keys)); $versions=$this->headVersionsByKeys(array_values($keys)); $dated=$this->datedCostsByKeys(array_values($keys));
     $increments=[]; $changed=0; $staged=$dated;
     foreach ($rows as $index=>&$row) {
@@ -192,7 +219,8 @@ class FinanceCost extends Finance {
   }
 
   public function history(array $input): array {
-    $rows=$this->rows('SELECT valid_from,unit_cost,actor_id,created_at FROM finance_cost_versions WHERE '.$this->where().' ORDER BY valid_from ASC',$this->key($input));
+    $key=$this->key($input); $this->assertOwnedShops([$key['shop']]);
+    $rows=$this->rows('SELECT valid_from,unit_cost,actor_id,created_at FROM finance_cost_versions WHERE '.$this->where().' ORDER BY valid_from ASC',$key);
     $previous=null;
     foreach ($rows as &$row) { $row['previous_cost']=$previous; $previous=(int)$row['unit_cost']; }
     unset($row);
@@ -201,7 +229,7 @@ class FinanceCost extends Finance {
   }
 
   public function revert(array $input,int $actor): array {
-    $key=$this->key($input); $date=$this->costDate($input); $expected=(int)($input['version'] ?? -1);
+    $key=$this->key($input); $this->assertOwnedShops([$key['shop']]); $date=$this->costDate($input); $expected=(int)($input['version'] ?? -1);
     if ($expected<0) throw new InvalidArgumentException('Versi HPP tidak valid. Muat ulang daftar terlebih dahulu.');
     $this->db->begin();
     try {
@@ -220,12 +248,14 @@ class FinanceCost extends Finance {
   }
 
   public function orderCost(int $shop,string $order): array {
+    $this->assertOwnedShops([$shop]);
     $row=$this->one("SELECT COUNT(*) items,SUM(x.cost IS NULL OR x.quantity IS NULL OR x.quantity<1) missing_items,SUM(x.cost*x.quantity) amount FROM (SELECT oi.quantity,(SELECT v.unit_cost FROM finance_cost_versions v WHERE v.shop_id=o.shop_id AND v.product_id=oi.product_id AND v.model_id=COALESCE(oi.model_id,0) AND v.valid_from<=DATE(DATE_ADD(o.created_at,INTERVAL 7 HOUR)) ORDER BY v.valid_from DESC LIMIT 1) cost FROM orders o JOIN order_items oi ON oi.order_id=o.id WHERE o.shop_id=:shop AND o.id=:order AND o.deleted_at IS NULL) x",['shop'=>$shop,'order'=>$order]);
     return ['amount'=>(int)$row['items'] && !(int)$row['missing_items'] ? (int)$row['amount'] : null,'items'=>(int)$row['items'],'missing_items'=>(int)$row['missing_items']];
   }
 
   public function preview(array $input): array {
     $key=$this->key($input);
+    $this->assertOwnedShops([$key['shop']]);
     $scope=$this->assertScope($input,$key);
     $item=$this->one('SELECT c.* FROM ('.$this->catalogSql().') c JOIN shops s ON s.id=c.shop_id WHERE c.shop_id=:shop AND c.product_id=:product AND c.model_id=:model LIMIT 1',$key);
     if (!$item) throw new InvalidArgumentException('Produk tidak ditemukan di toko ini. Sinkronkan produk terlebih dahulu.');

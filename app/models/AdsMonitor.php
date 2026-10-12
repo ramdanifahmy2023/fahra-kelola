@@ -3,12 +3,14 @@
 class AdsMonitor extends BaseModel {
   protected $table = 'ad_shop_snapshots';
   private $lastSyncError = null;
+  private static $snapshotSchemaReady = false;
 
   public function lastSyncError() {
     return $this->lastSyncError;
   }
 
   public function ensureSchema() {
+    if (self::$snapshotSchemaReady) return;
     $this->db->query("CREATE TABLE IF NOT EXISTS ad_shop_snapshots (
       shop_id INT NOT NULL,
       status VARCHAR(20) NOT NULL DEFAULT 'unknown',
@@ -21,16 +23,20 @@ class AdsMonitor extends BaseModel {
       KEY ad_shop_snapshots_synced (synced_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $this->db->exe();
+    self::$snapshotSchemaReady = true;
   }
 
   private function shops($shopId = null) {
     $where = '';
+    $account = function_exists('authIsLoggedIn') && authIsLoggedIn() ? authAccountId() : 0;
     if ((int)$shopId > 0) {
       $where = ' WHERE id = :shop_id';
     }
+    if ($account > 0) $where .= ($where ? ' AND' : ' WHERE') . ' account_id = :account_id';
     $this->db->query("SELECT id, shop_id, name, sync_status, cookie FROM shops{$where} ORDER BY name ASC");
     if ($where) {
-      $this->db->bind('shop_id', (int)$shopId);
+      if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+      if ($account > 0) $this->db->bind('account_id', $account);
     }
     return $this->db->getAll();
   }
@@ -187,12 +193,16 @@ class AdsMonitor extends BaseModel {
     return $result;
   }
 
+  private static $topupSchemaReady = false;
+
   private function ensureTopupSchema() {
+    if (self::$topupSchemaReady) return;
     $migration = file_get_contents(__DIR__ . '/../../database/migrations/20260929_ad_balance_topups.sql');
     foreach (array_filter(array_map('trim', explode(';', (string)$migration))) as $statement) {
       $this->db->query($statement);
       $this->db->exe();
     }
+    self::$topupSchemaReady = true;
   }
 
   private function topupRows(array $data) {
@@ -248,11 +258,14 @@ class AdsMonitor extends BaseModel {
       return [false, 'Sesi Shopee tidak cocok dengan toko.', true];
     }
 
-    $this->db->query('SELECT next_page_number, backfill_complete FROM ad_topup_sync_state WHERE shop_id = :shop_id LIMIT 1');
+    $this->db->query('SELECT next_page_number, backfill_complete, source_shop_id FROM ad_topup_sync_state WHERE shop_id = :shop_id LIMIT 1');
     $this->db->bind('shop_id', $shopId);
     $state = $this->db->single();
-    $backfillComplete = !empty($state['backfill_complete']);
-    $page = $backfillComplete ? 1 : max(1, (int)($state['next_page_number'] ?? 1));
+    $sameSource = $state && (int)($state['source_shop_id'] ?? 0) === $sourceShopId;
+    // A local shop may receive a new remote identity after reconnecting.  A
+    // page checkpoint from the old identity must never be reused.
+    $backfillComplete = $sameSource && !empty($state['backfill_complete']);
+    $page = $backfillComplete ? 1 : ($sameSource ? max(1, (int)($state['next_page_number'] ?? 1)) : 1);
     $cutoff = (new DateTimeImmutable('2026-08-01 00:00:00', new DateTimeZone('Asia/Jakarta')))->getTimestamp();
     $pageSize = 24;
     $pageLimit = max(1, min(50, (int)$pageLimit));
@@ -400,7 +413,9 @@ class AdsMonitor extends BaseModel {
       $monthMap[$key] = ['month' => $key, 'label' => $monthNames[(int)$month->format('n')] . ' ' . $month->format('Y'), 'total' => 0, 'transactions' => 0];
     }
 
-    $this->db->query('SELECT id, shop_id, name FROM shops ORDER BY name ASC');
+    $account = function_exists('authIsLoggedIn') && authIsLoggedIn() ? authAccountId() : 0;
+    $this->db->query('SELECT id, shop_id, name FROM shops' . ($account > 0 ? ' WHERE account_id=:account' : '') . ' ORDER BY name ASC');
+    if ($account > 0) $this->db->bind('account', $account);
     $shopOptions = $this->db->getAll();
     $shops = (int)$shopId > 0
       ? array_values(array_filter($shopOptions, static function ($shop) use ($shopId) { return (int)$shop['id'] === (int)$shopId; }))

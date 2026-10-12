@@ -18,6 +18,7 @@ class ProcRealtime extends Controller {
   }
 
   public function metrics() {
+    authRequireMethod('GET');
     $this->requireAjax();
     $user = authUser();
     $accountId = (int)($user['id'] ?? 0);

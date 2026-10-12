@@ -33,7 +33,8 @@
   <link rel="stylesheet" href="<?= web_icons; ?>/material-symbols.css">
 </head>
 <body class="login-body">
-  <main class="login-shell">
+  <a class="skip-link" href="#login-content">Lewati ke formulir masuk</a>
+  <main id="login-content" tabindex="-1" class="login-shell">
     <section class="login-visual" aria-label="Shopdash workspace">
       <a href="<?= burl; ?>/" class="login-brand"><span class="landing-mark landing-mark-header"><span class="material-symbols-outlined" aria-hidden="true">monitoring</span></span><span><?= app_name; ?></span></a>
       <div class="login-visual-copy">

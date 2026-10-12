@@ -14,6 +14,9 @@ class ProcFinance extends Controller {
       $this->json(['status'=>'error','message'=>$error->getCode()===409 ? $error->getMessage() : 'Data keuangan belum dapat diproses. Coba lagi.'],$error->getCode()===409 ? 409 : 500);
     }
   }
+  private function requireGet(): void {
+    if ($_SERVER['REQUEST_METHOD']!=='GET') $this->json(['status'=>'error','message'=>'Gunakan GET.'],405);
+  }
   private function input(): array {
     if ($_SERVER['REQUEST_METHOD']!=='POST') $this->json(['status'=>'error','message'=>'Gunakan POST.'],405);
     if (!authVerifyCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) $this->json(['status'=>'error','message'=>'Sesi formulir berakhir. Muat ulang halaman.'],403);
@@ -37,16 +40,16 @@ class ProcFinance extends Controller {
     if (empty($_SESSION['finance_preview_key'])) $_SESSION['finance_preview_key']=bin2hex(random_bytes(32));
     return $_SESSION['finance_preview_key'];
   }
-  public function summary(): void { $this->run(function () { $m=$this->m('Finance'); $m->ensureSchema(); return $m->summary($m->shops($_GET['shops'] ?? ''),$this->range($_GET)); }); }
-  public function details(): void { $this->run(function () {
+  public function summary(): void { $this->requireGet(); $this->run(function () { $m=$this->m('Finance'); $m->ensureSchema(); return $m->summary($m->shops($_GET['shops'] ?? ''),$this->range($_GET)); }); }
+  public function details(): void { $this->requireGet(); $this->run(function () {
     $m=$this->m('Finance'); $m->ensureSchema(); $category=(int)($_GET['category'] ?? 1);
     if (!in_array($category,[1,2],true)) throw new InvalidArgumentException('Jenis penghasilan tidak valid.');
     return $m->details($m->shops($_GET['shops'] ?? ''),$this->range($_GET),$category,(int)($_GET['page'] ?? 1),(string)($_GET['search'] ?? ''),(string)($_GET['state'] ?? ''));
   }); }
-  public function catalog(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->catalog($m->shops($_GET['shops'] ?? ''),(int)($_GET['page'] ?? 1),(string)($_GET['search'] ?? ''),(string)($_GET['status'] ?? 'all')); }); }
-  public function catalogExport(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->exportCatalog($m->shops($_GET['shops'] ?? ''),(string)($_GET['search'] ?? ''),(string)($_GET['status'] ?? 'all')); }); }
-  public function health(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->health($m->shops($_GET['shops'] ?? '')); }); }
-  public function history(): void { $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return ['rows'=>$m->history($_GET)]; }); }
+  public function catalog(): void { $this->requireGet(); $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->catalog($m->shops($_GET['shops'] ?? ''),(int)($_GET['page'] ?? 1),(string)($_GET['search'] ?? ''),(string)($_GET['status'] ?? 'all')); }); }
+  public function catalogExport(): void { $this->requireGet(); $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->exportCatalog($m->shops($_GET['shops'] ?? ''),(string)($_GET['search'] ?? ''),(string)($_GET['status'] ?? 'all')); }); }
+  public function health(): void { $this->requireGet(); $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->health($m->shops($_GET['shops'] ?? '')); }); }
+  public function history(): void { $this->requireGet(); $this->run(function () { $m=$this->m('FinanceCost'); $m->ensureSchema(); return ['rows'=>$m->history($_GET)]; }); }
   public function revert(): void { $this->run(function () { $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); return $m->revert($input,(int)authUser()['id']); }); }
   public function preview(): void { $this->run(function () {
     $input=$this->input(); $m=$this->m('FinanceCost'); $m->ensureSchema(); $preview=$m->preview($input); $expires=time()+600;

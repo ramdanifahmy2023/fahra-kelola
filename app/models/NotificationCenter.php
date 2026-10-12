@@ -4,6 +4,7 @@ require_once __DIR__.'/../helpers/NotificationPolicy.php';
 
 class NotificationCenter extends StockAlert {
   private $notificationSchemaReady = false;
+  private ?bool $shopAccountColumn = null;
 
   public function ensureSchema() {
     parent::ensureSchema();
@@ -20,6 +21,21 @@ class NotificationCenter extends StockAlert {
     return $this->db->getAll();
   }
 
+  private function shopAccountScope(string $alias = 's'): string {
+    $account = function_exists('authAccountId') ? max(0, (int)authAccountId()) : 0;
+    if ($account < 1) return '';
+    if ($this->shopAccountColumn === null) {
+      try {
+        $this->db->query("SHOW COLUMNS FROM shops LIKE 'account_id'");
+        $this->shopAccountColumn = (bool)$this->db->single();
+      } catch (Throwable $ignore) {
+        $this->shopAccountColumn = false;
+      }
+    }
+    // Logged-in reads fail closed on a legacy schema with no ownership column.
+    return $this->shopAccountColumn ? " AND {$alias}.account_id = {$account}" : ' AND 1=0';
+  }
+
   public function refreshOperations(bool $force=false): void {
     $this->ensureSchema();
     $lock='shopdash-notify-'.substr(hash('sha256',DB_NAME),0,24);
@@ -30,20 +46,23 @@ class NotificationCenter extends StockAlert {
       $check=$this->rows('SELECT checked_at FROM notification_checks WHERE id=1')[0]['checked_at'] ?? null;
       $now=time();
       if (!$force && $check && $now-(NotificationPolicy::utc($check) ?? 0)<30) return;
-      $shops=$this->rows("SELECT id,name,(cookie IS NULL OR TRIM(cookie)='') cookie_missing FROM shops");
+      $account = function_exists('authAccountId') ? authAccountId() : 0;
+      $shopScope = $account > 0 ? ' WHERE account_id=:account' : '';
+      $scopeParams = $account > 0 ? ['account'=>$account] : [];
+      $shops=$this->rows("SELECT id,name,(cookie IS NULL OR TRIM(cookie)='') cookie_missing FROM shops{$shopScope}",$scopeParams);
       $schedules=$this->rows("SELECT s.*, j.completed_at outcome_at,
         (SELECT MIN(j0.created_at) FROM sync_jobs j0 WHERE j0.shop_id=s.shop_id AND CAST(j0.sync_type AS BINARY)=CAST(s.sync_type AS BINARY)) first_job_at,
         (SELECT MAX(o.completed_at) FROM sync_job_orders o JOIN sync_jobs jo ON jo.id=o.job_id WHERE jo.shop_id=s.shop_id AND CAST(jo.sync_type AS BINARY)=CAST(s.sync_type AS BINARY) AND jo.status IN ('running','queued') AND o.status='done') detail_progress,
         (SELECT MAX(p.completed_at) FROM sync_pages p JOIN sync_jobs jp ON jp.id=p.job_id WHERE jp.shop_id=s.shop_id AND CAST(jp.sync_type AS BINARY)=CAST(s.sync_type AS BINARY) AND jp.status IN ('running','queued') AND p.status='done') page_progress
-        FROM sync_schedules s LEFT JOIN sync_jobs j ON j.id=(SELECT MAX(j2.id) FROM sync_jobs j2 WHERE j2.shop_id=s.shop_id AND CAST(j2.sync_type AS BINARY)=CAST(s.sync_type AS BINARY) AND j2.status IN ('completed','failed'))");
+        FROM sync_schedules s JOIN shops scope_shops ON scope_shops.id=s.shop_id LEFT JOIN sync_jobs j ON j.id=(SELECT MAX(j2.id) FROM sync_jobs j2 WHERE j2.shop_id=s.shop_id AND CAST(j2.sync_type AS BINARY)=CAST(s.sync_type AS BINARY) AND j2.status IN ('completed','failed'))" . ($account > 0 ? ' WHERE scope_shops.account_id=:account' : ''),$scopeParams);
       $byShop=[];
       foreach ($schedules as $row) {
         $row['progress_at']=max($row['detail_progress'] ?? '',$row['page_progress'] ?? '') ?: null;
         $byShop[(int)$row['shop_id']][$row['sync_type']]=$row;
       }
-      $orders=$this->rows("SELECT o.id,o.shop_id,o.order_sn,o.status_type,o.ship_by_date,o.detail_synced_at FROM orders o
-        WHERE LOWER(TRIM(o.status_type)) IN ('perlu dikirim','ready_to_ship','ready to ship','unshipped')
-        OR EXISTS (SELECT 1 FROM alerts a WHERE a.type='shipping_deadline' AND a.entity_type='order' AND a.shop_id=o.shop_id AND a.entity_id=CAST(o.id AS CHAR) AND a.resolved_at IS NULL)");
+      $orders=$this->rows("SELECT o.id,o.shop_id,o.order_sn,o.status_type,o.ship_by_date,o.detail_synced_at FROM orders o JOIN shops scope_order_shops ON scope_order_shops.id=o.shop_id
+        WHERE (LOWER(TRIM(o.status_type)) IN ('perlu dikirim','ready_to_ship','ready to ship','unshipped')
+        OR EXISTS (SELECT 1 FROM alerts a WHERE a.type='shipping_deadline' AND a.entity_type='order' AND a.shop_id=o.shop_id AND a.entity_id=CAST(o.id AS CHAR) AND a.resolved_at IS NULL))" . ($account > 0 ? ' AND scope_order_shops.account_id=:account' : ''),$scopeParams);
       $this->db->begin(); $transaction=true;
       foreach ($shops as $shop) {
         $shopId=(int)$shop['id']; $schedule=$byShop[$shopId] ?? [];
@@ -111,12 +130,12 @@ class NotificationCenter extends StockAlert {
     $row=$this->rows("SELECT COUNT(*) total,COALESCE(SUM(a.severity='urgent'),0) urgent,
       COALESCE(SUM({$unread}),0) unread,COALESCE(SUM({$unread} AND a.severity='urgent'),0) unread_urgent
       FROM alerts a JOIN shops s ON s.id=a.shop_id LEFT JOIN notification_receipts r ON r.alert_id=a.id AND r.user_id=:user
-      WHERE ".$this->visibleWhere($userId),['user'=>$userId])[0];
+      WHERE ".$this->visibleWhere($userId).$this->shopAccountScope('s'),['user'=>$userId])[0];
     return array_map('intval',$row);
   }
 
   public function notifications(int $userId, bool $unreadOnly=true, int $limit=10, int $offset=0, array $filters=[]): array {
-    $limit=max(1,min(100,$limit));$offset=max(0,$offset);$where=$this->visibleWhere($userId);
+    $limit=max(1,min(100,$limit));$offset=max(0,$offset);$where=$this->visibleWhere($userId).$this->shopAccountScope('s');
     if ($unreadOnly) $where.=' AND '.$this->unreadExpression();
     $where.=$this->filterWhere($filters);
     $rows=$this->rows("SELECT a.*,s.name shop_name,s.shop_logo,p.name product_name,p.total_stock,".$this->unreadExpression()." is_unread
@@ -148,7 +167,7 @@ class NotificationCenter extends StockAlert {
   }
 
   public function groups(int $userId,bool $unreadOnly,int $limit,int $offset,array $filters=[]): array {
-    $where=$this->visibleWhere($userId).$this->filterWhere($filters);
+    $where=$this->visibleWhere($userId).$this->shopAccountScope('s').$this->filterWhere($filters);
     if ($unreadOnly) $where.=' AND '.$this->unreadExpression();
     $rows=$this->rows("SELECT a.shop_id,a.type,s.name shop_name,s.shop_logo,COUNT(*) total,SUM(".$this->unreadExpression().") unread,SUM(a.severity='urgent') urgent,MAX(COALESCE(a.changed_at,a.first_seen_at)) changed_at
       FROM alerts a JOIN shops s ON s.id=a.shop_id LEFT JOIN notification_receipts r ON r.alert_id=a.id AND r.user_id=:user
@@ -159,7 +178,7 @@ class NotificationCenter extends StockAlert {
   }
 
   public function filteredCount(int $userId,bool $unreadOnly,array $filters): int {
-    $where=$this->visibleWhere($userId).$this->filterWhere($filters);if($unreadOnly)$where.=' AND '.$this->unreadExpression();
+    $where=$this->visibleWhere($userId).$this->shopAccountScope('s').$this->filterWhere($filters);if($unreadOnly)$where.=' AND '.$this->unreadExpression();
     return (int)$this->rows('SELECT COUNT(*) total FROM alerts a JOIN shops s ON s.id=a.shop_id LEFT JOIN notification_receipts r ON r.alert_id=a.id AND r.user_id=:user WHERE '.$where,['user'=>$userId])[0]['total'];
   }
 
@@ -167,7 +186,7 @@ class NotificationCenter extends StockAlert {
     $seconds=max(300,min(86400,$seconds));
     foreach ($items as $item) {
       $this->db->query("INSERT INTO notification_snoozes (alert_id,user_id,revision,snoozed_until)
-        SELECT id,:user,revision,DATE_ADD(UTC_TIMESTAMP(),INTERVAL {$seconds} SECOND) FROM alerts WHERE id=:id AND revision=:revision AND resolved_at IS NULL
+        SELECT a.id,:user,a.revision,DATE_ADD(UTC_TIMESTAMP(),INTERVAL {$seconds} SECOND) FROM alerts a INNER JOIN shops s ON s.id=a.shop_id WHERE a.id=:id AND a.revision=:revision AND a.resolved_at IS NULL".$this->shopAccountScope('s')."
         ON DUPLICATE KEY UPDATE snoozed_until=IF(VALUES(revision)>=notification_snoozes.revision,VALUES(snoozed_until),snoozed_until),revision=GREATEST(notification_snoozes.revision,VALUES(revision))");
       foreach (['user'=>$userId,'id'=>$item['id'],'revision'=>$item['revision']] as $key=>$value) $this->db->bind($key,$value);$this->db->exe();
     }
@@ -176,7 +195,7 @@ class NotificationCenter extends StockAlert {
   public function markRead(int $userId, array $items): void {
     foreach ($items as $item) {
       $this->db->query('INSERT INTO notification_receipts (alert_id,user_id,revision,read_at)
-        SELECT id,:user,revision,UTC_TIMESTAMP() FROM alerts WHERE id=:id AND revision=:revision AND resolved_at IS NULL
+        SELECT a.id,:user,a.revision,UTC_TIMESTAMP() FROM alerts a INNER JOIN shops s ON s.id=a.shop_id WHERE a.id=:id AND a.revision=:revision AND a.resolved_at IS NULL'.$this->shopAccountScope('s').'
         ON DUPLICATE KEY UPDATE revision=GREATEST(notification_receipts.revision,VALUES(revision)),read_at=UTC_TIMESTAMP()');
       foreach (['user'=>$userId,'id'=>$item['id'],'revision'=>$item['revision']] as $key=>$value) $this->db->bind($key,$value);
       $this->db->exe();

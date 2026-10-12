@@ -14,6 +14,17 @@ class ProcProducts extends Controller {
         if (!$isAjax) $this->json(['status' => 'error', 'message' => 'Invalid request.'], 400);
     }
 
+    private function requireRead() {
+        authRequireMethod('GET');
+        $this->requireAjax();
+    }
+
+    private function requireWrite() {
+        authRequireMethod('POST');
+        authRequireCsrf();
+        $this->requireAjax();
+    }
+
     private function boostProducts($shopId, $search, $page, $limit) {
         $productModel = $this->m('Product');
         $offset = ($page - 1) * $limit;
@@ -30,28 +41,29 @@ class ProcProducts extends Controller {
     }
 
     public function boost_products() {
-        $this->requireAjax();
-        $shopId = (int)($_GET['shop_id'] ?? 0);
-        if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
-        $shop = $this->m('Shop')->findBy('id', $shopId);
-        if (!$shop) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
-        $page = max(1, (int)($_GET['page'] ?? 1));
-        $limit = min(20, max(5, (int)($_GET['limit'] ?? 12)));
-        $search = trim((string)($_GET['search'] ?? ''));
-        [$products, $total] = $this->boostProducts($shopId, $search, $page, $limit);
-        $monitor = $this->m('ProductBoostMonitor');
-        $cooldowns = $monitor->productCooldowns($shopId, array_column($products, 'id'));
-        foreach ($products as &$product) {
-            $product['boost_cooldown'] = $cooldowns[(string)$product['id']] ?? [
-                'last_boost_at' => null,
-                'next_boost_at' => null,
-                'cooldown_active' => false,
-                'cooldown_seconds' => 0,
-                'cooldown_minutes' => 255
-            ];
-        }
-        unset($product);
-        $this->json([
+        $this->requireRead();
+        try {
+          $shopId = (int)($_GET['shop_id'] ?? 0);
+          if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
+          $shop = $this->m('Shop')->findBy('id', $shopId);
+          if (!$shop) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
+          $page = max(1, (int)($_GET['page'] ?? 1));
+          $limit = min(20, max(5, (int)($_GET['limit'] ?? 12)));
+          $search = trim((string)($_GET['search'] ?? ''));
+          [$products, $total] = $this->boostProducts($shopId, $search, $page, $limit);
+          $monitor = $this->m('ProductBoostMonitor');
+          $cooldowns = $monitor->productCooldowns($shopId, array_column($products, 'id'));
+          foreach ($products as &$product) {
+              $product['boost_cooldown'] = $cooldowns[(string)$product['id']] ?? [
+                  'last_boost_at' => null,
+                  'next_boost_at' => null,
+                  'cooldown_active' => false,
+                  'cooldown_seconds' => 0,
+                  'cooldown_minutes' => 255
+              ];
+          }
+          unset($product);
+          $this->json([
             'status' => 'success',
             'shop' => ['id' => (int)$shop['id'], 'name' => $shop['name'] ?? '', 'session_status' => $shop['sync_status'] ?? 'unknown'],
             'products' => $products,
@@ -60,7 +72,11 @@ class ProcProducts extends Controller {
             'limit' => $limit,
             'summary' => $monitor->summary($shopId),
             'history' => $monitor->history($shopId, 5)
-        ]);
+          ]);
+        } catch (Throwable $error) {
+          error_log('Boost product listing failed: ' . $error->getMessage());
+          $this->json(['status' => 'error', 'message' => 'Daftar produk belum dapat dimuat.'], 500);
+        }
     }
 
     public function boost() {
@@ -69,15 +85,31 @@ class ProcProducts extends Controller {
     }
 
     public function boost_history() {
-        $this->requireAjax();
-        $shopId = (int)($_GET['shop_id'] ?? 0);
-        if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
-        $monitor = $this->m('ProductBoostMonitor');
-        $this->json(['status' => 'success', 'summary' => $monitor->summary($shopId), 'history' => $monitor->history($shopId, 20)]);
+        $this->requireRead();
+        try {
+          $shopId = (int)($_GET['shop_id'] ?? 0);
+          if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
+          if (!$this->m('Shop')->findBy('id', $shopId)) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
+          $monitor = $this->m('ProductBoostMonitor');
+          $this->json(['status' => 'success', 'summary' => $monitor->summary($shopId), 'history' => $monitor->history($shopId, 20)]);
+        } catch (Throwable $error) {
+          error_log('Boost product history failed: ' . $error->getMessage());
+          $this->json(['status' => 'error', 'message' => 'Riwayat produk belum dapat dimuat.'], 500);
+        }
     }
     
     // AJAX method untuk fetch dan save products
     public function add() {
+        try {
+            $this->addUnsafe();
+        } catch (Throwable $error) {
+            error_log('Product sync failed: ' . $error->getMessage());
+            $this->json(['status' => 'error', 'message' => 'Sinkronisasi produk belum dapat diproses.'], 500);
+        }
+    }
+
+    private function addUnsafe() {
+        $this->requireWrite();
         header('Content-Type: application/json');
         
         $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
@@ -117,13 +149,7 @@ class ProcProducts extends Controller {
         $response = $shopee->getProductsPage($shop['cookie'], $pageSize, $cursor);
 
         if ($response === false) {
-            // Kita coba panggil raw request untuk lihat error dari Shopee
-            preg_match('/SPC_CDS=([^;]+)/', $shop['cookie'], $matches);
-            $spcCds = $matches[1] ?? '';
-            $endpoint = 'https://seller.shopee.co.id/api/v3/opt/mpsku/list/v2/search_product_list?SPC_CDS=' . $spcCds . '&SPC_CDS_VER=2&page_size=12&list_type=all&request_attribute=&operation_sort_by=recommend_v4&need_ads=true';
-            $debugResponse = $shopee->request('GET', $endpoint, $shop['cookie']);
-            
-            echo json_encode(['status' => 'error', 'message' => 'Gagal menarik data dari Shopee.', 'debug' => $debugResponse]);
+            echo json_encode(['status' => 'error', 'message' => 'Gagal menarik data dari Shopee.']);
             exit;
         }
 
@@ -149,35 +175,51 @@ class ProcProducts extends Controller {
         }
 
         $existingProducts = [];
+        $conflictingProductIds = [];
         if ($productIds) {
             $dbProducts = new Database();
             $productPlaceholders = [];
             foreach ($productIds as $index => $productId) {
                 $productPlaceholders[] = ':product_id_' . $index;
             }
-            $dbProducts->query('SELECT id, modify_time FROM products WHERE id IN (' . implode(', ', $productPlaceholders) . ')');
+            // Product ids are globally unique. Never let one shop update a row
+            // that belongs to another shop.
+            $dbProducts->query('SELECT id, shop_id, modify_time FROM products WHERE id IN (' . implode(', ', $productPlaceholders) . ')');
             foreach ($productIds as $index => $productId) {
                 $dbProducts->bind('product_id_' . $index, $productId);
             }
             foreach ($dbProducts->getAll() as $existingProduct) {
-                $existingProducts[$existingProduct['id']] = $existingProduct;
+                if ((int)$existingProduct['shop_id'] === (int)$shopId) {
+                    $existingProducts[$existingProduct['id']] = $existingProduct;
+                } else {
+                    $conflictingProductIds[(string)$existingProduct['id']] = true;
+                }
             }
         }
 
         $existingModels = [];
+        $conflictingModelIds = [];
         if ($modelIds) {
             $dbModels = new Database();
             $modelPlaceholders = [];
             foreach ($modelIds as $index => $modelId) {
                 $modelPlaceholders[] = ':model_id_' . $index;
             }
-            $dbModels->query('SELECT id FROM product_models WHERE id IN (' . implode(', ', $modelPlaceholders) . ')');
+            $dbModels->query('SELECT m.id, p.shop_id FROM product_models m INNER JOIN products p ON p.id = m.product_id WHERE m.id IN (' . implode(', ', $modelPlaceholders) . ')');
             foreach ($modelIds as $index => $modelId) {
                 $dbModels->bind('model_id_' . $index, $modelId);
             }
             foreach ($dbModels->getAll() as $existingModel) {
-                $existingModels[$existingModel['id']] = true;
+                if ((int)$existingModel['shop_id'] === (int)$shopId) {
+                    $existingModels[$existingModel['id']] = true;
+                } else {
+                    $conflictingModelIds[(string)$existingModel['id']] = true;
+                }
             }
+        }
+
+        if ($conflictingProductIds || $conflictingModelIds) {
+            throw new RuntimeException('Product response contains ids owned by another shop.');
         }
         
         foreach ($productsList as $prod) {
@@ -250,7 +292,7 @@ class ProcProducts extends Controller {
         
         // Update total produk di tabel shops
         $totalShopee = $response['page_info']['total'] ?? 0;
-        $this->m('Shop')->update($shopId, ['total_products' => $totalShopee]);
+        $this->m('Shop')->updateOwned($shopId, ['total_products' => $totalShopee], authAccountId());
 
         $nextCursor = $response['page_info']['cursor'] ?? '';
         $hasNext = !empty($nextCursor) && count($productsList) === $pageSize;

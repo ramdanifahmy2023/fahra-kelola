@@ -9,6 +9,7 @@ class ProcAds extends Controller {
   }
 
   private function requireAjax() {
+    authRequireMethod('GET');
     $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
     if (!$isAjax) {
       $this->json(['status' => 'error', 'message' => 'Invalid request.'], 400);

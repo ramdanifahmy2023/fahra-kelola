@@ -731,7 +731,7 @@ CREATE TABLE `shops` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `channel_id` smallint(5) unsigned DEFAULT NULL,
   `shop_id` bigint(20) DEFAULT NULL,
-  `account_id` int(11) DEFAULT NULL,
+  `account_id` int(11) NOT NULL,
   `name` varchar(255) DEFAULT NULL,
   `shop_logo` varchar(255) DEFAULT NULL,
   `username` varchar(255) DEFAULT NULL,
@@ -749,7 +749,8 @@ CREATE TABLE `shops` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `ads_credit` bigint(20) DEFAULT 0,
   PRIMARY KEY (`id`),
-  KEY `ix_shops_account_channel` (`account_id`,`channel_id`,`id`)
+  KEY `ix_shops_account_channel` (`account_id`,`channel_id`,`id`),
+  CONSTRAINT `fk_shops_account` FOREIGN KEY (`account_id`) REFERENCES `accounts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 DROP TABLE IF EXISTS `sync_checkpoints`;
@@ -806,10 +807,13 @@ CREATE TABLE `sync_job_orders` (
   `order_id` bigint(20) NOT NULL,
   `status` varchar(16) NOT NULL DEFAULT 'queued',
   `attempts` int(11) NOT NULL DEFAULT 0,
+  `max_attempts` smallint(5) unsigned NOT NULL DEFAULT 8,
   `next_retry_at` datetime DEFAULT NULL,
   `lease_until` datetime DEFAULT NULL,
+  `lease_owner` char(64) DEFAULT NULL,
   `last_error` text DEFAULT NULL,
   `completed_at` datetime DEFAULT NULL,
+  `permanent_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `sync_job_orders_unique` (`job_id`,`order_id`),
   KEY `sync_job_orders_claim` (`job_id`,`status`,`next_retry_at`)
@@ -846,9 +850,12 @@ CREATE TABLE `sync_jobs` (
   `processed_detail` int(11) NOT NULL DEFAULT 0,
   `failed_detail` int(11) NOT NULL DEFAULT 0,
   `attempts` int(11) NOT NULL DEFAULT 0,
+  `max_attempts` smallint(5) unsigned NOT NULL DEFAULT 8,
   `lease_until` datetime DEFAULT NULL,
+  `lease_owner` char(64) DEFAULT NULL,
   `last_error` text DEFAULT NULL,
   `completed_at` datetime DEFAULT NULL,
+  `permanent_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_sync_jobs_idempotency` (`shop_id`,`sync_type`,`idempotency_key`),
   KEY `ix_sync_jobs_claim` (`status`,`priority`,`next_retry_at`,`id`),
@@ -978,6 +985,8 @@ CREATE TABLE `sync_schedules` (
   `mode` varchar(16) NOT NULL DEFAULT 'diff',
   `enabled` tinyint(1) NOT NULL DEFAULT 1,
   `next_run_at` datetime DEFAULT NULL,
+  `scheduler_owner` char(64) DEFAULT NULL,
+  `scheduler_lease_until` datetime DEFAULT NULL,
   `last_enqueued_at` datetime DEFAULT NULL,
   `last_success_at` datetime DEFAULT NULL,
   `last_full_at` datetime DEFAULT NULL,

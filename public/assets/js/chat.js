@@ -59,9 +59,11 @@
   }
   async function loadRows() {
     const version = ++state.listVersion;
+    $('chat-conversations').setAttribute('aria-busy', 'true');
     const params = new URLSearchParams({shop_id:state.shop, search:$('chat-search').value.trim(), status:$('chat-status').value, unread_only:$('chat-unread').checked ? '1' : ''});
     try { const result = await request('/conversations?' + params); if (version !== state.listVersion) return; state.rows = result.conversations || []; renderRows(); }
     catch (error) { if (version === state.listVersion) $('chat-conversations').textContent = error.message; }
+    finally { if (version === state.listVersion) $('chat-conversations').setAttribute('aria-busy', 'false'); }
   }
   async function loadMessages() {
     const row = state.selected; if (!row) return;

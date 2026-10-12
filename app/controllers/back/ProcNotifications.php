@@ -11,6 +11,7 @@ class ProcNotifications extends Controller {
   }
 
   public function summary(): void {
+    authRequireMethod('GET');
     try {
       $model=$this->center();$available=true;
       try { $model->refreshOperations(); } catch(Throwable $e) { $available=false; }

@@ -6,7 +6,7 @@
   </div>
   <div class="w-full sm:w-auto">
     <button class="btn btn-primary w-full gap-2 shadow-sm sm:w-auto" onclick="add_shop_modal.showModal()">
-      <span class="material-symbols-outlined">add</span>
+      <span class="material-symbols-outlined" aria-hidden="true">add</span>
       Tambah Toko
     </button>
   </div>
@@ -15,7 +15,7 @@
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
   <div class="shop-table-scroll overflow-x-auto">
-    <table role="table" class="shop-table table w-full" aria-label="Daftar toko terhubung">
+    <table role="table" class="shop-table table w-full" aria-label="Daftar toko terhubung"><caption class="sr-only">Daftar toko terhubung</caption>
       <!-- head -->
       <thead class="bg-base-200/50 text-base-content">
         <tr>
@@ -33,7 +33,7 @@
         <tr>
           <td colspan="7" class="text-center py-10">
             <div class="flex flex-col items-center justify-center text-base-content/50">
-              <span class="material-symbols-outlined text-[48px] mb-2 opacity-50">add_business</span>
+              <span class="material-symbols-outlined text-[48px] mb-2 opacity-50" aria-hidden="true">add_business</span>
               <p>Belum ada toko yang ditambahkan.</p>
             </div>
           </td>
@@ -49,7 +49,7 @@
                   <?php if (!empty($shop['shop_logo'])): ?>
                     <img src="<?= htmlspecialchars($shop['shop_logo']); ?>" alt="Logo" class="w-full h-full object-cover" />
                   <?php else: ?>
-                    <span class="material-symbols-outlined opacity-50">storefront</span>
+                    <span class="material-symbols-outlined opacity-50" aria-hidden="true">storefront</span>
                   <?php endif; ?>
                 </div>
               </div>
@@ -106,12 +106,12 @@
 </div>
 
 <!-- Modal Tambah Toko -->
-<dialog id="add_shop_modal" class="modal modal-bottom sm:modal-middle">
+<dialog id="add_shop_modal" class="modal modal-bottom sm:modal-middle" aria-labelledby="add-shop-title">
   <div class="modal-box bg-base-100 rounded-2xl shadow-xl p-0 overflow-hidden">
     <!-- Modal Header -->
     <div class="px-6 py-5 border-b border-base-200 flex justify-between items-center bg-base-100/50">
-      <h3 class="font-bold text-lg text-base-content flex items-center gap-2">
-        <span class="material-symbols-outlined text-primary">add_business</span>
+      <h3 id="add-shop-title" class="font-bold text-lg text-base-content flex items-center gap-2">
+        <span class="material-symbols-outlined text-primary" aria-hidden="true">add_business</span>
         Tambah Toko Baru
       </h3>
       <form method="dialog">
@@ -121,33 +121,34 @@
     
     <!-- Modal Body -->
     <form action="<?= burl; ?>/procshops/add" method="POST">
+      <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(authCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
       <div class="p-6 space-y-5">
         <div class="form-control w-full">
-          <label class="label pb-1.5 px-1">
+          <label for="add-shop-email" class="label pb-1.5 px-1">
             <span class="label-text font-semibold text-base-content/90">Email Login Toko</span>
           </label>
           <div class="relative">
             <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-base-content/40">
-              <span class="material-symbols-outlined text-[20px]">mail</span>
+              <span class="material-symbols-outlined text-[20px]" aria-hidden="true">mail</span>
             </span>
-            <input type="email" name="email" placeholder="contoh@shopdash.com" class="input input-bordered w-full pl-11 focus:input-primary transition-colors bg-base-100/50 hover:bg-base-100 shadow-sm" required />
+            <input id="add-shop-email" type="email" name="email" autocomplete="email" placeholder="contoh@shopdash.com" class="input input-bordered w-full pl-11 focus:input-primary transition-colors bg-base-100/50 hover:bg-base-100 shadow-sm" required />
           </div>
         </div>
       
         <div class="form-control w-full">
-          <label class="label pb-1.5 px-1 flex justify-between">
+          <label for="add-shop-cookie" class="label pb-1.5 px-1 flex justify-between">
             <span class="label-text font-semibold text-base-content/90">Cookies Session</span>
             <span class="label-text-alt text-error font-medium">* Wajib</span>
           </label>
           <div class="relative">
-            <textarea name="cookie" class="textarea textarea-bordered w-full h-32 focus:textarea-primary transition-colors text-sm leading-relaxed bg-base-100/50 hover:bg-base-100 shadow-sm resize-none" placeholder="Paste data cookie di sini...&#10;Contoh: session_id=xyz123; user_token=abc890;" required></textarea>
+            <textarea id="add-shop-cookie" name="cookie" aria-describedby="add-shop-cookie-help" class="textarea textarea-bordered w-full h-32 focus:textarea-primary transition-colors text-sm leading-relaxed bg-base-100/50 hover:bg-base-100 shadow-sm resize-none" placeholder="Paste data cookie di sini...&#10;Contoh: session_id=xyz123; user_token=abc890;" required></textarea>
           </div>
-          <label class="label pt-1.5 px-1">
+          <p id="add-shop-cookie-help" class="label pt-1.5 px-1">
             <span class="label-text-alt opacity-60 flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px]">info</span>
+              <span class="material-symbols-outlined text-[14px]" aria-hidden="true">info</span>
               Pastikan cookie yang dimasukkan masih valid.
             </span>
-          </label>
+          </p>
         </div>
       </div>
       
@@ -155,7 +156,7 @@
       <div class="px-6 py-4 border-t border-base-200 bg-base-200/30 flex justify-end gap-3">
         <button type="button" class="btn btn-ghost px-6 hover:bg-base-200" onclick="add_shop_modal.close()">Batal</button>
         <button type="submit" class="btn btn-primary px-6 gap-2 shadow-sm">
-          <span class="material-symbols-outlined text-[18px]">save</span>
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">save</span>
           Simpan Toko
         </button>
       </div>

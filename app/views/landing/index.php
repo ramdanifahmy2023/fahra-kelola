@@ -1,4 +1,4 @@
-<main class="landing-main">
+<main id="landing-content" tabindex="-1" class="landing-main">
   <section class="landing-hero" aria-labelledby="landing-title">
     <div class="landing-hero-inner">
       <div class="landing-hero-copy">

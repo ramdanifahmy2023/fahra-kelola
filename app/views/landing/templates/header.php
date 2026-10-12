@@ -25,6 +25,7 @@
   <link rel="stylesheet" href="<?= web_icons; ?>/material-symbols.css">
 </head>
 <body class="landing-body">
+  <a class="skip-link" href="#landing-content">Lewati ke konten utama</a>
   <header class="landing-header">
     <a class="landing-brand" href="<?= burl; ?>/" aria-label="Shopdash beranda"><span class="landing-mark landing-mark-header"><span class="material-symbols-outlined" aria-hidden="true">bolt</span></span><span><?= app_name; ?></span></a>
     <nav class="landing-nav" aria-label="Navigasi utama"><a href="#alur-kerja">Alur kerja</a><a href="#ruang-lingkup">Ruang lingkup</a></nav>

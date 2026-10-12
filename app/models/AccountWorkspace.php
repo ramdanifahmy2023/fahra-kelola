@@ -18,6 +18,16 @@ class AccountWorkspace extends BaseModel {
     $result=[];foreach ($this->db->getAll() as $row) $result[$row['scope']]=json_decode($row['payload'],true) ?: [];
     return $result;
   }
+  private function shopAllowed(int $shopId, int $user): bool {
+    $enforceOwner = function_exists('authIsLoggedIn') && authIsLoggedIn();
+    try {
+      $this->db->query("SHOW COLUMNS FROM shops LIKE 'account_id'");
+      $hasAccount = (bool)$this->db->single();
+      $this->db->query($hasAccount && $enforceOwner ? 'SELECT id FROM shops WHERE id=:id AND account_id=:account LIMIT 1' : 'SELECT id FROM shops WHERE id=:id LIMIT 1');
+      $this->db->bind('id',$shopId); if ($hasAccount && $enforceOwner) $this->db->bind('account',$user);
+      return (bool)$this->db->single();
+    } catch (Throwable $ignore) { return !$enforceOwner; }
+  }
   private function write(int $user,string $scope,array $values,int $changedAt): void {
     $this->db->query('INSERT INTO account_workspace (user_id,scope,payload,updated_at,client_updated_at) VALUES (:user,:scope,:payload,UTC_TIMESTAMP(),:changed) ON DUPLICATE KEY UPDATE payload=IF(VALUES(client_updated_at)>=client_updated_at,VALUES(payload),payload),updated_at=IF(VALUES(client_updated_at)>=client_updated_at,VALUES(updated_at),updated_at),client_updated_at=GREATEST(client_updated_at,VALUES(client_updated_at))');
     foreach (['user'=>$user,'scope'=>$scope,'payload'=>json_encode($values),'changed'=>$changedAt] as $k=>$v) $this->db->bind($k,$v);$this->db->exe();
@@ -27,7 +37,7 @@ class AccountWorkspace extends BaseModel {
     if (!array_key_exists($scope,WorkspacePolicy::FILTERS)) throw new InvalidArgumentException('Halaman tidak valid.');
     $this->ensureSchema();$clean=WorkspacePolicy::clean($scope,$values);
     foreach (['shop_id','topup_shop'] as $key) if (!empty($clean[$key])) {
-      $this->db->query('SELECT id FROM shops WHERE id=:id');$this->db->bind('id',$clean[$key]);if (!$this->db->single()) unset($clean[$key]);
+      if (!$this->shopAllowed((int)$clean[$key],$user)) unset($clean[$key]);
     }
     $this->db->begin();
     try {

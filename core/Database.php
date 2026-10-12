@@ -15,14 +15,15 @@ class Database {
   public function __construct() {
     $dsn = 'mysql:host=' . $this->host . ';port=' . DB_PORT . ';dbname=' . $this->db_name;
     $option = [
-      PDO::ATTR_PERSISTENT => true,
+      PDO::ATTR_PERSISTENT => false,
       PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
     ];
 
     try {
       $this->dbh = new PDO($dsn, $this->user, $this->pass, $option);
     } catch (PDOException $e) {
-      die($e->getMessage());
+      error_log('Database connection failed: ' . $e->getMessage());
+      throw new RuntimeException('Database unavailable.', 503, $e);
     }
   }
 

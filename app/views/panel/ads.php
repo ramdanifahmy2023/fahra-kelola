@@ -80,8 +80,7 @@
     </div>
     <div id="ads-topups-state" class="mb-4 rounded-lg border border-base-content/15 bg-base-100 p-3 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan topup…</div>
     <div class="overflow-x-auto rounded-xl border border-base-content/15 bg-base-100">
-      <table class="w-full min-w-[22rem] text-left text-sm">
-        <caption class="sr-only">Total topup saldo iklan termasuk PPN per bulan</caption>
+      <table class="w-full min-w-[22rem] text-left text-sm"><caption class="sr-only">Total topup saldo iklan termasuk PPN per bulan</caption>
         <thead class="border-b border-base-content/15 text-xs text-base-content/60">
           <tr><th scope="col" class="px-4 py-3 font-bold">Bulan</th><th scope="col" class="px-4 py-3 text-right font-bold">Topup berhasil (termasuk PPN)</th></tr>
         </thead>
@@ -118,8 +117,7 @@
       <summary class="min-h-11 cursor-pointer px-5 py-3 text-sm font-bold">Rincian per tanggal <span class="font-normal" data-detail-count></span></summary>
       <p class="px-5 pb-4 text-sm" data-detail-empty></p>
       <div class="ads-table-scroll" data-table-region role="region" tabindex="0" hidden>
-        <table class="ads-table">
-          <caption class="sr-only" data-table-caption></caption>
+        <table class="ads-table"><caption class="sr-only" data-table-caption></caption>
           <thead><tr><th scope="col">Tanggal (WIB)</th><th scope="col">Iklan dilihat</th><th scope="col">Jumlah klik</th><th scope="col">Persentase klik</th><th scope="col">Pesanan</th><th scope="col">Produk terjual</th><th scope="col">Penjualan</th><th scope="col">Biaya iklan</th><th scope="col">ROAS</th></tr></thead>
           <tbody data-daily-rows></tbody>
         </table>

@@ -1,6 +1,6 @@
 <section id="orders-page">
 <!-- Loading Overlay -->
-<div id="page-loader" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
+<div id="page-loader" role="status" aria-live="polite" aria-busy="false" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
   <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
   <p class="text-lg font-medium text-base-content">Sedang Memuat Data...</p>
 </div>
@@ -26,7 +26,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
   </div>
   <div class="flex flex-wrap items-center gap-3">
     <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueOrderBackgroundSync()" id="order-sync-button">
-      <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
+      <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang
     </button>
     <div class="join h-9" aria-label="Filter bulan pesanan">
       <button type="button" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(-1)" title="Bulan sebelumnya" <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'disabled' : ''; ?>>‹</button>
@@ -56,17 +56,18 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 
   <div class="overflow-x-auto order-desktop-table">
     <table class="table w-full">
+      <caption class="sr-only">Daftar pesanan toko dan periode pilihan</caption>
       <!-- head -->
       <thead class="bg-base-200/50 text-base-content">
         <tr>
-          <th>Tanggal</th>
-          <th>No. Pesanan</th>
-          <th>Produk</th>
-          <th>Jenis Pesanan</th>
-          <th class="text-right">Total Pembayaran</th>
-          <th>Status</th>
-          <th>Kurir & Resi</th>
-          <th class="text-center w-32">Aksi</th>
+          <th scope="col">Tanggal</th>
+          <th scope="col">No. Pesanan</th>
+          <th scope="col">Produk</th>
+          <th scope="col">Jenis Pesanan</th>
+          <th scope="col" class="text-right">Total Pembayaran</th>
+          <th scope="col">Status</th>
+          <th scope="col">Kurir & Resi</th>
+          <th scope="col" class="text-center w-32">Aksi</th>
         </tr>
       </thead>
       <tbody>
@@ -74,7 +75,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
         <tr>
           <td colspan="8" class="text-center py-10">
             <div class="flex flex-col items-center justify-center text-base-content/50">
-              <span class="material-symbols-outlined text-[48px] mb-2 opacity-50">receipt_long</span>
+              <span class="material-symbols-outlined text-[48px] mb-2 opacity-50" aria-hidden="true">receipt_long</span>
               <p>Belum ada pesanan yang ditarik dari Shopee.</p>
             </div>
           </td>
@@ -117,9 +118,9 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
       // Previous Button
       if ($current > 1): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?>&page=<?= $current - 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">«</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?>&page=<?= $current - 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman pesanan sebelumnya">«</a>
       <?php else: ?>
-        <button class="join-item btn btn-sm btn-disabled border-base-300">«</button>
+        <button type="button" class="join-item btn btn-sm btn-disabled border-base-300" aria-label="Tidak ada halaman pesanan sebelumnya" disabled>«</button>
       <?php endif; ?>
       
       <!-- Page Numbers -->
@@ -129,9 +130,9 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
       // Next Button
       if ($current < $total): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?>&page=<?= $current + 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">»</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?>&page=<?= $current + 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman pesanan berikutnya">»</a>
       <?php else: ?>
-        <button class="join-item btn btn-sm btn-disabled border-base-300">»</button>
+        <button type="button" class="join-item btn btn-sm btn-disabled border-base-300" aria-label="Tidak ada halaman pesanan berikutnya" disabled>»</button>
       <?php endif; ?>
     </div>
     <?php endif; ?>
@@ -195,7 +196,7 @@ function queueOrderBackgroundSync() {
         const status = document.getElementById('order-background-sync-status');
         if (status) status.innerText = 'Sinkronisasi pesanan sudah masuk antrean background (job #' + data.job_id + ').';
       }).catch(error => { const status = document.getElementById('order-background-sync-status'); if (status) status.innerText = error.message; })
-      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; } });
 }
 
 function refreshOrderBackgroundStatus(shopId) {
@@ -263,7 +264,7 @@ function syncOrders(id, sentinel = '', pageNumber = 1, syncMode = '') {
     activeOrderSyncShopId = id;
     const loader = document.getElementById('page-loader');
     if (loader && !sentinel) {
-        loader.style.display = 'flex';
+        loader.style.display = 'flex'; loader.setAttribute('aria-busy', 'true');
         loader.style.opacity = '1';
         loader.querySelector('p').innerText = 'Sedang mengecek database...';
     }
@@ -352,9 +353,9 @@ function syncOrders(id, sentinel = '', pageNumber = 1, syncMode = '') {
                 setTimeout(() => loader.style.display = 'none', 300);
             }
             if (data.debug) {
-                alert(data.message + '\n\nDEBUG INFO:\n' + JSON.stringify(data.debug, null, 2));
+                window.shopdashAnnounce((data.message || 'Permintaan gagal.') + (data.debug ? ' Detail teknis tersedia di log.' : ''), 'error');
             } else {
-                alert(data.message);
+                window.shopdashAnnounce(data.message || 'Permintaan gagal.', 'error');
             }
         }
     })
@@ -372,7 +373,7 @@ function syncOrders(id, sentinel = '', pageNumber = 1, syncMode = '') {
             loader.style.opacity = '0';
             setTimeout(() => loader.style.display = 'none', 300);
         }
-        alert('Terjadi kesalahan saat menarik data pesanan.');
+        window.shopdashAnnounce('Terjadi kesalahan saat menarik data pesanan.', 'error');
     });
 }
 
@@ -450,7 +451,7 @@ function startDetailSync(shopId) {
                 localStorage.setItem(queueKey, JSON.stringify([currentOrderId, ...pendingQueue]));
                 return;
             }
-            if (data.status !== 'success') {
+            if (!['success', 'accepted'].includes(data.status)) {
                 const pendingQueue = JSON.parse(localStorage.getItem(queueKey) || '[]');
                 localStorage.setItem(queueKey, JSON.stringify([currentOrderId, ...pendingQueue]));
                 textLabel.innerText = 'Sinkronisasi gagal';
@@ -592,7 +593,7 @@ function syncOrders(id) {
     pauseOrderSync();
     activeOrderSyncShopId = id;
     const loader = document.getElementById('page-loader');
-    if (loader) { loader.style.display = 'flex'; loader.style.opacity = '1'; loader.querySelector('p').innerText = 'Antrean sinkronisasi dibuat...'; }
+    if (loader) { loader.style.display = 'flex'; loader.setAttribute('aria-busy', 'true'); loader.style.opacity = '1'; loader.querySelector('p').innerText = 'Antrean sinkronisasi dibuat...'; }
     const formData = new FormData();
     formData.append('shop_id', id);
     formData.append('sync_mode', 'diff');
@@ -602,11 +603,11 @@ function syncOrders(id) {
             if (data.status !== 'accepted') throw new Error(data.message || 'Gagal membuat antrean');
             durableSyncJobId = data.job_id;
             renderDurableSync({status: 'queued', progress_percent: 0});
-            if (loader) { loader.style.opacity = '0'; loader.style.display = 'none'; }
+            if (loader) { loader.style.opacity = '0'; loader.style.display = 'none'; loader.setAttribute('aria-busy', 'false'); }
             pollDurableSync(id, durableSyncJobId);
         })
         .catch(error => {
-            if (loader) { loader.style.opacity = '0'; loader.style.display = 'none'; }
+            if (loader) { loader.style.opacity = '0'; loader.style.display = 'none'; loader.setAttribute('aria-busy', 'false'); }
             const label = document.getElementById('sync-detail-text');
             if (label) label.innerText = error.message;
         });

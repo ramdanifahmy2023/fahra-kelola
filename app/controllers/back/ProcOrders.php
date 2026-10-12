@@ -15,9 +15,25 @@ class ProcOrders extends Controller {
     }
   }
 
+  private function requireStateChange() {
+    authRequireMethod('POST');
+    authRequireCsrf();
+  }
+
+  private function requireRead() {
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    if (!in_array($method, ['GET', 'POST'], true)) {
+      http_response_code(405);
+      header('Allow: GET, POST');
+      exit;
+    }
+    if ($method === 'POST') authRequireCsrf();
+  }
+
   public function sync_index() {
+    $this->requireStateChange();
     $this->requireAjax();
-    $shopId = (int)($_POST['shop_id'] ?? 0);
+    $shopId = (int)($_POST['shop_id'] ?? $_GET['shop_id'] ?? 0);
     if ($shopId < 1) {
       $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
     }
@@ -32,6 +48,7 @@ class ProcOrders extends Controller {
   }
 
   public function sync_status() {
+    $this->requireRead();
     $this->requireAjax();
     $shopId = (int)($_POST['shop_id'] ?? $_GET['shop_id'] ?? 0);
     $jobId = (int)($_POST['job_id'] ?? $_GET['job_id'] ?? 0);
@@ -39,6 +56,9 @@ class ProcOrders extends Controller {
       $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
     }
     $row = $this->m('SyncJob')->status($shopId, $jobId ?: null);
+    if ($row && !$this->m('Shop')->findBy('id', (int)$row['shop_id'])) {
+      $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
+    }
     if (!$row) {
       $this->json(['status' => 'success', 'job' => null, 'queue' => []]);
     }
@@ -55,11 +75,13 @@ class ProcOrders extends Controller {
   }
 
   public function get_sync_queue() {
+    $this->requireRead();
     $this->requireAjax();
-    $shopId = (int)($_POST['shop_id'] ?? 0);
+    $shopId = (int)($_POST['shop_id'] ?? $_GET['shop_id'] ?? 0);
     if ($shopId < 1) {
       $this->json(['status' => 'error', 'message' => 'Shop ID tidak ditemukan.'], 422);
     }
+    if (!$this->m('Shop')->findBy('id', $shopId)) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
     $sync = $this->m('SyncJob');
     $row = $sync->status($shopId);
     $queue = [];
@@ -75,12 +97,18 @@ class ProcOrders extends Controller {
   }
 
   public function sync_detail() {
+    $this->requireStateChange();
     $this->requireAjax();
     $shopId = (int)($_POST['shop_id'] ?? 0);
     $orderId = (int)($_POST['order_id'] ?? 0);
     if ($shopId < 1 || $orderId < 1) {
       $this->json(['status' => 'error', 'message' => 'Missing parameters'], 422);
     }
+    if (!$this->m('Shop')->findBy('id', $shopId)) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
+    $db = new Database();
+    $db->query('SELECT id FROM orders WHERE id = :order_id AND shop_id = :shop_id LIMIT 1');
+    $db->bind('order_id', $orderId); $db->bind('shop_id', $shopId);
+    if (!$db->single()) $this->json(['status' => 'error', 'message' => 'Pesanan tidak ditemukan.'], 404);
     $sync = $this->m('SyncJob');
     $jobId = $sync->enqueue($shopId, 'diff');
     $sync->queueOrder($jobId, $orderId);

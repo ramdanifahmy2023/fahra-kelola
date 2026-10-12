@@ -112,10 +112,14 @@ class ChatMonitor extends BaseModel {
   }
 
   private function shops($shopId = null) {
-    $where = '';
-    if ((int)$shopId > 0) $where = ' WHERE id = :shop_id';
+    $conditions = [];
+    if ((int)$shopId > 0) $conditions[] = 'id = :shop_id';
+    $accountId = function_exists('authAccountId') ? authAccountId() : 0;
+    if ($accountId > 0) $conditions[] = 'account_id = :account_id';
+    $where = $conditions ? ' WHERE ' . implode(' AND ', $conditions) : '';
     $this->db->query("SELECT id, shop_id AS remote_shop_id, name, cookie, sync_status FROM shops{$where} ORDER BY name ASC");
-    if ($where) $this->db->bind('shop_id', (int)$shopId);
+    if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+    if ($accountId > 0) $this->db->bind('account_id', $accountId);
     return $this->db->getAll();
   }
 
@@ -459,6 +463,7 @@ class ChatMonitor extends BaseModel {
   public function conversations($shopId, $search = '', $status = '', $unreadOnly = false, $refresh = true) {
     $this->ensureSchema();
     if ((int)$shopId > 0) {
+      if (!$this->shops($shopId)) return [];
       $snapshot = $this->snapshot($shopId);
       if ($refresh && $this->shouldRefresh($snapshot)) $this->syncShop($shopId);
     } elseif ($refresh) {
@@ -482,6 +487,7 @@ class ChatMonitor extends BaseModel {
   }
 
   private function conversation($shopId, $conversationId) {
+    if (!$this->shops($shopId)) return null;
     $this->db->query('SELECT c.* FROM chat_conversations c JOIN shops s ON s.id = c.shop_id WHERE c.shop_id = :shop_id AND c.remote_conversation_id = :remote_id AND ' . $this->ownedSql() . ' LIMIT 1');
     $this->db->bind('shop_id', (int)$shopId);
     $this->db->bind('remote_id', (string)$conversationId);

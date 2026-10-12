@@ -1,9 +1,9 @@
 <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
   <div>
-    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">local_activity</span>Promotion operations</div>
+    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm" aria-hidden="true">local_activity</span>Promotion operations</div>
     <h2 class="text-2xl font-black tracking-tight text-base-content">Voucher & flash sale toko</h2>
   </div>
-  <button id="promotion-refresh" type="button" class="btn btn-sm min-h-11 gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base">refresh</span>Perbarui</button>
+  <button id="promotion-refresh" type="button" class="btn btn-sm min-h-11 gap-2 rounded-lg border-base-content/10 bg-base-100"><span class="material-symbols-outlined text-base" aria-hidden="true">refresh</span>Perbarui</button>
 </div>
 
 <div id="promotion-state" class="mb-5 rounded-xl border border-base-content/10 bg-base-100 p-4 text-sm text-base-content/60">Memuat data promosi setiap toko…</div>

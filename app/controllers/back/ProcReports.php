@@ -9,6 +9,7 @@ class ProcReports extends Controller {
   }
 
   private function requireAjax() {
+    authRequireMethod('GET');
     if (strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) !== 'xmlhttprequest') {
       $this->json(['status' => 'error', 'message' => 'Invalid request.'], 400);
     }
@@ -26,10 +27,12 @@ class ProcReports extends Controller {
     $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
     $sort = strtolower(trim((string)($_GET['sort'] ?? $_POST['sort'] ?? 'confirmed_gmv')));
     try {
-      $payload = $this->m('ShopPerformance')->summary($endDate, $shopId, $sort);
+      if ($shopId > 0 && !$this->m('Shop')->findBy('id', $shopId)) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
+      $payload = $this->m('ShopPerformance')->summary($endDate, $shopId, $sort, authAccountId());
       $this->json(['status' => 'success'] + $payload);
     } catch (Throwable $exception) {
-      $this->json(['status' => 'error', 'message' => 'Laporan belum siap: ' . $exception->getMessage()], 500);
+      error_log('Report summary failed: ' . $exception->getMessage());
+      $this->json(['status' => 'error', 'message' => 'Laporan belum siap.'], 500);
     }
   }
 
@@ -37,6 +40,7 @@ class ProcReports extends Controller {
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
     if ($shopId < 1) $this->json(['status' => 'error', 'message' => 'Toko wajib dipilih.'], 422);
+    if (!$this->m('Shop')->findBy('id', $shopId)) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
     $endDate = $this->validDate($_GET['end_date'] ?? $_POST['end_date'] ?? '') ?: null;
     try {
       $this->json(['status' => 'success'] + $this->m('ShopPerformance')->detail($shopId, $endDate));
@@ -49,9 +53,10 @@ class ProcReports extends Controller {
     $this->requireAjax();
     $raw = (string)($_GET['shop_ids'] ?? $_POST['shop_ids'] ?? '');
     $shopIds = $raw === '' ? [] : explode(',', $raw);
+    foreach ($shopIds as $id) if ((int)$id > 0 && !$this->m('Shop')->findBy('id', (int)$id)) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
     $endDate = $this->validDate($_GET['end_date'] ?? $_POST['end_date'] ?? '') ?: null;
     try {
-      $this->json(['status' => 'success'] + $this->m('ShopPerformance')->compare($shopIds, $endDate));
+      $this->json(['status' => 'success'] + $this->m('ShopPerformance')->compare($shopIds, $endDate, authAccountId()));
     } catch (Throwable $exception) {
       $this->json(['status' => 'error', 'message' => 'Perbandingan belum siap.'], 500);
     }

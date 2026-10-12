@@ -12,6 +12,11 @@ class BoostStore extends BaseModel {
   private function write(string $sql, array $values = []): void { $this->query($sql,$values); $this->db->exe(); }
   private function one(string $sql, array $values = []): array { $this->query($sql,$values); return $this->db->single() ?: []; }
   private function rows(string $sql, array $values = []): array { $this->query($sql,$values); return $this->db->getAll(); }
+  private function assertOwnedShop(int $id): void {
+    $actor = function_exists('authAccountId') ? authAccountId() : 0;
+    if ($actor < 1) return;
+    if (!$this->one('SELECT id FROM shops WHERE id=:id AND account_id=:account LIMIT 1',['id'=>$id,'account'=>$actor])) throw new BoostError('Toko tidak ditemukan.',404);
+  }
 
   public function ready(): bool {
     $row=$this->one("SELECT COUNT(*) AS c FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name IN ('product_boost_runs','product_boost_items','boost_profiles','boost_run_meta','boost_item_events','boost_worker_health')");
@@ -24,7 +29,10 @@ class BoostStore extends BaseModel {
     }
   }
   public function shop(int $id): array {
-    $shop=$this->one('SELECT id,shop_id,name,cookie,sync_status FROM shops WHERE id=:id',['id'=>$id]);
+    $actor = function_exists('authAccountId') ? authAccountId() : 0;
+    $owner = $actor > 0 ? ' AND account_id=:account' : '';
+    $values = ['id'=>$id]; if ($actor > 0) $values['account']=$actor;
+    $shop=$this->one('SELECT id,shop_id,name,cookie,sync_status FROM shops WHERE id=:id'.$owner,$values);
     if (!$shop) throw new BoostError('Toko tidak ditemukan.',404);
     return $shop;
   }
@@ -57,6 +65,7 @@ class BoostStore extends BaseModel {
     return $rows;
   }
   public function save(int $shop, int $version, array $ids, int $actor): array {
+    $this->assertOwnedShop($shop);
     $ids=BoostPolicy::ids($ids,true);
     $this->db->begin();
     try {
@@ -73,6 +82,7 @@ class BoostStore extends BaseModel {
     } catch(Throwable $e){$this->db->rollback();throw $e;}
   }
   public function toggle(int $shop,int $version,bool $enabled,int $actor): array {
+    $this->assertOwnedShop($shop);
     $this->db->begin();
     try {
       $this->one('SELECT id FROM shops WHERE id=:id FOR UPDATE',['id'=>$shop]);$p=$this->profile($shop,true);
@@ -132,6 +142,7 @@ class BoostStore extends BaseModel {
     return $this->result((int)$r['run_id']);
   }
   public function reserve(int $shop,array $ids,string $mode,int $version,int $actor,string $key,string $token,string $hash): array {
+    $this->assertOwnedShop($shop);
     $this->assertLock($shop);$this->db->begin();
     try {
       $this->one('SELECT id FROM shops WHERE id=:id FOR UPDATE',['id'=>$shop]);
@@ -152,6 +163,7 @@ class BoostStore extends BaseModel {
     }catch(Throwable $e){$this->db->rollback();throw $e;}
   }
   public function sending(int $shop,int $run,string $id,string $token,string $mode,int $version): void {
+    $this->assertOwnedShop($shop);
     $this->assertLock($shop);$this->db->begin();
     try {
       $this->one('SELECT id FROM shops WHERE id=:shop FOR UPDATE',['shop'=>$shop]);

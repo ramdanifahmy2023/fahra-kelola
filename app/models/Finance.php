@@ -26,7 +26,8 @@ class Finance extends BaseModel {
   public function one(string $sql, array $params = []): ?array { return $this->rows($sql,$params)[0] ?? null; }
 
   public function shops($requested = []): array {
-    $shops = $this->rows('SELECT id,shop_id,name,shop_logo FROM shops ORDER BY name,id');
+    $account = function_exists('authIsLoggedIn') && authIsLoggedIn() ? authAccountId() : 0;
+    $shops = $this->rows('SELECT id,shop_id,name,shop_logo FROM shops' . ($account > 0 ? ' WHERE account_id=:account' : '') . ' ORDER BY name,id', $account > 0 ? ['account'=>$account] : []);
     if (!is_array($requested)) $requested = explode(',',(string)$requested);
     $ids = [];
     foreach ($requested as $id) {
@@ -118,7 +119,7 @@ class Finance extends BaseModel {
   public function work(array $shop, $api = null, int $pages = 3, int $rateMs = 350): array {
     $this->ensureSchema(); require_once __DIR__.'/../helpers/FinanceApi.php';
     $api = $api ?? new FinanceApi(); $shopId = (int)$shop['id']; $key = $this->lockKey('worker',$shopId);
-    if (!(int)($this->one('SELECT GET_LOCK(:key,0) locked',['key'=>$key])['locked'] ?? 0)) return [true,null,false];
+    if (!(int)($this->one('SELECT GET_LOCK(:key,0) locked',['key'=>$key])['locked'] ?? 0)) return [true,'Finance worker sedang dipakai; akan dicoba kembali.',false,true];
     $import = null;
     try {
       $this->syncWallet($shop,$api);
