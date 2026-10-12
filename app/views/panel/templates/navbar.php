@@ -10,7 +10,7 @@
   <div class="panel-navbar-actions flex-none flex items-center gap-1.5 sm:gap-2">
     <button type="button" id="quick-search-button" class="btn btn-ghost btn-square" aria-label="Cari pesanan, produk, atau pelanggan" aria-haspopup="dialog" aria-controls="quick-search" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
     <div class="dropdown dropdown-end" id="theme-menu">
-      <button type="button" id="theme-menu-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Pilih tema" aria-expanded="false" aria-controls="theme-menu-list" tabindex="0">
+      <button type="button" id="theme-menu-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Pilih tema" aria-expanded="false" aria-controls="theme-menu-list">
         <span id="theme-menu-icon" class="material-symbols-outlined" aria-hidden="true">contrast</span>
       </button>
       <ul id="theme-menu-list" tabindex="-1" role="menu" aria-label="Pilihan tema" hidden class="menu dropdown-content z-50 mt-2 w-48 rounded-2xl border border-base-content/10 bg-base-100 p-2 shadow-2xl">
