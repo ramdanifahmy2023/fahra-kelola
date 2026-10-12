@@ -5,11 +5,10 @@
 
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
   <div>
-    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm">group</span>Customer directory</div>
-    <h2 class="text-xl font-black tracking-tight text-base-content">Daftar Pelanggan</h2>
+    <h1 class="text-2xl font-black tracking-tight text-base-content">Daftar Pelanggan</h1>
   </div>
   <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-    <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueCustomerBackgroundSync()" id="customer-sync-button"><span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang</button>
+    <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueCustomerBackgroundSync()" id="customer-sync-button"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sinkronkan sekarang</button>
     <div class="badge badge-outline h-9 gap-2 px-3 text-xs font-bold"><span class="material-symbols-outlined text-sm text-primary">database</span><?= number_format($data['total_customers']) ?> pelanggan</div>
     <div class="w-full min-w-0 sm:w-64"><?php require __DIR__ . '/templates/shop-picker.php'; ?></div>
   </div>
@@ -69,7 +68,7 @@ function queueCustomerBackgroundSync() {
   const fd = new FormData(); fd.append('shop_id', document.getElementById('selectedShopId').value); fd.append('sync_type', 'customers');
   fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
     .then(r => r.json()).then(data => { if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat'); alert('Sinkronisasi pelanggan masuk antrean background.'); })
-    .catch(error => alert(error.message)).finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+    .catch(error => alert(error.message)).finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sinkronkan sekarang'; } });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -85,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
-  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
+  <div class="flex items-center gap-2 border-b border-base-300 bg-base-100 px-4 py-2 text-xs text-base-content/60 sm:hidden"><span class="material-symbols-outlined text-sm" aria-hidden="true">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div>
   <div class="overflow-x-auto">
 <?php if (!empty($data['focused_customer_id'])): ?><div class="workspace-focus">Menampilkan pelanggan dari pencarian.<a href="<?= burl; ?>/panel/customers?shop_id=<?= (int)$data['active_shop_id']; ?>&page=1">Lihat semua pelanggan toko</a></div><?php endif; ?>
     <table class="table w-full">

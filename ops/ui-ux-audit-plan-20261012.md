@@ -22,6 +22,7 @@ Sprint 1 sudah diterapkan pada worktree ini:
 - Menu akun memakai elemen `button`, state `aria-expanded`, menu item, Escape, focus return, dan penutupan saat klik di luar.
 - Kontrol panel dan navigasi dinaikkan ke target sentuh minimum 44px dengan focus ring yang konsisten.
 - Picker toko mempertahankan logo, membungkus nama panjang, memakai menu satu kolom dengan scroll, dan mendukung Arrow, Home, End, Escape, serta focus return pada picker dinamis dan statis.
+- Produk, Pesanan, Pelanggan, Promosi, dan Laporan mendapat heading yang lebih langsung, copy sinkronisasi yang konsisten, metadata yang lebih terbaca, label tabel, dan status kontrol yang lebih jelas. Laporan serta Promosi tidak lagi menampilkan eyebrow teknis sebagai isi utama.
 - CSS hasil build diperbarui dari `resources/css/input.css`; tidak ada perubahan pada model, controller, endpoint, schema, atau worker.
 
 Verifikasi yang sudah dijalankan: lint PHP untuk template yang berubah, `node --check` untuk `shop-select.js`, `npm run build`, `git diff --check`, dan detector Impeccable. Detector masih melaporkan beberapa side-tab border lama di CSS yang tidak disentuh Sprint 1. Browser suite belum dijalankan karena modul Playwright tidak tersedia di checkout ini; validasi visual dan interaksi lintas viewport tetap menjadi langkah berikutnya.

@@ -1232,6 +1232,8 @@
 .shop-picker.dropdown:not(.dropdown-open):not(:focus-within) .shop-picker-list { display: none; }
 #orders-page :is(.btn,.select) { min-height: 44px; height: auto; }
 #orders-page .btn-square { min-width: 44px; }
+#orders-page .text-\[11px\] { font-size: .8125rem; opacity: .78; }
+#orders-page .text-\[10px\] { font-size: .75rem; opacity: .82; }
 @media (max-width: 639px) { #orders-page .join:not([aria-label]) { flex-wrap: wrap; } }
 #quick-search, #order-detail-dialog { margin: auto; }
 

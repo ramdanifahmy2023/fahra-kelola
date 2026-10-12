@@ -37,14 +37,14 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
   <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>
   <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>&view=movement" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">monitoring</span>Pergerakan produk</a>
   <button type="button" class="product-sync-action btn btn-primary btn-sm w-full gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
-    <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
+    <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sinkronkan sekarang
   </button>
   <div class="form-control relative min-w-0 flex-1">
     <?php require __DIR__ . '/templates/shop-picker.php'; ?>
   </div>
   </div>
 </div>
-<div id="background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi berjalan di belakang. Halaman ini membaca data lokal.</div>
+<div id="background-sync-status" class="mb-4 text-sm text-base-content/65">Sinkronisasi produk berjalan di latar belakang. Halaman menampilkan data tersimpan.</div>
 
 <?php if (!empty($data['focused_product_id'])): ?><div class="workspace-focus">Menampilkan produk dari pencarian atau notifikasi.<a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$data['active_shop_id']; ?>&stock=all&page=1">Lihat semua produk toko</a></div><?php endif; ?>
 <!-- Table Section -->
@@ -248,7 +248,7 @@ function queueBackgroundSync(type) {
         if (status) status.innerText = 'Sinkronisasi produk sudah masuk antrean background (job #' + data.job_id + ').';
       })
       .catch(error => { const status = document.getElementById('background-sync-status'); if (status) status.innerText = error.message; })
-      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sinkronkan sekarang'; } });
 }
 
 function refreshBackgroundStatus(shopId) {

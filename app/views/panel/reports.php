@@ -4,7 +4,6 @@ $shops = $data['shops'] ?? [];
 <section class="space-y-5" id="performance-report">
   <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
-      <div class="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-base">monitoring</span>Analitik toko</div>
       <h1 class="text-2xl font-black tracking-tight text-base-content sm:text-3xl">Performa toko</h1>
       <p class="mt-1 max-w-2xl text-sm leading-relaxed text-base-content/55">Dibandingkan dengan periode yang sama bulan lalu.</p>
     </div>
@@ -18,7 +17,7 @@ $shops = $data['shops'] ?? [];
       <div class="form-control min-w-0"><span class="mb-1 block text-xs font-bold text-base-content/60">Filter toko</span><?php require __DIR__ . '/templates/shop-picker.php'; ?></div>
       <button type="button" id="report-refresh" class="btn btn-primary btn-sm min-h-9"><span class="material-symbols-outlined text-base">refresh</span>Perbarui</button>
     </div>
-    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-base-content/50"><span>Periode berjalan: <b id="current-range">—</b></span><span>Periode pembanding: <b id="previous-range">—</b></span></div>
+    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-content/60"><span>Periode berjalan: <b id="current-range">—</b></span><span>Periode pembanding: <b id="previous-range">—</b></span></div>
   </div>
 
   <div id="report-alert" class="hidden rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning-content"></div>
@@ -34,15 +33,15 @@ $shops = $data['shops'] ?? [];
 
     <div class="rounded-2xl border border-base-300 bg-base-100 shadow-sm">
       <div class="flex flex-col gap-2 border-b border-base-300 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"><div><h2 class="font-black">Ranking toko</h2></div><div class="text-xs text-base-content/50" id="coverage-note">—</div></div>
-      <div class="flex items-center gap-2 border-b border-base-300 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div><div class="overflow-x-auto"><table class="table table-sm min-w-[820px]"><thead><tr class="text-[11px] uppercase tracking-wide text-base-content/50"><th>#</th><th>Toko</th><th>Penjualan</th><th>vs bulan lalu</th><th>Pesanan</th><th>UV</th><th>Klik produk</th><th>Konversi</th><th>Data</th></tr></thead><tbody id="report-rows"><tr><td colspan="9" class="py-10 text-center text-sm text-base-content/50">—</td></tr></tbody></table></div>
+      <div class="flex items-center gap-2 border-b border-base-300 px-4 py-2 text-xs text-base-content/60 sm:hidden"><span class="material-symbols-outlined text-sm" aria-hidden="true">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div><div class="overflow-x-auto"><table class="table table-sm min-w-[820px]"><thead><tr class="text-xs uppercase tracking-wide text-base-content/60"><th scope="col">#</th><th scope="col">Toko</th><th scope="col">Penjualan</th><th scope="col">vs bulan lalu</th><th scope="col">Pesanan</th><th scope="col">UV</th><th scope="col">Klik produk</th><th scope="col">Konversi</th><th scope="col">Data</th></tr></thead><tbody id="report-rows"><tr><td colspan="9" class="py-10 text-center text-sm text-base-content/50">—</td></tr></tbody></table></div>
     </div>
 
     <div class="rounded-2xl border border-base-300 bg-base-100 shadow-sm">
-      <div class="flex flex-col gap-3 border-b border-base-300 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"><div><h2 class="font-black">Grafik perbandingan toko</h2></div><label class="form-control w-full sm:w-48"><span class="mb-1 text-[11px] font-bold text-base-content/55">Metrik grafik</span><select id="compare-metric" class="select select-bordered select-sm"><option value="confirmed_gmv">Penjualan</option><option value="confirmed_orders">Pesanan</option><option value="shop_uv">UV</option><option value="product_clicks">Klik produk</option></select></label></div>
+      <div class="flex flex-col gap-3 border-b border-base-300 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"><div><h2 class="font-black">Grafik perbandingan toko</h2></div><label class="form-control w-full sm:w-48"><span class="mb-1 text-xs font-bold text-base-content/60">Metrik grafik</span><select id="compare-metric" class="select select-bordered select-sm"><option value="confirmed_gmv">Penjualan</option><option value="confirmed_orders">Pesanan</option><option value="shop_uv">UV</option><option value="product_clicks">Klik produk</option></select></label></div>
       <div class="overflow-x-auto p-3 sm:p-5"><div id="compare-legend" class="mb-3 flex min-h-6 flex-wrap gap-x-4 gap-y-2 text-xs font-semibold"></div><div class="relative min-w-[680px]"><svg id="compare-chart" viewBox="0 0 1000 320" class="h-auto w-full overflow-visible" role="img" aria-label="Grafik perbandingan performa toko"></svg><div id="compare-empty" class="hidden py-12 text-center text-sm text-base-content/50">Belum ada data grafik.</div></div></div>
     </div>
 
-    <div class="rounded-2xl border border-base-300 bg-base-100 shadow-sm"><div class="border-b border-base-300 p-4 sm:p-5"><h2 class="font-black">Perbandingan harian</h2></div><div class="flex items-center gap-2 border-b border-base-300 px-4 py-2 text-[11px] text-base-content/50 sm:hidden"><span class="material-symbols-outlined text-sm">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div><div class="overflow-x-auto"><table class="table table-sm min-w-[640px]"><thead><tr class="text-[11px] uppercase tracking-wide text-base-content/50"><th>Tanggal</th><th>Penjualan</th><th>Pesanan</th><th>UV</th><th>Klik produk</th></tr></thead><tbody id="detail-rows"><tr><td colspan="5" class="py-8 text-center text-sm text-base-content/50">Pilih toko untuk melihat detail.</td></tr></tbody></table></div></div>
+    <div class="rounded-2xl border border-base-300 bg-base-100 shadow-sm"><div class="border-b border-base-300 p-4 sm:p-5"><h2 class="font-black">Perbandingan harian</h2></div><div class="flex items-center gap-2 border-b border-base-300 px-4 py-2 text-xs text-base-content/60 sm:hidden"><span class="material-symbols-outlined text-sm" aria-hidden="true">swipe</span><span>Geser ke samping untuk melihat kolom lainnya</span></div><div class="overflow-x-auto"><table class="table table-sm min-w-[640px]"><thead><tr class="text-xs uppercase tracking-wide text-base-content/60"><th scope="col">Tanggal</th><th scope="col">Penjualan</th><th scope="col">Pesanan</th><th scope="col">UV</th><th scope="col">Klik produk</th></tr></thead><tbody id="detail-rows"><tr><td colspan="5" class="py-8 text-center text-sm text-base-content/50">Pilih toko untuk melihat detail.</td></tr></tbody></table></div></div>
   </div>
 </section>
 <script>
@@ -57,7 +56,7 @@ $shops = $data['shops'] ?? [];
     const arrow = trigger.lastElementChild.cloneNode(true);
     trigger.replaceChildren(...Array.from(option.children, child => child.cloneNode(true)), arrow);
     const name = trigger.children[1];
-    name.className = 'min-w-0 flex-1 truncate text-left';
+    name.className = 'min-w-0 flex-1 break-words text-left';
     trigger.setAttribute('aria-label', 'Pilih toko: ' + name.textContent);
     picker.querySelectorAll('a').forEach(link => {
       link.classList.toggle('bg-base-200', link === option);
@@ -102,7 +101,7 @@ $shops = $data['shops'] ?? [];
     document.getElementById('coverage-note').textContent = rows.length ? `${rows.length} toko · ${payload.comparison_available ? 'pembanding lengkap' : 'pembanding bulan lalu belum lengkap'}` : 'Data belum tersedia';
     if (!payload.comparison_available && rows.length) showAlert('Data pembanding bulan lalu belum lengkap. Perbandingan tersedia setelah data terkumpul.');
     const body = document.getElementById('report-rows');
-    body.innerHTML = rows.length ? rows.map(row => `<tr class="hover"><td class="font-black">${row.rank}</td><td><button type="button" data-shop-id="${row.shop_id}" class="report-shop-detail flex min-h-9 items-center gap-2 text-left font-bold hover:text-primary"><span class="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary"><span class="material-symbols-outlined text-base">storefront</span></span><span>${esc(row.shop_name || ('Toko #' + row.shop_id))}<small class="block text-[10px] font-normal text-base-content/45">${row.session_expired ? 'Sesi perlu diperbarui' : 'Terhubung'}</small></span></button></td><td class="font-semibold">${money(row.current_confirmed_gmv)}</td><td>${signedPercent(row.growth_percent)}</td><td>${number(row.current_confirmed_orders)}</td><td>${number(row.current_shop_uv)}</td><td>${number(row.current_product_clicks)}</td><td>${percent(row.conversion_rate)}</td><td><span class="badge badge-sm ${Number(row.coverage_percent) >= 90 ? 'badge-success' : 'badge-warning'}">${Number(row.coverage_percent).toFixed(0)}%</span></td></tr>`).join('') : '<tr><td colspan="9" class="py-10 text-center text-sm text-base-content/50">Data belum tersedia. Tunggu sinkronisasi berikutnya.</td></tr>';
+    body.innerHTML = rows.length ? rows.map(row => `<tr class="hover"><td class="font-black">${row.rank}</td><td><button type="button" data-shop-id="${row.shop_id}" class="report-shop-detail flex min-h-9 items-center gap-2 text-left font-bold hover:text-primary"><span class="grid h-8 w-8 place-items-center rounded-lg bg-primary/10 text-primary"><span class="material-symbols-outlined text-base" aria-hidden="true">storefront</span></span><span>${esc(row.shop_name || ('Toko #' + row.shop_id))}<small class="block text-xs font-normal text-base-content/55">${row.session_expired ? 'Sesi perlu diperbarui' : 'Terhubung'}</small></span></button></td><td class="font-semibold">${money(row.current_confirmed_gmv)}</td><td>${signedPercent(row.growth_percent)}</td><td>${number(row.current_confirmed_orders)}</td><td>${number(row.current_shop_uv)}</td><td>${number(row.current_product_clicks)}</td><td>${percent(row.conversion_rate)}</td><td><span class="badge badge-sm ${Number(row.coverage_percent) >= 90 ? 'badge-success' : 'badge-warning'}">${Number(row.coverage_percent).toFixed(0)}%</span></td></tr>`).join('') : '<tr><td colspan="9" class="py-10 text-center text-sm text-base-content/50">Data belum tersedia. Tunggu sinkronisasi berikutnya.</td></tr>';
     document.getElementById('report-loading').classList.add('hidden'); document.getElementById('report-content').classList.remove('hidden');
     state.textContent = '';
   }

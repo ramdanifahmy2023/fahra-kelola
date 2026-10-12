@@ -26,10 +26,10 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
   </div>
   <div class="flex flex-wrap items-center gap-3">
     <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueOrderBackgroundSync()" id="order-sync-button">
-      <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
+      <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sinkronkan sekarang
     </button>
     <div class="join h-9" aria-label="Filter bulan pesanan">
-      <button type="button" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(-1)" title="Bulan sebelumnya" <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'disabled' : ''; ?>>‹</button>
+      <button type="button" aria-label="Bulan sebelumnya" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(-1)" title="Bulan sebelumnya" <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'disabled' : ''; ?>>‹</button>
       <select id="orderMonth" class="join-item select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200 focus:outline-none" onchange="applyOrderMonth()" aria-label="Bulan">
         <?php foreach ($monthNames as $monthNumber => $monthName): ?>
           <?php if ($selectedYear === $currentYear && $monthNumber > $currentMonth) continue; ?>
@@ -41,21 +41,21 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
           <option value="<?= $year; ?>" <?= $year === $selectedYear ? 'selected' : ''; ?>><?= $year; ?></option>
         <?php endfor; ?>
       </select>
-      <button type="button" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear && $selectedMonth === $currentMonth ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(1)" title="Bulan berikutnya" <?= $selectedYear === $currentYear && $selectedMonth === $currentMonth ? 'disabled' : ''; ?>>›</button>
+      <button type="button" aria-label="Bulan berikutnya" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear && $selectedMonth === $currentMonth ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(1)" title="Bulan berikutnya" <?= $selectedYear === $currentYear && $selectedMonth === $currentMonth ? 'disabled' : ''; ?>>›</button>
     </div>
   <div class="form-control relative w-full min-w-0 sm:w-64">
     <?php require __DIR__ . '/templates/shop-picker.php'; ?>
   </div>
 </div>
 </div>
-<div id="order-background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi pesanan berjalan di belakang. Halaman ini membaca data lokal.</div>
+<div id="order-background-sync-status" class="mb-4 text-sm text-base-content/65">Sinkronisasi pesanan berjalan di latar belakang. Halaman menampilkan data tersimpan.</div>
 
 <?php if (!empty($data['focused_order_id'])): ?><div id="notification-order-focus">Menampilkan pesanan pilihan.<a href="<?= burl; ?>/panel/orders?shop_id=<?= (int)$data['active_shop_id']; ?>">Lihat semua pesanan toko</a></div><?php endif; ?>
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
 
   <div class="overflow-x-auto order-desktop-table">
-    <table class="table w-full">
+    <table class="table w-full" aria-label="Daftar pesanan toko">
       <!-- head -->
       <thead class="bg-base-200/50 text-base-content">
         <tr>
@@ -195,7 +195,7 @@ function queueOrderBackgroundSync() {
         const status = document.getElementById('order-background-sync-status');
         if (status) status.innerText = 'Sinkronisasi pesanan sudah masuk antrean background (job #' + data.job_id + ').';
       }).catch(error => { const status = document.getElementById('order-background-sync-status'); if (status) status.innerText = error.message; })
-      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sinkronkan sekarang'; } });
 }
 
 function refreshOrderBackgroundStatus(shopId) {
