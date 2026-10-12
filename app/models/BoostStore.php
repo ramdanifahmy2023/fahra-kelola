@@ -207,6 +207,7 @@ class BoostStore extends BaseModel {
   }
   public function resolve(int $shop,int $run,string $id,string $outcome,int $actor): void {
     if(!in_array($outcome,['confirmed_sent','confirmed_not_sent'],true))throw new BoostError('Pilih hasil yang sudah diperiksa di Seller Centre.',422);
+    $this->assertOwnedShop($shop);
     $this->lock($shop);
     try {
       $this->recover($shop);

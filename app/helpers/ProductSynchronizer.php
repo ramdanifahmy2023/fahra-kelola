@@ -77,10 +77,20 @@ class ProductSynchronizer {
       $rows = is_array($response['products'] ?? null) ? $response['products'] : [];
       $pageInfo = is_array($response['page_info'] ?? null) ? $response['page_info'] : [];
       $nextCursor = (string)($pageInfo['cursor'] ?? '');
+      if ($mode === 'full' && !array_key_exists('total', $pageInfo)) {
+        $this->saveCheckpoint($shopId, $mode, $cursor, $page, $seenProducts, $seenModels, 'failed', 'Jumlah produk tidak terverifikasi.');
+        return ['ok' => false, 'message' => 'Jumlah produk tidak terverifikasi; rekonsiliasi ditunda.'];
+      }
       if ((!$rows && !array_key_exists('total', $pageInfo))
         || ($nextCursor !== '' && ($nextCursor === $previousCursor || !$rows))
         || (!$rows && (int)($pageInfo['total'] ?? 0) > count($seenProducts))) {
         return ['ok' => false, 'message' => 'Halaman produk tidak bergerak atau respons tidak lengkap.'];
+      }
+      $validProductCount = 0;
+      foreach ($rows as $product) if ((int)($product['id'] ?? 0) > 0) $validProductCount++;
+      if ($rows && $validProductCount === 0) {
+        $this->saveCheckpoint($shopId, $mode, $cursor, $page, $seenProducts, $seenModels, 'failed', 'Respons produk tidak memiliki ID yang valid.');
+        return ['ok' => false, 'message' => 'Respons produk tidak valid; rekonsiliasi ditunda.'];
       }
       $total = max($total, (int)($pageInfo['total'] ?? 0));
       foreach ($rows as $product) {

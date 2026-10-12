@@ -19,6 +19,10 @@ function recordRun(Database $db, int $jobId, string $field, int $amount = 1, ?st
   $db->exe();
 }
 
+if (!class_exists('SyncIdentityTransientException')) {
+  class SyncIdentityTransientException extends RuntimeException {}
+}
+
 function retryable(array $response): bool {
   if (!$response) {
     return true;
@@ -36,7 +40,17 @@ function verifyWorkerShopIdentity(ShopeeCurl $shopee, array $shop): void {
   if ($expected < 1 || $cookie === '') throw new RuntimeException('Identitas toko atau cookie tidak tersedia.');
   $session = $shopee->check($cookie);
   $actual = (int)($session['shop']['id'] ?? 0);
-  if ($actual < 1 || $actual !== $expected) throw new RuntimeException('Cookie Shopee tidak cocok dengan toko yang diproses.');
+  if ($actual < 1) {
+    $diagnostics = method_exists($shopee, 'getLastRequestDiagnostics') ? $shopee->getLastRequestDiagnostics() : [];
+    $httpStatus = (int)($diagnostics['http_status'] ?? 0);
+    $apiCode = (int)($diagnostics['api_code'] ?? 0);
+    $apiError = (int)($diagnostics['api_error'] ?? 0);
+    if (!empty($diagnostics['transport_error']) || $httpStatus >= 500 || $httpStatus === 429 || $apiCode === 429 || $apiError === 429) {
+      throw new SyncIdentityTransientException('Pemeriksaan identitas toko gagal sementara.');
+    }
+    throw new RuntimeException('Cookie Shopee tidak cocok dengan toko yang diproses.');
+  }
+  if ($actual !== $expected) throw new RuntimeException('Cookie Shopee tidak cocok dengan toko yang diproses.');
 }
 
 function normalizeStatus(string $status): string {
@@ -81,8 +95,13 @@ function queueEligible(Database $db, SyncJob $sync, int $jobId, array $ids, stri
     $placeholders[] = ":oid_{$index}";
   }
   $scope = $shopId > 0 ? ' AND shop_id = :shop_id' : '';
-  $db->query("SELECT id, sync_status, status_type, detail_synced_at, sync_next_retry_at, deleted_at FROM orders WHERE id IN (" . implode(',', $placeholders) . "){$scope}");
+  $db->query("SELECT id, sync_status, status_type, detail_synced_at, sync_next_retry_at, deleted_at FROM orders WHERE id IN (" . implode(',', $placeholders) . "){$scope}
+    AND NOT EXISTS (SELECT 1 FROM sync_job_orders other_tasks INNER JOIN sync_jobs other_jobs ON other_jobs.id = other_tasks.job_id
+      WHERE other_tasks.order_id = orders.id AND other_jobs.id <> :sync_job_id AND other_jobs.status IN ('queued','running')
+        AND other_tasks.status IN ('queued','retry','running')
+        AND (other_tasks.status <> 'running' OR other_tasks.lease_until IS NULL OR other_tasks.lease_until >= NOW()))");
   if ($shopId > 0) $db->bind('shop_id', $shopId);
+  $db->bind('sync_job_id', $jobId);
   foreach (array_values($ids) as $index => $id) {
     $db->bind("oid_{$index}", (int)$id);
   }
@@ -107,16 +126,20 @@ function processIndex(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $jo
   $sentinel = (string)($job['page_sentinel'] ?? '');
   recordRun($db, (int)$job['id'], 'api_requests', 1, $leaseOwner);
   $response = $shopee->getOrderIndexList($shop['cookie'], $page, 40, $sentinel);
-  if (retryable($response) || !is_array($response['data']['index_list'] ?? null)) {
+  $indexData = is_array($response['data'] ?? null) ? $response['data'] : null;
+  $pagination = is_array($indexData['pagination'] ?? null) ? $indexData['pagination'] : null;
+  if (retryable($response) || !is_array($indexData) || !is_array($indexData['index_list'] ?? null) || !is_array($pagination) || !array_key_exists('next_page_sentinel', $pagination)) {
     $sync->releaseJob((int)$job['id'], 'queued', 'Shopee index request failed', $leaseOwner);
     return false;
   }
   if (!$sync->ownsLease((int)$job['id'], $leaseOwner)) return false;
-  $list = $response['data']['index_list'] ?? [];
+  $list = $indexData['index_list'];
   $ids = [];
   foreach ($list as $item) {
-    if (!empty($item['order_id'])) {
-      $ids[] = (int)$item['order_id'];
+    $remoteId = $item['order_id'] ?? null;
+    if (is_int($remoteId) || (is_string($remoteId) && ctype_digit($remoteId))) {
+      $remoteId = (int)$remoteId;
+      if ($remoteId > 0) $ids[] = $remoteId;
     }
   }
   $ids = array_values(array_unique($ids));
@@ -136,32 +159,64 @@ function processIndex(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $jo
       $existingIds[(string)$existing['id']] = $existing;
     }
   }
-  insertOrderShell($db, (int)$shop['id'], $ids);
-  queueEligible($db, $sync, (int)$job['id'], $ids, (string)($job['mode'] ?? 'diff'), (int)$shop['id']);
-  recordRun($db, (int)$job['id'], 'fetched_pages', 1, $leaseOwner);
-  recordRun($db, (int)$job['id'], 'indexed_orders', count($ids), $leaseOwner);
-  $next = (string)($response['data']['pagination']['next_page_sentinel'] ?? '');
+  $next = (string)($pagination['next_page_sentinel'] ?? '');
+  $reportedTotal = null;
+  foreach ([$indexData, $pagination] as $meta) {
+    foreach (['total_count', 'total'] as $key) {
+      if (array_key_exists($key, $meta) && is_numeric($meta[$key])) {
+        $reportedTotal = (int)$meta[$key];
+        break 2;
+      }
+    }
+  }
+  $hasExplicitEmptyEnd = ($reportedTotal !== null && $reportedTotal === 0)
+    || (array_key_exists('has_next', $pagination) && !$pagination['has_next'])
+    || (array_key_exists('has_more', $pagination) && !$pagination['has_more'])
+    || (array_key_exists('has_next_page', $pagination) && !$pagination['has_next_page']);
+  // An empty first page without an explicit zero-total/end marker is usually
+  // a transient or truncated response. Retrying prevents a full sync from
+  // being marked complete while indexing nothing.
+  if ((int)$job['page_number'] === 1 && !$ids && $next === '' && !$hasExplicitEmptyEnd) {
+    $sync->releaseJob((int)$job['id'], 'queued', 'Shopee returned an unverified empty order page', $leaseOwner);
+    return false;
+  }
   if ($next !== '' && $next === $sentinel) {
     $sync->releaseJob((int)$job['id'], 'queued', 'Shopee order cursor did not advance', $leaseOwner);
     return false;
   }
   $continue = OrderSyncPolicy::continueIndex((string)($job['mode'] ?? 'diff'), $ids, $existingIds, $next);
-  if ((int)$job['page_number'] === 1 && ($job['mode'] ?? 'diff') === 'diff') {
-    if (!$sync->ownsLease((int)$job['id'], $leaseOwner)) return false;
-    OrderSyncPolicy::queueActive($db, $sync, $job);
-  }
-  if (!$sync->addPage((int)$job['id'], $page, $sentinel, $next, count($ids), $leaseOwner)) return false;
-  $ownerWhere = $leaseOwner !== null ? ' AND lease_owner = :lease_owner AND (lease_until IS NULL OR lease_until >= NOW())' : '';
-  $db->query("UPDATE sync_jobs SET total_indexed = total_indexed + :count, page_number = :next_page, page_sentinel = :next_sentinel, attempts = 0, next_retry_at = NULL, last_error = NULL WHERE id = :job_id{$ownerWhere}");
-  bindAll($db, ['count' => count($ids), 'next_page' => $page + 1, 'next_sentinel' => $next, 'job_id' => (int)$job['id']]);
-  if ($leaseOwner !== null) $db->bind('lease_owner', (string)$leaseOwner);
-  $db->exe();
-  if ($leaseOwner !== null && $db->row() < 1) return false;
-  if (!$continue) {
-    $db->query("UPDATE sync_jobs SET page_number = 0, page_sentinel = NULL WHERE id = :job_id{$ownerWhere}");
-    $db->bind('job_id', (int)$job['id']);
+  $db->begin();
+  try {
+    // Lock the parent row while publishing this page. A reclaimed worker then
+    // cannot insert shells/tasks after a new worker has taken the lease.
+    if ($leaseOwner !== null) {
+      $db->query("SELECT id FROM sync_jobs WHERE id = :job_id AND status = 'running' AND lease_owner = :lease_owner AND (lease_until IS NULL OR lease_until >= NOW()) FOR UPDATE");
+      $db->bind('job_id', (int)$job['id']);
+      $db->bind('lease_owner', (string)$leaseOwner);
+      if (!$db->single()) { $db->rollback(); return false; }
+    }
+    insertOrderShell($db, (int)$shop['id'], $ids);
+    queueEligible($db, $sync, (int)$job['id'], $ids, (string)($job['mode'] ?? 'diff'), (int)$shop['id']);
+    recordRun($db, (int)$job['id'], 'fetched_pages', 1, $leaseOwner);
+    recordRun($db, (int)$job['id'], 'indexed_orders', count($ids), $leaseOwner);
+    if ((int)$job['page_number'] === 1 && ($job['mode'] ?? 'diff') === 'diff') OrderSyncPolicy::queueActive($db, $sync, $job);
+    if (!$sync->addPage((int)$job['id'], $page, $sentinel, $next, count($ids), $leaseOwner)) { $db->rollback(); return false; }
+    $ownerWhere = $leaseOwner !== null ? ' AND lease_owner = :lease_owner' : '';
+    $db->query("UPDATE sync_jobs SET total_indexed = total_indexed + :count, page_number = :next_page, page_sentinel = :next_sentinel, attempts = 0, next_retry_at = NULL, last_error = NULL WHERE id = :job_id{$ownerWhere}");
+    bindAll($db, ['count' => count($ids), 'next_page' => $page + 1, 'next_sentinel' => $next, 'job_id' => (int)$job['id']]);
     if ($leaseOwner !== null) $db->bind('lease_owner', (string)$leaseOwner);
     $db->exe();
+    if ($leaseOwner !== null && $db->row() < 1) { $db->rollback(); return false; }
+    if (!$continue) {
+      $db->query("UPDATE sync_jobs SET page_number = 0, page_sentinel = NULL WHERE id = :job_id{$ownerWhere}");
+      $db->bind('job_id', (int)$job['id']);
+      if ($leaseOwner !== null) $db->bind('lease_owner', (string)$leaseOwner);
+      $db->exe();
+    }
+    $db->commit();
+  } catch (Throwable $error) {
+    $db->rollback();
+    throw $error;
   }
   return true;
 }
@@ -191,17 +246,39 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
   $detail = $shopee->getOneOrder($shop['cookie'], $orderId);
   if (!$sync->ownsLease((int)($task['job_id'] ?? 0), $leaseOwner)) return false;
   if (!$detail) {
-    $db->query("UPDATE orders SET sync_status = 'failed', sync_attempts = sync_attempts + 1, sync_next_retry_at = DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, LEAST(sync_attempts, 6))) MINUTE), sync_last_error = 'Shopee order detail failed' WHERE id = :order_id AND shop_id = :shop_id");
+    $leaseGuard = $leaseOwner !== null ? " AND EXISTS (SELECT 1 FROM sync_jobs sj WHERE sj.id = :parent_job_id AND sj.status = 'running' AND sj.lease_owner = :parent_lease_owner AND (sj.lease_until IS NULL OR sj.lease_until >= NOW()))" : '';
+    $db->query("UPDATE orders SET sync_status = 'failed', sync_attempts = sync_attempts + 1, sync_next_retry_at = DATE_ADD(NOW(), INTERVAL LEAST(60, POW(2, LEAST(sync_attempts, 6))) MINUTE), sync_last_error = 'Shopee order detail failed' WHERE id = :order_id AND shop_id = :shop_id{$leaseGuard}");
     $db->bind('order_id', $orderId);
     $db->bind('shop_id', (int)$shop['id']);
+    if ($leaseOwner !== null) { $db->bind('parent_job_id', (int)($task['job_id'] ?? 0)); $db->bind('parent_lease_owner', (string)$leaseOwner); }
     $db->exe();
     $sync->finishOrder((int)$task['id'], 'retry', 'Shopee order detail failed', $leaseOwner);
     return false;
   }
+  $statusInfo = is_array($detail) && is_array($detail['status_info_v2'] ?? null) ? $detail['status_info_v2'] : (is_array($detail) && is_array($detail['status_info'] ?? null) ? $detail['status_info'] : null);
+  $hasStatus = is_array($statusInfo) && trim((string)($statusInfo['status'] ?? '')) !== '';
+  if (!is_array($detail) || trim((string)($detail['order_sn'] ?? '')) === '' || !$hasStatus) {
+    $sync->finishOrder((int)$task['id'], 'retry', 'Respons detail pesanan tidak lengkap.', $leaseOwner);
+    return false;
+  }
+  $orderItems = null;
+  if (array_key_exists('order_items', $detail)) {
+    if (!is_array($detail['order_items'])) {
+      $sync->finishOrder((int)$task['id'], 'retry', 'Daftar item pesanan tidak lengkap.', $leaseOwner);
+      return false;
+    }
+    foreach ($detail['order_items'] as $item) {
+      if (!is_array($item) || (int)($item['item_id'] ?? 0) < 1) {
+        $sync->finishOrder((int)$task['id'], 'retry', 'Daftar item pesanan tidak valid.', $leaseOwner);
+        return false;
+      }
+    }
+    $orderItems = $detail['order_items'];
+  }
   $statusType = $detail['status_info_v2']['status'] ?? $detail['status_info']['status'] ?? '';
   $statusDesc = $detail['status_info_v2']['status_tooltip'] ?? $detail['status_info']['status_tooltip'] ?? '';
   $createdAt = !empty($detail['create_time']) ? date('Y-m-d H:i:s', (int)$detail['create_time']) : null;
-  $db->query("SELECT shipping_cargo, tracking_number FROM orders WHERE id = :order_id AND shop_id = :shop_id LIMIT 1");
+  $db->query("SELECT shipping_cargo, tracking_number, created_at FROM orders WHERE id = :order_id AND shop_id = :shop_id LIMIT 1");
   $db->bind('order_id', $orderId);
   $db->bind('shop_id', (int)$shop['id']);
   $existingOrder = $db->single() ?: [];
@@ -213,6 +290,7 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
   if ($trackingNumber === null || $trackingNumber === '') {
     $trackingNumber = $existingOrder['tracking_number'] ?? null;
   }
+  if ($createdAt === null) $createdAt = $existingOrder['created_at'] ?? null;
   if (!$sync->ownsLease((int)($task['job_id'] ?? 0), $leaseOwner)) return false;
   $data = [
     'order_sn' => $detail['order_sn'] ?? null,
@@ -236,16 +314,19 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
     'sync_attempts' => 0,
     'sync_next_retry_at' => null,
     'sync_last_error' => null,
-    'detail_synced_at' => date('Y-m-d H:i:s')
+    'detail_synced_at' => null
   ];
   $set = [];
   foreach (array_keys($data) as $column) {
     $set[] = "{$column} = :{$column}";
   }
-  $db->query("UPDATE orders SET " . implode(',', $set) . " WHERE id = :order_id AND shop_id = :shop_id");
+  $leaseGuard = $leaseOwner !== null ? " AND EXISTS (SELECT 1 FROM sync_jobs sj WHERE sj.id = :parent_job_id AND sj.status = 'running' AND sj.lease_owner = :parent_lease_owner AND (sj.lease_until IS NULL OR sj.lease_until >= NOW()))" : '';
+  $db->query("UPDATE orders SET " . implode(',', $set) . " WHERE id = :order_id AND shop_id = :shop_id{$leaseGuard}");
   bindAll($db, $data + ['order_id' => $orderId]);
   $db->bind('shop_id', (int)$shop['id']);
+  if ($leaseOwner !== null) { $db->bind('parent_job_id', (int)($task['job_id'] ?? 0)); $db->bind('parent_lease_owner', (string)$leaseOwner); }
   $db->exe();
+  if ($leaseOwner !== null && $db->row() < 1) return false;
   if ($enrichPackages && (empty($data['shipping_cargo']) || empty($data['tracking_number']))) {
     enrichPackage($db, $shopee, $orderId, $shop['cookie'], (int)$shop['id'], $leaseOwner, (int)($task['job_id'] ?? 0));
     if (!$sync->ownsLease((int)($task['job_id'] ?? 0), $leaseOwner)) return false;
@@ -263,13 +344,16 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
       }
     }
   }
-  if (array_key_exists('order_items', $detail)) {
+  if ($orderItems !== null) {
     if (!$sync->ownsLease((int)($task['job_id'] ?? 0), $leaseOwner)) return false;
     $items = [];
-    foreach ((array)$detail['order_items'] as $item) {
+    foreach ($orderItems as $item) {
       $productId = (int)($item['item_id'] ?? 0);
       if ($productId < 1) continue;
-      $items[] = [$orderId, $productId, (int)($item['model_id'] ?? 0), $item['product']['name'] ?? '', $item['item_model']['name'] ?? '', (int)($item['amount'] ?? 1), (int)($item['order_price'] ?? 0), $item['product']['images'][0] ?? ''];
+      $product = is_array($item['product'] ?? null) ? $item['product'] : [];
+      $itemModel = is_array($item['item_model'] ?? null) ? $item['item_model'] : [];
+      $images = is_array($product['images'] ?? null) ? $product['images'] : [];
+      $items[] = [$orderId, $productId, (int)($item['model_id'] ?? 0), $product['name'] ?? '', $itemModel['name'] ?? '', (int)($item['amount'] ?? 1), (int)($item['order_price'] ?? 0), $images[0] ?? ''];
     }
     $db->begin();
     try {
@@ -289,6 +373,14 @@ function processOrder(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $ta
       throw $error;
     }
   }
+  if (!$sync->ownsLease((int)($task['job_id'] ?? 0), $leaseOwner)) return false;
+  $leaseGuard = $leaseOwner !== null ? " AND EXISTS (SELECT 1 FROM sync_jobs sj WHERE sj.id = :parent_job_id AND sj.status = 'running' AND sj.lease_owner = :parent_lease_owner AND (sj.lease_until IS NULL OR sj.lease_until >= NOW()))" : '';
+  $db->query("UPDATE orders SET detail_synced_at = NOW() WHERE id = :order_id AND shop_id = :shop_id{$leaseGuard}");
+  $db->bind('order_id', $orderId);
+  $db->bind('shop_id', (int)$shop['id']);
+  if ($leaseOwner !== null) { $db->bind('parent_job_id', (int)($task['job_id'] ?? 0)); $db->bind('parent_lease_owner', (string)$leaseOwner); }
+  $db->exe();
+  if ($leaseOwner !== null && $db->row() < 1) return false;
   $finished = $sync->finishOrder((int)$task['id'], 'done', null, $leaseOwner);
   if ($finished) $sync->noteProgress((int)($task['job_id'] ?? 0), $leaseOwner);
   return $finished;
@@ -329,7 +421,9 @@ function processGenericJob(Database $db, array $job, array $shop, ShopeeCurl $sh
     return [!empty($result['ok']), $result['message'] ?? null, $result['complete'] ?? true];
   }
   if ($type === 'customers') {
-    $result = (new Customer())->syncFromOrders(null, $shopId);
+    $accountId = (int)($shop['account_id'] ?? 0);
+    if ($accountId < 1) return [false, 'Akun toko tidak tersedia untuk sinkronisasi pelanggan.'];
+    $result = (new Customer())->syncFromOrders($accountId, $shopId);
     return [is_array($result), null];
   }
   if ($type === 'shops') {

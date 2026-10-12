@@ -20,12 +20,14 @@ class PackageSynchronizer {
     }
     $first = $package['order_info']['package_list'][0] ?? [];
     $scope = (int)$shopId > 0 ? ' AND shop_id = :shop_id' : '';
+    $leaseGuard = $leaseOwner !== null ? " AND EXISTS (SELECT 1 FROM sync_jobs sj WHERE sj.id = :lease_job_id AND sj.status = 'running' AND sj.lease_owner = :lease_owner_guard AND (sj.lease_until IS NULL OR sj.lease_until >= NOW()))" : '';
     $this->db->query("UPDATE orders SET shipping_cargo = COALESCE(NULLIF(:cargo, ''), shipping_cargo),
-      tracking_number = COALESCE(NULLIF(:tracking, ''), tracking_number), package_synced_at = NOW() WHERE id = :id{$scope}");
+      tracking_number = COALESCE(NULLIF(:tracking, ''), tracking_number), package_synced_at = NOW() WHERE id = :id{$scope}{$leaseGuard}");
     $this->db->bind('cargo', (string)($first['channel_id'] ?? ''));
     $this->db->bind('tracking', (string)($first['third_party_tn'] ?? ''));
     $this->db->bind('id', (int)$orderId);
     if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+    if ($leaseOwner !== null) { $this->db->bind('lease_job_id', (int)$leaseJobId); $this->db->bind('lease_owner_guard', (string)$leaseOwner); }
     $this->db->exe();
     return $this->db->row() > 0;
   }

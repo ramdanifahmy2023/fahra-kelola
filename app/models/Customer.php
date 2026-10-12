@@ -16,7 +16,9 @@ class Customer extends BaseModel {
   private function customerAccountScope(string $alias = 'customers'): string {
     $account = $this->accountId();
     if ($account < 1) return '';
-    return " AND (EXISTS (SELECT 1 FROM customer_shops scoped_customer_shops INNER JOIN shops scoped_customer_shop ON scoped_customer_shop.id = scoped_customer_shops.shop_id AND scoped_customer_shop.account_id = {$account} WHERE scoped_customer_shops.customer_id = {$alias}.id) OR EXISTS (SELECT 1 FROM orders scoped_customer_orders INNER JOIN shops scoped_customer_order_shop ON scoped_customer_order_shop.id = scoped_customer_orders.shop_id AND scoped_customer_order_shop.account_id = {$account} WHERE scoped_customer_orders.buyer_username = {$alias}.username))";
+    // The mapping is the tenant boundary. A username-only fallback would
+    // expose a shared customer row when two accounts use the same buyer name.
+    return " AND EXISTS (SELECT 1 FROM customer_shops scoped_customer_shops INNER JOIN shops scoped_customer_shop ON scoped_customer_shop.id = scoped_customer_shops.shop_id AND scoped_customer_shop.account_id = {$account} WHERE scoped_customer_shops.customer_id = {$alias}.id)";
   }
 
   private function orderAccountScope(string $alias = 'orders'): string {
@@ -27,9 +29,13 @@ class Customer extends BaseModel {
 
   private function shopFilter(int $shopId): string {
     $conditions = [];
+    $account = $this->accountId();
     if ($shopId > 0) {
-      $conditions[] = "(EXISTS (SELECT 1 FROM customer_shops cs WHERE cs.customer_id = customers.id AND cs.shop_id = {$shopId}) OR EXISTS (SELECT 1 FROM orders scoped_shop_orders WHERE scoped_shop_orders.buyer_username = customers.username AND scoped_shop_orders.shop_id = {$shopId}))";
-      $account = $this->accountId();
+      $membership = "EXISTS (SELECT 1 FROM customer_shops cs WHERE cs.customer_id = customers.id AND cs.shop_id = {$shopId})";
+      // Unauthenticated legacy/report fixtures may not have mappings yet;
+      // authenticated requests must use the mapping as the tenant boundary.
+      if ($account < 1) $membership = "({$membership} OR EXISTS (SELECT 1 FROM orders scoped_shop_orders WHERE scoped_shop_orders.buyer_username = customers.username AND scoped_shop_orders.shop_id = {$shopId}))";
+      $conditions[] = $membership;
       if ($account > 0) $conditions[] = "EXISTS (SELECT 1 FROM shops selected_customer_shop WHERE selected_customer_shop.id = {$shopId} AND selected_customer_shop.account_id = {$account})";
     }
     $scope = $this->customerAccountScope();
@@ -93,11 +99,13 @@ class Customer extends BaseModel {
     $existingCustomers = [];
     $existingRows = $this->findAll();
     if ($accountId !== null && $accountId > 0) {
-      // Avoid updating a similarly named global customer row owned by another
-      // account when customer_shops has not been populated yet.
-      $this->db->query("SELECT c.* FROM customers c WHERE EXISTS (SELECT 1 FROM customer_shops cs INNER JOIN shops s ON s.id = cs.shop_id AND s.account_id = :existing_account WHERE cs.customer_id = c.id) OR EXISTS (SELECT 1 FROM orders o INNER JOIN shops os ON os.id = o.shop_id AND os.account_id = :existing_order_account WHERE o.buyer_username = c.username)");
+      // Reuse an unmapped legacy row only when current-account orders point to
+      // it and it is not already mapped to another account. This repairs old
+      // rows without updating a similarly named tenant-owned customer.
+      $this->db->query("SELECT c.* FROM customers c WHERE EXISTS (SELECT 1 FROM customer_shops cs INNER JOIN shops s ON s.id = cs.shop_id AND s.account_id = :existing_account WHERE cs.customer_id = c.id) OR (EXISTS (SELECT 1 FROM orders scoped_customer_orders INNER JOIN shops scoped_customer_order_shops ON scoped_customer_order_shops.id = scoped_customer_orders.shop_id AND scoped_customer_order_shops.account_id = :order_account WHERE scoped_customer_orders.buyer_username = c.username) AND NOT EXISTS (SELECT 1 FROM customer_shops other_cs INNER JOIN shops other_customer_shops ON other_customer_shops.id = other_cs.shop_id WHERE other_cs.customer_id = c.id AND other_customer_shops.account_id <> :other_account))");
       $this->db->bind('existing_account', $accountId);
-      $this->db->bind('existing_order_account', $accountId);
+      $this->db->bind('order_account', $accountId);
+      $this->db->bind('other_account', $accountId);
       $existingRows = $this->db->getAll();
     }
     foreach ($existingRows as $customer) {
@@ -118,9 +126,9 @@ class Customer extends BaseModel {
         $updated++;
       } else {
         $this->insert($customer);
-        $this->db->query('SELECT id FROM customers WHERE username = :username ORDER BY id DESC LIMIT 1');
-        $this->db->bind('username', $customer['username']);
-        $customerId = (int)($this->db->single()['id'] ?? 0);
+        // Read the id from the same INSERT connection. A follow-up global
+        // username lookup can select another concurrent account's row.
+        $customerId = (int)$this->db->lastId();
         $added++;
       }
       if ($customerId > 0) foreach ($shopIds as $mappedShopId) {

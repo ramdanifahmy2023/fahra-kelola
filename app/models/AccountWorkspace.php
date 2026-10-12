@@ -23,6 +23,7 @@ class AccountWorkspace extends BaseModel {
     try {
       $this->db->query("SHOW COLUMNS FROM shops LIKE 'account_id'");
       $hasAccount = (bool)$this->db->single();
+      if ($enforceOwner && !$hasAccount) return false;
       $this->db->query($hasAccount && $enforceOwner ? 'SELECT id FROM shops WHERE id=:id AND account_id=:account LIMIT 1' : 'SELECT id FROM shops WHERE id=:id LIMIT 1');
       $this->db->bind('id',$shopId); if ($hasAccount && $enforceOwner) $this->db->bind('account',$user);
       return (bool)$this->db->single();

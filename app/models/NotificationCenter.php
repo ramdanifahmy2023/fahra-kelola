@@ -38,15 +38,19 @@ class NotificationCenter extends StockAlert {
 
   public function refreshOperations(bool $force=false): void {
     $this->ensureSchema();
-    $lock='shopdash-notify-'.substr(hash('sha256',DB_NAME),0,24);
+    $account = function_exists('authAccountId') ? max(0, (int)authAccountId()) : 0;
+    // Notification freshness belongs to an account. A shared global lock or
+    // timestamp lets one tenant suppress another tenant's refresh window.
+    $lock='shopdash-notify-'.substr(hash('sha256',DB_NAME),0,24).':'.$account;
+    $checkTable = $account > 0 ? 'notification_account_checks' : 'notification_checks';
     $held=$this->rows('SELECT GET_LOCK(:name,0) held',['name'=>$lock])[0]['held'] ?? 0;
     if (!$held) return;
     $transaction=false;
     try {
-      $check=$this->rows('SELECT checked_at FROM notification_checks WHERE id=1')[0]['checked_at'] ?? null;
+      $checkSql = $account > 0 ? "SELECT checked_at FROM {$checkTable} WHERE account_id=:account" : "SELECT checked_at FROM {$checkTable} WHERE id=1";
+      $check=$this->rows($checkSql,$account > 0 ? ['account'=>$account] : [])[0]['checked_at'] ?? null;
       $now=time();
       if (!$force && $check && $now-(NotificationPolicy::utc($check) ?? 0)<30) return;
-      $account = function_exists('authAccountId') ? authAccountId() : 0;
       $shopScope = $account > 0 ? ' WHERE account_id=:account' : '';
       $scopeParams = $account > 0 ? ['account'=>$account] : [];
       $shops=$this->rows("SELECT id,name,(cookie IS NULL OR TRIM(cookie)='') cookie_missing FROM shops{$shopScope}",$scopeParams);
@@ -108,7 +112,13 @@ class NotificationCenter extends StockAlert {
         if ($result === false) $this->resolveAlert((int)$order['shop_id'],'shipping_deadline',(string)$order['id']);
         elseif ($result) $this->putAlert((int)$order['shop_id'],'shipping_deadline','order',(string)$order['id'],$result['severity'],$result);
       }
-      $this->db->query('INSERT INTO notification_checks (id,checked_at) VALUES (1,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE checked_at=VALUES(checked_at)'); $this->db->exe();
+      if ($account > 0) {
+        $this->db->query("INSERT INTO {$checkTable} (account_id,checked_at) VALUES (:account,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE checked_at=VALUES(checked_at)");
+        $this->db->bind('account', $account);
+      } else {
+        $this->db->query("INSERT INTO {$checkTable} (id,checked_at) VALUES (1,UTC_TIMESTAMP()) ON DUPLICATE KEY UPDATE checked_at=VALUES(checked_at)");
+      }
+      $this->db->exe();
       $this->db->commit(); $transaction=false;
     } finally {
       if ($transaction) $this->db->rollback();

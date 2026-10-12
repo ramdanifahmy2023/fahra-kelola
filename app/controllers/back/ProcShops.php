@@ -131,6 +131,17 @@ class ProcShops extends Controller {
       // 1. Cek info dasar (Shop ID, Name, Logo)
       $check = $shopee->check($cookie);
       if (isset($check['shop']) && !empty($check['shop']['id'])) {
+          if ((int)$check['shop']['id'] !== (int)($shop['shop_id'] ?? 0)) {
+              $message = 'Cookie Shopee cocok dengan toko lain. Pilih cookie toko ini.';
+              if ($isAjax) {
+                  header('Content-Type: application/json; charset=utf-8');
+                  echo json_encode(['status' => 'error', 'message' => $message]);
+                  exit;
+              }
+              Alert::set('error', $message);
+              header('Location: ' . burl . '/panel/shops');
+              exit;
+          }
           $data['shop_id'] = $check['shop']['id'];
           $data['name']    = $check['shop']['name'];
           
@@ -192,8 +203,17 @@ class ProcShops extends Controller {
     authRequireMethod('POST');
     authRequireCsrf();
     if (!empty($id) && authAccountId() > 0) {
+      $shop = $this->m('Shop')->findOwned((int)$id, authAccountId());
+      $cookie = trim((string)($_POST['cookie'] ?? ''));
+      $check = $cookie !== '' ? $this->m('ShopeeCurl')->check($cookie) : [];
+      $remoteShopId = (int)($check['shop']['id'] ?? 0);
+      if (!$shop || $cookie === '' || $remoteShopId < 1 || $remoteShopId !== (int)($shop['shop_id'] ?? 0)) {
+        Alert::set('error', 'Gagal! Cookie tidak cocok dengan toko ini atau sudah kedaluwarsa.');
+        header('Location: ' . burl . '/panel/shops');
+        exit;
+      }
       $data = [
-        'cookie' => $_POST['cookie'] ?? ''
+        'cookie' => $cookie
       ];
 
       $update = $this->m('Shop')->updateOwned((int)$id, $data, authAccountId());

@@ -3,6 +3,9 @@
 $root = dirname(__DIR__);
 define('burl', 'https://fixture.invalid');
 define('assets', 'https://fixture.invalid/assets');
+if (!function_exists('authCsrfToken')) {
+    function authCsrfToken() { return 'fixture-csrf'; }
+}
 set_error_handler(static function ($severity, $message, $file, $line) { throw new ErrorException($message, 0, $severity, $file, $line); });
 $shop = ['id'=>1, 'shop_id'=>101, 'name'=>"Toko uji perjalanan 'A' & perlengkapan dengan nama panjang", 'shop_logo'=>'', 'username'=>str_repeat('akun-uji', 12), 'sync_status'=>'connected', 'total_products'=>3, 'balances'=>0, 'ads_credit'=>0];
 $product = ['id'=>11, 'shop_id'=>1, 'name'=>"Produk uji 'A' & perjalanan dengan nama lengkap yang panjang " . str_repeat('ABCD', 24), 'cover_image'=>'broken-fixture', 'parent_sku'=>str_repeat('SKU', 25), 'price_min'=>0, 'price_max'=>0, 'selling_price_min'=>null, 'selling_price_max'=>null, 'total_stock'=>0, 'sold_count'=>0, 'status'=>1, 'has_discount'=>0];

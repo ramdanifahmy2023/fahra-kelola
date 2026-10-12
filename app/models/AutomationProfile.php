@@ -13,9 +13,7 @@ class AutomationProfile extends BaseModel {
     catch (Throwable $ignore) { return false; }
     $hasAccount = (bool)$this->db->single();
     if (!$hasAccount) {
-      $this->db->query('SELECT id FROM shops WHERE id=:shop LIMIT 1');
-      $this->db->bind('shop',$shopId);
-      return (bool)$this->db->single();
+      return false;
     }
     $this->db->query('SELECT id FROM shops WHERE id=:shop AND account_id=:actor LIMIT 1');
     $this->db->bind('shop',$shopId); $this->db->bind('actor',$actorId);

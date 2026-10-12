@@ -106,7 +106,7 @@ $shops = $data['shops'] ?? [];
     document.getElementById('report-loading').classList.add('hidden'); document.getElementById('report-content').classList.remove('hidden');
     state.textContent = '';
   }
-  const palette = ['#2f80ed','#f26b45','#60769b','#18a779','#a855f7','#d69e2e','#db2777','#0891b2','#65a30d','#7c3aed'];
+  const palette = ['#2f80ed','#b84b2c','#60769b','#087f5b','#9a5de5','#986b08','#ce5d89','#08758d','#4f7f08','#8d70cf'];
   const chartNumber = value => document.getElementById('compare-metric').value === 'confirmed_gmv' ? money(value) : number(value);
   function drawCompare(series) {
     latestSeries = series || [];

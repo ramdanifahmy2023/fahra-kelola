@@ -8,7 +8,7 @@ header('X-Frame-Options: DENY');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 header('Cross-Origin-Opener-Policy: same-origin');
-header("Content-Security-Policy: default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+header("Content-Security-Policy: default-src 'self' https: data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
 $runtimeEnv = @parse_ini_file(__DIR__ . '/../config/.env') ?: [];
 $trustedForwardedProto = in_array(strtolower((string)($runtimeEnv['APP_TRUST_PROXY'] ?? '')), ['1', 'true', 'yes'], true) ? strtolower(trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0])) : '';
 if ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $trustedForwardedProto === 'https') {
