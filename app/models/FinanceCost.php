@@ -75,6 +75,16 @@ class FinanceCost extends Finance {
     return $key;
   }
 
+  private function keyBySku(array $input): ?array {
+    $shop=(string)($input['shop_id'] ?? ''); $product=(string)($input['product_id'] ?? '');
+    $sku=trim((string)($input['variant_sku'] ?? $input['sku'] ?? ''));
+    if (!ctype_digit($shop) || (int)$shop<1 || !ctype_digit($product) || (int)$product<1 || $sku==='') return null;
+    $rows=$this->rows('SELECT c.shop_id,c.product_id,c.model_id FROM ('.$this->catalogSql().') c WHERE c.shop_id=:shop AND c.product_id=:product AND c.sku=:sku LIMIT 2',['shop'=>(int)$shop,'product'=>(int)$product,'sku'=>$sku]);
+    if (count($rows)>1) throw new InvalidArgumentException('SKU varian tidak unik untuk produk ini. Gunakan model_id asli dari katalog.');
+    if (!$rows) return null;
+    return ['shop'=>(int)$rows[0]['shop_id'],'product'=>(int)$rows[0]['product_id'],'model'=>(int)$rows[0]['model_id']];
+  }
+
   private function scope(array $input): ?array {
     if (!array_key_exists('scope_shops',$input)) return null;
     if (!is_array($input['scope_shops']) || !$input['scope_shops'] || count($input['scope_shops'])>500) throw new InvalidArgumentException('Scope toko tidak valid.');
@@ -144,7 +154,8 @@ class FinanceCost extends Finance {
       $line=is_array($raw) ? (int)($raw['row_no'] ?? $index+1) : $index+1; $line=$line>0 ? $line : $index+1;
       if (!is_array($raw)) { $errors[$index]=['row_no'=>$line,'message'=>'Baris tidak dapat dibaca.']; continue; }
       try {
-        $key=$this->key($raw); if ($scope!==null && !in_array($key['shop'],$scope,true)) throw new InvalidArgumentException('Baris ini berada di luar toko yang dipilih.'); $unit=$this->costValue($raw); $date=$this->costDate($raw);
+        try { $key=$this->key($raw); } catch (InvalidArgumentException $identityError) { $key=$this->keyBySku($raw); if ($key===null) throw $identityError; }
+        if ($scope!==null && !in_array($key['shop'],$scope,true)) throw new InvalidArgumentException('Baris ini berada di luar toko yang dipilih.'); $unit=$this->costValue($raw); $date=$this->costDate($raw);
         $identity=$key['shop'].':'.$key['product'].':'.$key['model']; $unique=$identity.':'.$date;
         if (isset($dates[$unique])) throw new InvalidArgumentException('Baris ini menggandakan target dan tanggal pada baris '.$dates[$unique].'.');
         $dates[$unique]=$line; $keys[$identity]=$key;
