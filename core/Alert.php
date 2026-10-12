@@ -34,11 +34,11 @@ class Alert {
 
       // Render elemen Toast melayang di tengah atas
       echo '
-      <div id="sys-toast-container" class="toast toast-top toast-center z-[9999] mt-4 transition-all duration-500 ease-in-out">
+      <div id="sys-toast-container" class="toast toast-top toast-center z-[9999] mt-4 transition-all duration-500 ease-in-out" role="alert" aria-live="assertive">
         <div class="alert ' . $alertClass . ' shadow-xl rounded-2xl font-medium flex items-center gap-3 px-6 py-4 border border-white/20">
-          <span class="material-symbols-outlined text-[24px]">' . $icon . '</span>
+          <span class="material-symbols-outlined text-[24px]" aria-hidden="true">' . $icon . '</span>
           <span class="text-sm">' . $message . '</span>
-          <button onclick="document.getElementById(\'sys-toast-container\').remove()" class="btn btn-sm btn-circle btn-ghost opacity-70 hover:opacity-100 ml-4">✕</button>
+          <button type="button" aria-label="Tutup notifikasi" onclick="document.getElementById(\'sys-toast-container\').remove()" class="btn btn-sm btn-circle btn-ghost opacity-70 hover:opacity-100 ml-4">✕</button>
         </div>
       </div>
       

@@ -10,6 +10,7 @@
           <a class="landing-button landing-button-quiet" href="#alur-kerja">Lihat cara kerja</a>
         </div>
         <p class="landing-note"><span class="material-symbols-outlined" aria-hidden="true">sync</span>Data dibaca dari snapshot sinkronisasi toko yang berjalan di belakang.</p>
+        <div class="landing-hero-facts" aria-label="Fokus workspace Shopdash"><span><strong>Produk</strong><small>Katalog dan HPP</small></span><span><strong>Pesanan</strong><small>Status lebih jelas</small></span><span><strong>Stok</strong><small>Prioritas terlihat</small></span></div>
       </div>
 
       <div class="landing-hero-visual" aria-label="Pratinjau workspace Shopdash">
@@ -19,9 +20,9 @@
           <div class="landing-window-body">
             <div class="landing-window-sidebar"><span class="landing-sidebar-line landing-sidebar-line-active"></span><span class="landing-sidebar-line"></span><span class="landing-sidebar-line"></span><span class="landing-sidebar-line"></span><span class="landing-sidebar-line landing-sidebar-line-short"></span></div>
             <div class="landing-window-content">
-              <div class="landing-window-heading"><span><small>RINGKASAN OPERASI</small><strong>Hari ini di toko Anda</strong></span><span class="landing-window-date">Snapshot lokal</span></div>
+              <div class="landing-window-heading"><span><small>CONTOH RINGKASAN</small><strong>Hari ini di toko Anda</strong></span><span class="landing-window-date">Snapshot lokal</span></div>
               <div class="landing-metric-grid"><div class="landing-metric landing-metric-cream"><span>Produk</span><strong>Teratur</strong><small>Katalog per toko</small></div><div class="landing-metric landing-metric-peach"><span>Pesanan</span><strong>Terpantau</strong><small>Detail dan status</small></div><div class="landing-metric landing-metric-green"><span>Stok</span><strong>Siap dicek</strong><small>Peringatan kritis</small></div></div>
-              <div class="landing-window-chart"><div class="landing-chart-label"><span>Aktivitas toko</span><span class="landing-chart-legend"><i></i>Per hari</span></div><div class="landing-chart-bars" aria-hidden="true"><span style="height:35%"></span><span style="height:54%"></span><span style="height:42%"></span><span style="height:70%"></span><span style="height:58%"></span><span style="height:82%"></span><span style="height:65%"></span><span style="height:92%"></span><span style="height:76%"></span><span style="height:100%"></span><span style="height:84%"></span><span style="height:67%"></span></div></div>
+              <div class="landing-window-chart"><div class="landing-chart-label"><span>Pola aktivitas</span><span class="landing-chart-legend"><i></i>Contoh visual</span></div><div class="landing-chart-bars" aria-hidden="true"><span style="height:35%"></span><span style="height:54%"></span><span style="height:42%"></span><span style="height:70%"></span><span style="height:58%"></span><span style="height:82%"></span><span style="height:65%"></span><span style="height:92%"></span><span style="height:76%"></span><span style="height:100%"></span><span style="height:84%"></span><span style="height:67%"></span></div></div>
               <div class="landing-window-footer"><span><b></b>Sinkronisasi berjalan di belakang</span><span>Beberapa toko</span></div>
             </div>
           </div>
@@ -37,7 +38,7 @@
   <section class="landing-section" id="alur-kerja" aria-labelledby="workflow-title">
     <div class="landing-section-heading"><p class="landing-kicker">Alur kerja lebih pendek</p><h2 id="workflow-title">Dari pantau sampai tindak lanjut, semuanya punya tempat.</h2><p>Shopdash membantu Anda melihat apa yang perlu dikerjakan tanpa berpindah-pindah halaman marketplace.</p></div>
     <div class="landing-capability-grid">
-      <article class="landing-capability landing-capability-wide landing-capability-cream"><div class="landing-capability-icon"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span></div><div><h3>Produk tetap tertata</h3><p>Kelola katalog, stok, dan produk yang perlu dinaikkan per toko dari satu tampilan.</p></div><span class="landing-capability-index">01</span></article>
+      <article class="landing-capability landing-capability-wide landing-capability-cream"><div class="landing-capability-icon"><span class="material-symbols-outlined" aria-hidden="true">inventory_2</span></div><div><h3>Produk dan HPP tetap tertata</h3><p>Kelola katalog, HPP, stok, dan produk yang perlu dinaikkan per toko dari satu tampilan.</p></div><span class="landing-capability-index">01</span></article>
       <article class="landing-capability landing-capability-peach"><div class="landing-capability-icon"><span class="material-symbols-outlined" aria-hidden="true">receipt_long</span></div><h3>Pesanan yang jelas</h3><p>Lihat status pesanan dan detail transaksi dari data lokal yang sudah tersimpan.</p><span class="landing-capability-index">02</span></article>
       <article class="landing-capability landing-capability-green"><div class="landing-capability-icon"><span class="material-symbols-outlined" aria-hidden="true">campaign</span></div><h3>Promosi terbaca</h3><p>Ringkas iklan, voucher, dan flash sale agar keputusan harian lebih cepat.</p><span class="landing-capability-index">03</span></article>
       <article class="landing-capability landing-capability-wide landing-capability-dark"><div class="landing-capability-icon"><span class="material-symbols-outlined" aria-hidden="true">chat</span></div><div><h3>Customer tidak terlewat</h3><p>Satukan monitoring live chat dan notifikasi penting untuk membantu tim merespons dengan ritme yang konsisten.</p></div><span class="landing-capability-index">04</span></article>

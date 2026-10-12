@@ -21,7 +21,7 @@
       update(read());
     })();
   </script>
-  <link rel="stylesheet" href="<?= assets; ?>/css/style.css?v=20260927-landing">
+  <link rel="stylesheet" href="<?= assets; ?>/css/style.css?v=20261012-ui">
   <link rel="stylesheet" href="<?= web_icons; ?>/material-symbols.css">
 </head>
 <body class="landing-body">
@@ -29,7 +29,7 @@
     <a class="landing-brand" href="<?= burl; ?>/" aria-label="Shopdash beranda"><span class="landing-mark landing-mark-header"><span class="material-symbols-outlined" aria-hidden="true">bolt</span></span><span><?= app_name; ?></span></a>
     <nav class="landing-nav" aria-label="Navigasi utama"><a href="#alur-kerja">Alur kerja</a><a href="#ruang-lingkup">Ruang lingkup</a></nav>
     <div class="landing-header-actions">
-      <div class="landing-theme-controls" aria-label="Pilih tema"><button type="button" data-landing-theme="system" aria-label="Gunakan tema sistem" title="Sistem"><span class="material-symbols-outlined" aria-hidden="true">routine</span></button><button type="button" data-landing-theme="light" aria-label="Gunakan tema terang" title="Terang"><span class="material-symbols-outlined" aria-hidden="true">light_mode</span></button><button type="button" data-landing-theme="dark" aria-label="Gunakan tema gelap" title="Gelap"><span class="material-symbols-outlined" aria-hidden="true">dark_mode</span></button></div>
+      <div class="landing-theme-controls" role="group" aria-label="Pilih tema"><button type="button" data-landing-theme="system" aria-label="Gunakan tema sistem" title="Sistem"><span class="material-symbols-outlined" aria-hidden="true">routine</span></button><button type="button" data-landing-theme="light" aria-label="Gunakan tema terang" title="Terang"><span class="material-symbols-outlined" aria-hidden="true">light_mode</span></button><button type="button" data-landing-theme="dark" aria-label="Gunakan tema gelap" title="Gelap"><span class="material-symbols-outlined" aria-hidden="true">dark_mode</span></button></div>
       <a class="landing-header-login" href="<?= burl; ?>/panel">Masuk ke panel<span class="material-symbols-outlined" aria-hidden="true">arrow_outward</span></a>
     </div>
   </header>
