@@ -25,9 +25,15 @@ class AiConnection {
     if ((int)$row['version'] !== $version) throw new AiConnectionError('Koneksi berubah di tab lain. Muat ulang daftar, lalu pilih Ubah untuk membuka versi terbaru.',409);
   }
   private function shops(int $id, int $actor = 0): array {
+    $ownerActive = $this->ownerScope($actor);
     $hasAccount = false;
-    try { $this->query("SHOW COLUMNS FROM shops LIKE 'account_id'"); $hasAccount = (bool)$this->db->single(); } catch (Throwable $ignore) {}
-    $owner = $this->ownerScope($actor) && $hasAccount ? ' AND s.account_id=:actor' : '';
+    if ($ownerActive) {
+      try { $this->query("SHOW COLUMNS FROM shops LIKE 'account_id'"); $hasAccount = (bool)$this->db->single(); }
+      catch (Throwable $ignore) { return []; }
+      // A logged-in request must not fall back to a cross-tenant mapping query.
+      if (!$hasAccount) return [];
+    }
+    $owner = $ownerActive ? ' AND s.account_id=:actor' : '';
     $params = ['id'=>$id]; if ($owner !== '') $params['actor'] = $actor;
     $this->query('SELECT p.shop_id, s.name, p.config_json FROM automation_profiles p INNER JOIN shops s ON s.id=p.shop_id WHERE p.connection_id=:id' . $owner . ' ORDER BY p.shop_id',$params);
     return array_map(function($row) {
