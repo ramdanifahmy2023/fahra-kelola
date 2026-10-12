@@ -55,8 +55,8 @@ $financeDashboard=!empty($data['finance_dashboard']);
     </div>
     <p id="finance-cost-scope" class="finance-help" role="status"></p>
     <div id="finance-cost-summary" class="finance-cost-summary" aria-live="polite"></div>
-    <details class="finance-explanation"><summary>Cara kerja HPP</summary><p>HPP berlaku mulai tanggal pesanan dibuat (WIB), bukan periode laporan. HPP di sini tidak mengubah harga jual di Shopee. Riwayat modal tetap tersimpan saat produk diarsipkan.</p><p>Untuk mengisi nominal yang sama, pilih beberapa varian dari satu toko. Untuk nominal berbeda, gunakan Atur HPP per varian atau unduh katalog, isi HPP, lalu impor file.</p></details>
-    <p id="finance-cost-selection-hint" class="finance-help">Pilih baris untuk mengisi HPP yang sama pada beberapa varian dalam satu toko.</p>
+    <details class="finance-explanation"><summary>Cara kerja HPP</summary><p>HPP berlaku mulai tanggal pesanan dibuat (WIB), bukan periode laporan. HPP di sini tidak mengubah harga jual di Shopee. Riwayat modal tetap tersimpan saat produk diarsipkan.</p><p>Untuk nominal yang sama, klik <strong>Pilih semua varian</strong> pada produk lalu isi HPP sekali. Untuk nominal berbeda, gunakan Atur HPP per varian atau unduh katalog, isi HPP, lalu impor file.</p></details>
+    <p id="finance-cost-selection-hint" class="finance-help">Pilih satu baris, atau klik Pilih semua varian pada produk, untuk mengisi HPP yang sama dalam satu toko.</p>
     <form id="finance-cost-bulk-form" class="finance-cost-bulk-panel" hidden>
       <div class="finance-cost-selection-heading"><p id="finance-cost-selection" role="status"></p><button id="finance-cost-clear-selection" class="btn" type="button">Batalkan pilihan</button></div>
       <div class="finance-cost-bulk">
@@ -64,7 +64,7 @@ $financeDashboard=!empty($data['finance_dashboard']);
         <div><label for="finance-cost-bulk-date">Berlaku mulai</label><input class="input" type="date" id="finance-cost-bulk-date" min="2015-01-01" max="2100-01-01" required></div>
         <button id="finance-cost-bulk-apply" class="btn" type="submit" disabled>Periksa HPP terpilih</button>
       </div>
-      <p class="finance-help">Pilihan hanya berlaku untuk halaman ini. Nominal berbeda? Gunakan Atur HPP pada masing-masing varian.</p>
+      <p class="finance-help">Pilihan produk memakai varian aktif yang tampil pada halaman ini. Nominal berbeda? Gunakan Atur HPP pada masing-masing varian.</p>
     </form>
     <div id="finance-cost-feedback" class="finance-cost-feedback" role="status" tabindex="-1" hidden></div>
     <div id="finance-cost-list" aria-live="polite"></div><div id="finance-cost-pagination" class="finance-pagination"></div>
@@ -94,7 +94,7 @@ $financeDashboard=!empty($data['finance_dashboard']);
   <dialog id="finance-cost-batch-dialog" aria-labelledby="finance-cost-batch-title">
     <div class="finance-dialog-heading"><h2 id="finance-cost-batch-title">Impor HPP batch</h2><button type="button" id="finance-close-cost-batch" class="btn" aria-label="Tutup impor HPP batch">Tutup</button></div>
     <p id="finance-cost-batch-scope" class="finance-cost-target"></p>
-    <p>Unggah CSV atau tempel data dari spreadsheet. Gunakan katalog HPP untuk mendapatkan ID produk dan varian yang tepat.</p>
+    <p id="finance-cost-batch-intro">Unggah CSV atau tempel data dari spreadsheet. Gunakan katalog HPP untuk mendapatkan ID produk dan varian yang tepat.</p>
     <details class="finance-explanation"><summary>Format kolom dan aturan impor</summary><p>Kolom wajib: <code>shop_id,product_id,model_id,unit_cost,valid_from</code>. Produk tanpa varian memakai <code>model_id</code> 0. SKU varian dapat membantu pencocokan jika ID varian berubah format. Tanggal menggunakan format YYYY-MM-DD.</p><p>CSV dengan pemisah koma, titik koma, atau tab dapat dibaca. Jika memakai Excel, impor kolom ID toko, ID produk, dan ID varian sebagai <strong>Teks</strong>. Jangan menyimpan ID sebagai notasi ilmiah seperti <code>2,62641E+11</code> karena angka aslinya bisa sudah dibulatkan. Jika SKU varian masih utuh dan unik, sistem akan mencoba mencocokkannya otomatis.</p></details>
     <div class="finance-batch-actions"><label class="finance-file-field">File CSV<input class="input" id="finance-cost-batch-file" type="file" accept=".csv,text/csv"></label><button id="finance-cost-batch-template" class="btn" type="button">Unduh template</button></div>
     <form id="finance-cost-batch-form">

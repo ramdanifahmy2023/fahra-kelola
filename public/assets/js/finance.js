@@ -40,6 +40,7 @@
   let detailSearch = '', costSearch = String(params.get('cost_search') ?? costPreferences.search ?? '').slice(0,100), costStatus = ['all','filled','missing','archived'].includes(preferredCostStatus) ? preferredCostStatus : 'missing', costShop = String(params.get('cost_shop') ?? costPreferences.shop ?? ''), costRows = [], costSelection = new Set(), lastStoresMarkup = '';
   let syncCostPicker, costAnchor, changedCostKeys=new Set();
   const costKey=row=>`${row.shop_id}:${row.product_id}:${row.model_id}`;
+  const costGroupKey=row=>`${row.shop_id}:${row.product_id}`;
   const selectedCosts=()=>costRows.filter(row=>costSelection.has(costKey(row)));
   function rememberCostFilters() {
     try { localStorage.setItem(costPreferenceKey,JSON.stringify({status:costStatus,shop:costShop,search:costSearch})); } catch (_) {}
@@ -267,10 +268,17 @@
     const selectedRows=selectedCosts();
     const shops=new Set(selectedRows.map(row=>String(row.shop_id)));
     const mixed=shops.size>1;
+    $('cost-list').querySelectorAll('[data-cost-select]').forEach(box=>{ box.checked=costSelection.has(box.dataset.costSelect); });
     $('cost-bulk-form').hidden=!count;
     $('cost-selection-hint').hidden=!!count;
     $('cost-selection').textContent=!count ? '' : mixed ? `${count} baris dari ${shops.size} toko dipilih. Bulk HPP hanya dapat dilakukan untuk satu toko.` : `${count} baris dari satu toko dipilih. Isi HPP yang sama untuk semua baris terpilih.`;
     $('cost-bulk-apply').disabled=!count || mixed;
+    $('cost-list').querySelectorAll('[data-cost-group]').forEach(button=>{
+      const rows=costRows.filter(row=>costGroupKey(row)===button.dataset.costGroup && !Number(row.archived));
+      const selected=rows.length>0 && rows.every(row=>costSelection.has(costKey(row)));
+      button.setAttribute('aria-pressed',String(selected));
+      button.textContent=selected ? 'Batalkan pilihan varian' : `Pilih semua ${rows.length} varian`;
+    });
   }
   function costIdentityMarkup(row,copy=false) {
     const fields=[['ID produk',row.product_id],['ID varian',String(row.model_id)==='0' ? null : row.model_id],['SKU utama',row.parent_sku],['SKU varian',row.variant_sku]];
@@ -307,7 +315,7 @@
     ).catch(e=>{costFeedback(e.message);$('cost-feedback').scrollIntoView({block:'nearest'});});
   }
   function openBatchRows(rows) {
-    invalidateBatch(); batchRows=null; $('cost-batch-file').value=''; $('cost-batch-input').value=['shop_id,product_id,model_id,unit_cost,valid_from',...rows.map(row=>[row.shop_id,row.product_id,row.model_id,row.unit_cost,$('cost-bulk-date').value || root.dataset.today].join(','))].join('\n'); $('cost-batch-error').hidden=true; $('cost-batch-dialog').showModal(); $('cost-batch-input').focus();
+    invalidateBatch(); batchRows=null; $('cost-batch-title').textContent=`Atur HPP untuk ${rows.length} varian`; $('cost-batch-intro').textContent='Baris di bawah berasal dari pilihan Anda. Periksa lalu simpan HPP yang sama untuk semua varian.'; $('cost-batch-file').value=''; $('cost-batch-input').value=['shop_id,product_id,model_id,unit_cost,valid_from',...rows.map(row=>[row.shop_id,row.product_id,row.model_id,row.unit_cost,$('cost-bulk-date').value || root.dataset.today].join(','))].join('\n'); $('cost-batch-error').hidden=true; $('cost-batch-dialog').showModal(); $('cost-batch-input').focus();
   }
   function renderHealth(result) {
     $('cost-health-content').innerHTML=(result.shops||[]).map(shop=>{
@@ -331,10 +339,24 @@
         const labels={...Object.fromEntries(states.map(([key,label])=>[key,label])),released:'Sudah dilepas'};
         target.innerHTML='<div class="finance-table-wrap"><table class="finance-table"><thead><tr><th>Pesanan / toko</th><th>Status / tanggal</th><th>Penghasilan / HPP</th><th>Penyesuaian</th></tr></thead><tbody>'+result.rows.map(r=>`<tr><td data-label="Pesanan / toko"><strong>${esc(r.order_sn)}</strong><span>${esc(r.shop_name)}</span><small>${esc(r.product_name)}</small></td><td data-label="Status / tanggal">${esc(labels[r.state])}${r.state_note ? '<small>'+esc(r.state_note)+'</small>' : ''}<span>${esc(r.released_at ? stamp(r.released_at) : r.estimated_at ? 'Perkiraan: '+stamp(r.estimated_at) : 'Tanggal pelepasan belum tersedia')}</span></td><td data-label="Penghasilan / HPP">${esc(money(r.income_amount))}<small>HPP: ${esc(r.cost?.amount === null ? (r.cost.items ? 'belum lengkap' : 'rincian produk belum tersedia') : money(r.cost?.amount))}</small></td><td data-label="Penyesuaian">${esc(money(r.adjustment_amount))}</td></tr>`).join('')+'</tbody></table></div>';
       } else {
-        target.innerHTML='<div class="finance-table-wrap"><table class="finance-table finance-cost-table"><thead><tr><th>Pilih</th><th>Produk / varian</th><th>Toko / identitas</th><th>HPP per unit</th><th>Aksi</th></tr></thead><tbody>'+costRows.map((r,i)=>`<tr data-cost-key="${esc(costKey(r))}" class="${changedCostKeys.has(costKey(r))?'finance-cost-saved':''}"><td data-label="Pilih"><label class="finance-cost-check"><input type="checkbox" data-cost-select="${esc(costKey(r))}" ${costSelection.has(costKey(r))?'checked':''} ${Number(r.archived)?'disabled':''} aria-label="Pilih HPP ${esc(r.product_name)}, ${esc(r.variation_name || 'tanpa varian')}, ${esc(r.shop_name)}"></label></td><td data-label="Produk / varian"><div class="finance-cost-product"><div>${costVisualMarkup(r)}</div><div><strong class="finance-cost-product-name">${esc(r.product_name)}</strong><span class="finance-cost-variant-name">Varian: ${esc(r.variation_name || 'Produk tanpa varian')}</span>${Number(r.archived) ? '<small>Produk arsip</small>' : ''}</div></div></td><td data-label="Toko / identitas"><span class="finance-cost-shop-name">${esc(r.shop_name)}</span>${costIdentityMarkup(r)}</td><td data-label="HPP per unit"><strong>${r.unit_cost===null ? 'Belum diisi' : esc(money(r.unit_cost))}</strong>${r.valid_from ? '<span>Sejak '+esc(day(r.valid_from))+'</span>' : ''}${changedCostKeys.has(costKey(r))?'<small>HPP diperbarui</small>':''}</td><td data-label="Aksi"><button class="btn" type="button" data-edit-cost="${i}">Atur HPP</button></td></tr>`).join('')+'</tbody></table></div>';
+        const groups=new Map(); costRows.forEach(row=>{const key=costGroupKey(row);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(row);});
+        const renderedGroups=new Set();
+        target.innerHTML='<div class="finance-table-wrap"><table class="finance-table finance-cost-table"><thead><tr><th>Pilih</th><th>Produk / varian</th><th>Toko / identitas</th><th>HPP per unit</th><th>Aksi</th></tr></thead><tbody>'+costRows.map((r,i)=>{
+          const groupKey=costGroupKey(r), group=groups.get(groupKey)||[], activeGroup=group.filter(row=>!Number(row.archived));
+          const groupAction=activeGroup.length>1 && !renderedGroups.has(groupKey) ? `<button class="finance-text-button finance-cost-group-action" type="button" data-cost-group="${esc(groupKey)}" aria-pressed="false">Pilih semua ${activeGroup.length} varian</button>` : '';
+          renderedGroups.add(groupKey);
+          return `<tr data-cost-key="${esc(costKey(r))}" class="${changedCostKeys.has(costKey(r))?'finance-cost-saved':''}"><td data-label="Pilih"><label class="finance-cost-check"><input type="checkbox" data-cost-select="${esc(costKey(r))}" ${costSelection.has(costKey(r))?'checked':''} ${Number(r.archived)?'disabled':''} aria-label="Pilih HPP ${esc(r.product_name)}, ${esc(r.variation_name || 'tanpa varian')}, ${esc(r.shop_name)}"></label></td><td data-label="Produk / varian"><div class="finance-cost-product"><div>${costVisualMarkup(r)}</div><div><strong class="finance-cost-product-name">${esc(r.product_name)}</strong><span class="finance-cost-variant-name">Varian: ${esc(r.variation_name || 'Produk tanpa varian')}</span>${Number(r.archived) ? '<small>Produk arsip</small>' : ''}${groupAction}</div></div></td><td data-label="Toko / identitas"><span class="finance-cost-shop-name">${esc(r.shop_name)}</span>${costIdentityMarkup(r)}</td><td data-label="HPP per unit"><strong>${r.unit_cost===null ? 'Belum diisi' : esc(money(r.unit_cost))}</strong>${r.valid_from ? '<span>Sejak '+esc(day(r.valid_from))+'</span>' : ''}${changedCostKeys.has(costKey(r))?'<small>HPP diperbarui</small>':''}</td><td data-label="Aksi"><button class="btn" type="button" data-edit-cost="${i}">Atur HPP</button></td></tr>`;
+        }).join('')+'</tbody></table></div>';
         bindCostImages(target);
         target.querySelectorAll('[data-edit-cost]').forEach(b=>b.addEventListener('click',()=>{const row=b.closest('[data-cost-key]');costAnchor={key:row.dataset.costKey,top:row.getBoundingClientRect().top};openCost(costRows[Number(b.dataset.editCost)]);}));
         target.querySelectorAll('[data-cost-select]').forEach(box=>box.addEventListener('change',()=>{const key=box.dataset.costSelect; if(box.checked)costSelection.add(key);else costSelection.delete(key); renderCostToolbar();}));
+        target.querySelectorAll('[data-cost-group]').forEach(button=>button.addEventListener('click',()=>{
+          const rows=costRows.filter(row=>costGroupKey(row)===button.dataset.costGroup && !Number(row.archived));
+          const select=rows.some(row=>!costSelection.has(costKey(row)));
+          rows.forEach(row=>{const key=costKey(row);if(select)costSelection.add(key);else costSelection.delete(key);});
+          renderCostToolbar();
+        }));
+        renderCostToolbar();
       }
       pagination(kind,result);
     } catch(e) { if(sequence!==listSequence)return; if(kind==='cost')$('cost-summary').textContent='Ringkasan HPP belum dapat dimuat.'; target.textContent=e.message; const b=document.createElement('button'); b.className='btn'; b.textContent='Coba lagi'; b.onclick=loadList; target.append(b); }
@@ -492,7 +514,7 @@
     } catch(e) { $('cost-batch-error').textContent=e.message; $('cost-batch-error').hidden=false; }
     finally { $('preview-cost-batch').disabled=false; }
   }
-  function openBatch() { invalidateBatch(); batchRows=null; $('cost-batch-input').value=''; $('cost-batch-file').value=''; $('cost-batch-error').hidden=true; $('cost-batch-dialog').showModal(); $('cost-batch-input').focus(); }
+  function openBatch() { invalidateBatch(); batchRows=null; $('cost-batch-title').textContent='Impor HPP batch'; $('cost-batch-intro').textContent='Unggah CSV atau tempel data dari spreadsheet. Gunakan katalog HPP untuk mendapatkan ID produk dan varian yang tepat.'; $('cost-batch-input').value=''; $('cost-batch-file').value=''; $('cost-batch-error').hidden=true; $('cost-batch-dialog').showModal(); $('cost-batch-input').focus(); }
   function closeBatch() { $('cost-batch-dialog').close(); }
   const costInput=()=>({shop_id:editing.shop_id,product_id:editing.product_id,model_id:editing.model_id,version:editing.version,unit_cost:$('cost-value').value,valid_from:$('cost-date').value,...costScopePayload()});
   if(!dashboard) {

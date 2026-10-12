@@ -284,6 +284,8 @@
 #finance-page .finance-cost-product strong { display: block; overflow-wrap: break-word; word-break: normal; line-height: 1.35; }
 #finance-page .finance-cost-product :is(span,small) { overflow-wrap: break-word; word-break: normal; }
 #finance-page .finance-cost-product small { overflow-wrap: anywhere; }
+#finance-page .finance-cost-group-action { display: flex; width: fit-content; max-width: 100%; margin-top: 6px; padding-inline: 0; text-align: left; color: inherit; }
+#finance-page .finance-cost-group-action[aria-pressed="true"] { font-weight: 650; }
 #finance-page .finance-cost-toolbar { display: grid; gap: 16px; margin-block: 20px; padding: 16px; border: 1px solid var(--color-base-300); border-radius: 8px; background: var(--color-base-200); }
 #finance-page .finance-cost-toolbar > div:first-child { min-width: 0; }
 #finance-page .finance-cost-bulk { display: grid; grid-template-columns: minmax(0,1fr); gap: 8px; align-items: end; }
