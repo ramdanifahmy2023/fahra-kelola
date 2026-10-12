@@ -89,6 +89,7 @@
   const themeMenu = document.getElementById('theme-menu');
   const themeIcon = document.getElementById('theme-menu-icon');
   const themeChoices = Array.from(document.querySelectorAll('[data-theme-choice]'));
+  const themeMenuList = document.getElementById('theme-menu-list');
   const themeIcons = { system: 'routine', light: 'light_mode', dark: 'dark_mode' };
   const themeLabels = { system: 'Sistem', light: 'Terang', dark: 'Gelap' };
   function renderTheme(mode) {
@@ -102,15 +103,26 @@
     });
   }
   const setThemeOpen = open => {
-    if (!themeButton || !themeMenu) return;
-    themeMenu.classList.toggle('dropdown-open', open);
-    themeMenuList.hidden = !open;
-    themeButton.setAttribute('aria-expanded', String(open));
-    if (open) themeChoices.find(choice => choice.getAttribute('aria-checked') === 'true')?.focus();
+    if (!themeButton || !themeMenu || !themeMenuList) return;
+    const next = Boolean(open);
+    themeMenu.classList.toggle('dropdown-open', next);
+    themeMenuList.hidden = !next;
+    themeMenuList.setAttribute('aria-hidden', String(!next));
+    themeButton.setAttribute('aria-expanded', String(next));
+    if (next) themeChoices.find(choice => choice.getAttribute('aria-checked') === 'true')?.focus();
   };
-  const themeMenuList = document.getElementById('theme-menu-list');
-  themeButton?.addEventListener('click', () => setThemeOpen(themeMenuList.hidden));
-  themeChoices.forEach(choice => choice.addEventListener('click', () => { window.shopdashTheme?.setMode(choice.dataset.themeChoice); setThemeOpen(false); themeButton?.focus(); }));
+  themeButton?.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    setThemeOpen(themeMenuList?.hidden ?? true);
+  });
+  themeChoices.forEach(choice => choice.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.shopdashTheme?.setMode(choice.dataset.themeChoice);
+    setThemeOpen(false);
+    themeButton?.focus();
+  }));
   themeMenuList?.addEventListener('keydown', event => {
     if (event.key === 'Escape') { event.preventDefault(); setThemeOpen(false); themeButton?.focus(); return; }
     if (!['ArrowDown','ArrowUp'].includes(event.key)) return;
