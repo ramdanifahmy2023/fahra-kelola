@@ -154,6 +154,9 @@ try {
   ]];
   $batch=$cost->batchPreview($batchRows);
   financeCheck($batch['summary']['valid']===4 && !$batch['errors'] && $batch['rows'][0]['previous_cost']===25000 && $batch['rows'][2]['impact']['units']===0 && (int)$batch['rows'][2]['model_id']===31 && $batch['rows'][2]['variant_image']==='red.jpg' && (int)$batch['rows'][3]['model_id']===32,'Batch preview keeps dated previous cost, order impact, variant images, and separate HPP for each variant');
+  $skuFallback=['rows'=>[['row_no'=>6,'shop_id'=>'1','product_id'=>'10','model_id'=>'2,62641E+11','sku'=>'SAME','unit_cost'=>'33000','valid_from'=>'2099-09-12']]];
+  $recovered=$cost->batchPreview($skuFallback);
+  financeCheck($recovered['summary']['valid']===1 && !$recovered['errors'] && (int)$recovered['rows'][0]['model_id']===0,'Batch can recover a rounded variant ID from a unique SKU');
   $expires=time()+600; $cost->batchSave($batchRows+['expires'=>$expires,'token'=>FinanceCost::batchToken($batch,$expires,'test-secret')],1,'test-secret');
   financeCheck((int)$cost->history(['shop_id'=>1,'product_id'=>10,'model_id'=>0])[0]['unit_cost']===32000,'Batch saves multiple dates for one product');
   $duplicate=$cost->batchPreview(['rows'=>[$batchRows['rows'][0],$batchRows['rows'][0]]]);

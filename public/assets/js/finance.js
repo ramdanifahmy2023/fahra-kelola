@@ -378,13 +378,52 @@
       }));
     } catch(e) { if(sequence===dialogSequence)$('cost-history').textContent=e.message; }
   }
+  function batchDelimiter(source) {
+    const candidates=[',',';','\t'], counts=new Map(candidates.map(value=>[value,0])), firstLine=source.split(/\r?\n/).find(line=>line.trim()!=='') || ''; let quoted=false;
+    for(let i=0;i<firstLine.length;i++) {
+      const char=firstLine[i], next=firstLine[i+1];
+      if(char==='"' && quoted && next==='"') { i++; continue; }
+      if(char==='"') { quoted=!quoted; continue; }
+      if(!quoted && counts.has(char)) counts.set(char,counts.get(char)+1);
+    }
+    return candidates.reduce((best,value)=>counts.get(value)>counts.get(best) ? value : best,',');
+  }
+  function validateBatchRows(rows) {
+    const ids=[['shop_id','ID toko',true],['product_id','ID produk',true],['model_id','ID varian',false]], errors=[];
+    const scientific=/^\d+[,.]\d+e[+-]\d+$/i;
+    const positive=value=>/^0+$/.test(String(value));
+    const validDate=value=>{ if(!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false; const parsed=new Date(value+'T00:00:00Z'); return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0,10)===value; };
+    rows.forEach(row=>{
+      const line=`Baris ${row.row_no}`;
+      ids.forEach(([field,label,required])=>{
+        const value=String(row[field] ?? '').trim();
+        if(!value) { errors.push(`${line}: ${label} wajib diisi. Produk tanpa varian tetap memakai model_id 0.`); return; }
+        if(scientific.test(value)) {
+          const sku=String(row.variant_sku || row.sku || '').trim();
+          if(field==='model_id' && sku) return;
+          errors.push(`${line}: ${label} terbaca sebagai notasi ilmiah (${value}). Unduh ulang katalog dan impor kolom ID sebagai teks${field==='model_id' ? ' atau isi SKU varian yang masih utuh' : ''}; angka yang sudah dibulatkan tidak dapat dipulihkan.`); return;
+        }
+        if(!/^\d+$/.test(value) || (required && positive(value))) errors.push(`${line}: ${label} harus berupa angka bulat tanpa koma, titik, atau notasi ilmiah.`);
+      });
+      const unit=String(row.unit_cost ?? '').trim();
+      if(!unit) errors.push(`${line}: HPP per unit wajib diisi.`);
+      else if(!/^\d+$/.test(unit) || Number(unit)>1000000000) errors.push(`${line}: HPP per unit harus berupa angka bulat dari 0 sampai 1 miliar.`);
+      const date=String(row.valid_from ?? '').trim();
+      if(!date) errors.push(`${line}: tanggal mulai HPP wajib diisi.`);
+      else if(!validDate(date)) errors.push(`${line}: tanggal mulai HPP harus berformat YYYY-MM-DD.`);
+    });
+    if(errors.length) {
+      const shown=errors.slice(0,3).join(' ');
+      throw new Error(`${errors.length} masalah ditemukan sebelum dikirim. ${shown}${errors.length>3 ? ' Perbaiki baris lain yang ditandai pada file.' : ''}`);
+    }
+  }
   function parseBatchText(text) {
-    const rows=[], source=String(text||'').replace(/^\uFEFF/,''); let fields=[], field='', quoted=false;
+    const rows=[], source=String(text||'').replace(/^\uFEFF/,''), delimiter=batchDelimiter(source); let fields=[], field='', quoted=false;
     for(let i=0;i<source.length;i++) {
       const char=source[i], next=source[i+1];
       if(char==='"' && quoted && next==='"') { field+='"'; i++; continue; }
       if(char==='"') { quoted=!quoted; continue; }
-      if(!quoted && (char===',' || char==='\t')) { fields.push(field.trim()); field=''; continue; }
+      if(!quoted && char===delimiter) { fields.push(field.trim()); field=''; continue; }
       if(!quoted && (char==='\n' || char==='\r')) {
         if(char==='\r' && next==='\n') i++;
         fields.push(field.trim()); field='';
@@ -399,14 +438,23 @@
     const header=rows[0].map(value=>value.toLowerCase().replace(/\s+/g,'_'));
     const columns=['shop_id','product_id','model_id','unit_cost','valid_from'];
     const hasHeader=columns.every(column=>header.includes(column));
-    const start=hasHeader?1:0, indexes=hasHeader?Object.fromEntries(columns.map(column=>[column,header.indexOf(column)])):Object.fromEntries(columns.map((column,index)=>[column,index]));
+    const headerLike=header.some(value=>['shop_id','product_id','model_id','unit_cost','valid_from','shop_name','product_name'].includes(value));
+    if(headerLike && !hasHeader) throw new Error('Header file belum lengkap. Gunakan kolom shop_id, product_id, model_id, unit_cost, valid_from.');
+    const optional=['shop_name','product_name','variation_name','parent_sku','variant_sku','sku'];
+    const start=hasHeader?1:0, indexes=hasHeader?Object.fromEntries([...columns,...optional].map(column=>[column,header.indexOf(column)])):Object.fromEntries(columns.map((column,index)=>[column,index]));
     const parsed=[];
     for(let index=start;index<rows.length;index++) {
       const values=rows[index];
-      parsed.push({row_no:index+1,...Object.fromEntries(columns.map(column=>[column,values[indexes[column]]??'']))});
+      const row={row_no:index+1,...Object.fromEntries(columns.map(column=>[column,values[indexes[column]]??'']))};
+      optional.forEach(column=>{if(indexes[column]>=0)row[column]=values[indexes[column]]??'';});
+      parsed.push(row);
     }
     if(!parsed.length) throw new Error('Data batch hanya berisi header.');
-    return parsed;
+    const rowsWithCost=parsed.filter(row=>String(row.unit_cost ?? '').trim()!=='' || String(row.valid_from ?? '').trim()!=='');
+    const skipped=parsed.length-rowsWithCost.length;
+    if(!rowsWithCost.length) throw new Error('Belum ada baris dengan HPP dan tanggal mulai. Isi minimal satu baris terlebih dahulu.');
+    validateBatchRows(rowsWithCost);
+    return {rows:rowsWithCost,skipped};
   }
   function validateBatchScope(rows) {
     const allowed=costScopeIds();
@@ -414,7 +462,7 @@
     if (outside.length) throw new Error(costShop ? 'Ada baris batch dari toko lain. Pilih Toko HPP yang sesuai atau periksa shop_id pada file.' : 'Ada baris batch dari toko yang tidak tersedia. Periksa shop_id pada file.');
   }
   function invalidateBatch() {
-    batchSequence++; batchProof=null; $('save-cost-batch').disabled=true; $('cost-batch-preview').hidden=true;
+    batchSequence++; batchProof=null; $('save-cost-batch').disabled=true; $('cost-batch-preview').hidden=true; $('cost-batch-note').hidden=true;
   }
   function batchPreviewMarkup(result) {
     const preview=result.preview || result;
@@ -432,7 +480,9 @@
     invalidateBatch(); $('cost-batch-error').hidden=true; $('preview-cost-batch').disabled=true;
     const sequence=++batchSequence;
     try {
-      const rows=parseBatchText($('cost-batch-input').value); validateBatchScope(rows); batchRows=rows; const scope=costScopePayload(); const result=await api('batchPreview',{rows,...scope});
+      const parsed=parseBatchText($('cost-batch-input').value), rows=parsed.rows; validateBatchScope(rows); batchRows=rows; const scope=costScopePayload();
+      if(parsed.skipped) { $('cost-batch-note').textContent=`${parsed.skipped} baris tanpa HPP dan tanggal dilewati. Baris tersebut tidak mengubah data yang sudah tersimpan.`; $('cost-batch-note').hidden=false; }
+      const result=await api('batchPreview',{rows,...scope});
       if(sequence!==batchSequence)return;
       $('cost-batch-preview').innerHTML=batchPreviewMarkup(result); bindCostImages($('cost-batch-preview')); $('cost-batch-preview').hidden=false;
       const preview=result.preview || result;
