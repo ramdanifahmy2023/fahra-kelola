@@ -57,6 +57,7 @@
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#panel-main">Lewati ke konten utama</a>
   <?php Alert::show(); ?>
   <div id="workspace-save-error" role="alert" hidden>Pilihan terakhir belum tersimpan.<button type="button" id="workspace-save-retry" class="btn">Coba simpan lagi</button></div>
 
@@ -90,5 +91,5 @@
     <input id="panel-drawer" type="checkbox" class="drawer-toggle" />
     <div class="drawer-content flex min-h-screen flex-col bg-base-200">
       <?php require_once __DIR__ . '/navbar.php'; ?>
-      <main class="relative flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-5">
+      <main id="panel-main" tabindex="-1" class="relative flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-5">
         <div class="mx-auto w-full max-w-[1600px]">

@@ -49,15 +49,15 @@
     </div>
     <progress id="sync-detail-progress" class="hidden" value="0" max="100"></progress>
     <?php $authUser = authUser() ?? []; $authName = trim((string)($authUser['name'] ?? 'Pengguna')); $authEmail = (string)($authUser['email'] ?? ''); $authInitial = strtoupper(substr($authName !== '' ? $authName : 'P', 0, 1)); ?>
-    <div class="dropdown dropdown-end">
-      <div tabindex="0" role="button" aria-label="Menu akun" class="panel-user-trigger btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
+    <div class="dropdown dropdown-end" id="account-menu">
+      <button type="button" id="account-menu-button" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu-list" class="panel-user-trigger btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
         <div class="panel-user-avatar grid h-7 w-7 place-items-center rounded-md text-xs font-black"><?= htmlspecialchars($authInitial, ENT_QUOTES); ?></div>
         <span class="hidden max-w-28 truncate text-xs font-semibold sm:block"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span>
         <span class="panel-user-chevron material-symbols-outlined hidden text-base-content/50 sm:block" aria-hidden="true">expand_more</span>
-      </div>
-      <ul tabindex="0" class="menu dropdown-content z-[1] mt-2 w-52 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
+      </button>
+      <ul id="account-menu-list" role="menu" tabindex="-1" class="menu dropdown-content z-[1] mt-2 w-52 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
         <li class="menu-title px-3 py-2"><span class="text-xs font-bold text-base-content"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span><span class="text-[10px] font-normal normal-case text-base-content/50"><?= htmlspecialchars($authEmail, ENT_QUOTES); ?></span></li>
-        <li class="mt-1 text-error"><a href="<?= burl; ?>/auth/logout"><span class="material-symbols-outlined text-base">logout</span>Keluar</a></li>
+        <li class="mt-1 text-error"><a role="menuitem" href="<?= burl; ?>/auth/logout"><span class="material-symbols-outlined text-base" aria-hidden="true">logout</span>Keluar</a></li>
       </ul>
     </div>
   </div>
@@ -84,6 +84,9 @@
   const themeMenu = document.getElementById('theme-menu');
   const themeIcon = document.getElementById('theme-menu-icon');
   const themeChoices = Array.from(document.querySelectorAll('[data-theme-choice]'));
+  const accountMenu = document.getElementById('account-menu');
+  const accountButton = document.getElementById('account-menu-button');
+  const accountList = document.getElementById('account-menu-list');
   const themeIcons = { system: 'routine', light: 'light_mode', dark: 'dark_mode' };
   const themeLabels = { system: 'Sistem', light: 'Terang', dark: 'Gelap' };
   function renderTheme(mode) {
@@ -99,6 +102,50 @@
   themeChoices.forEach(choice => choice.addEventListener('click', () => window.shopdashTheme?.setMode(choice.dataset.themeChoice)));
   window.addEventListener('shopdash:theme', event => renderTheme(event.detail?.mode));
   renderTheme();
+
+  const setAccountOpen = open => {
+    if (!accountMenu || !accountButton) return;
+    accountMenu.classList.toggle('dropdown-open', open);
+    accountButton.setAttribute('aria-expanded', String(open));
+    if (open) accountList?.querySelector('[role="menuitem"]')?.focus();
+  };
+  accountButton?.addEventListener('click', () => setAccountOpen(!accountMenu.classList.contains('dropdown-open')));
+  accountMenu?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); setAccountOpen(false); accountButton?.focus(); }
+  });
+  document.addEventListener('click', event => { if (accountMenu && !accountMenu.contains(event.target)) setAccountOpen(false); });
+
+  const enhanceStaticPickers = () => document.querySelectorAll('.shop-picker').forEach(picker => {
+    const trigger = picker.querySelector(':scope > button');
+    const menu = picker.querySelector(':scope > .shop-picker-list');
+    const options = () => Array.from(menu?.querySelectorAll('a') || []);
+    if (!trigger || !menu || !options().length || picker.dataset.keyboardReady === 'true') return;
+    picker.dataset.keyboardReady = 'true';
+    const setOpen = open => {
+      menu.classList.toggle('dropdown-open', open);
+      trigger.setAttribute('aria-expanded', String(open));
+    };
+    trigger.addEventListener('click', () => setOpen(!menu.classList.contains('dropdown-open')));
+    trigger.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowDown' && event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      setOpen(true);
+      options()[0]?.focus();
+    });
+    menu.addEventListener('click', event => { if (event.target.closest('a')) setOpen(false); });
+    menu.addEventListener('keydown', event => {
+      const items = options();
+      const index = items.indexOf(document.activeElement);
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); trigger.focus(); return; }
+      if (!items.length || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : Math.max(0, Math.min(items.length - 1, index + (event.key === 'ArrowUp' ? -1 : 1)));
+      items[next]?.focus();
+    });
+    picker.addEventListener('focusout', event => { if (!picker.contains(event.relatedTarget)) setOpen(false); });
+  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enhanceStaticPickers, {once: true});
+  else enhanceStaticPickers();
 
 })();
 </script>

@@ -52,7 +52,7 @@ window.enhanceShopSelect = select => {
         trigger.children[1].textContent = count === 0 || count === select.options.length ? 'Semua toko' : count + ' toko dipilih';
       }
     }
-    trigger.children[1].classList.add('truncate');
+    trigger.children[1].classList.add('break-words');
     const arrow = document.createElement('span');
     arrow.className = 'material-symbols-outlined';
     arrow.setAttribute('aria-hidden', 'true');
@@ -64,6 +64,7 @@ window.enhanceShopSelect = select => {
       const row = document.createElement('li');
       const button = document.createElement('button');
       button.type = 'button';
+      button.setAttribute('role', 'menuitem');
       button.dataset.shopValue = option.value;
       button.disabled = option.disabled;
       content(option, button);
@@ -85,6 +86,14 @@ window.enhanceShopSelect = select => {
     });
   }
   picker.addEventListener('keydown', event => {
+    const options = Array.from(menu.querySelectorAll('button:not(:disabled)'));
+    const currentIndex = options.indexOf(document.activeElement);
+    if (!menu.hidden && options.length && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      event.preventDefault();
+      const nextIndex = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : Math.max(0, Math.min(options.length - 1, currentIndex + (event.key === 'ArrowUp' ? -1 : 1)));
+      options[nextIndex]?.focus();
+      return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault();
       setOpen(false);

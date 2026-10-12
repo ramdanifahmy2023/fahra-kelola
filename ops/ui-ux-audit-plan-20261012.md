@@ -14,6 +14,18 @@ Audit ini membaca source branch `main` pada worktree baru. Bukti utama berasal d
 
 Panduan UI UX Pro Max menghasilkan arah **Minimalism & Swiss Style** untuk dashboard operasional: hierarki jelas, grid stabil, kontras tinggi, motion ringan, dan kepadatan standar. Arah ini diterapkan sebagai filter terhadap visual Shopdash yang sudah ada, bukan sebagai alasan untuk mengganti identitasnya. Antislop menjaga agar teks, warna, ikon, dan dekorasi tetap punya fungsi yang dapat dijelaskan.
 
+## Status implementasi 13 Oktober 2026
+
+Sprint 1 sudah diterapkan pada worktree ini:
+
+- Shell panel memiliki skip link, landmark `main` yang dapat menerima fokus, label navigasi, `aria-current` lengkap, serta icon dekoratif yang disembunyikan dari pembaca layar.
+- Menu akun memakai elemen `button`, state `aria-expanded`, menu item, Escape, focus return, dan penutupan saat klik di luar.
+- Kontrol panel dan navigasi dinaikkan ke target sentuh minimum 44px dengan focus ring yang konsisten.
+- Picker toko mempertahankan logo, membungkus nama panjang, memakai menu satu kolom dengan scroll, dan mendukung Arrow, Home, End, Escape, serta focus return pada picker dinamis dan statis.
+- CSS hasil build diperbarui dari `resources/css/input.css`; tidak ada perubahan pada model, controller, endpoint, schema, atau worker.
+
+Verifikasi yang sudah dijalankan: lint PHP untuk template yang berubah, `node --check` untuk `shop-select.js`, `npm run build`, `git diff --check`, dan detector Impeccable. Detector masih melaporkan beberapa side-tab border lama di CSS yang tidak disentuh Sprint 1. Browser suite belum dijalankan karena modul Playwright tidak tersedia di checkout ini; validasi visual dan interaksi lintas viewport tetap menjadi langkah berikutnya.
+
 ## Ringkasan temuan
 
 Shopdash sudah memiliki fondasi yang baik: tema hangat dengan oranye sebagai aksen, tema gelap, logo toko nyata, Material Symbols, disclosure native, status dinamis, dan beberapa halaman dengan pengujian responsif yang kuat. Masalah terbesar muncul karena pola lama dan pola baru hidup berdampingan.

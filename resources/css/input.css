@@ -658,6 +658,9 @@
 .panel-navbar { box-shadow: 0 1px 0 color-mix(in srgb, var(--color-base-content) 4%, transparent); }
 .panel-navbar .panel-user-avatar { background: var(--color-primary); color: var(--color-primary-content); }
 .panel-navbar :is(.btn-ghost,.panel-user-trigger):hover { background: var(--color-base-200); }
+.panel-navbar :is(.btn-ghost,.panel-user-trigger):focus-visible, .panel-navbar .panel-user-trigger[aria-expanded="true"] { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.panel-navbar .panel-user-trigger { min-height: 44px; }
+.panel-navbar .panel-user-trigger + .dropdown-content { margin-top: 8px; }
 .drawer > .drawer-side > aside { box-shadow: 1px 0 0 color-mix(in srgb, var(--color-neutral-content) 5%, transparent); }
 .drawer-side nav { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--color-neutral-content) 30%, transparent) transparent; }
 .drawer-side nav a[aria-current="page"] { font-weight: 750; }
@@ -771,6 +774,14 @@
 .shop-picker-logo { display: grid; place-items: center; flex: 0 0 24px; width: 24px; height: 24px; }
 .shop-picker img { width: 24px; height: 24px; flex-shrink: 0; border-radius: 4px; object-fit: cover; }
 .shop-picker :is(button, a):focus-visible { outline: 2px solid var(--color-base-content); outline-offset: -2px; }
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 200; transform: translateY(-160%); padding: 10px 14px; border-radius: 8px; background: var(--color-neutral); color: var(--color-neutral-content); font-size: .875rem; font-weight: 700; box-shadow: 0 8px 20px color-mix(in srgb, var(--color-neutral) 28%, transparent); transition: transform 150ms ease; }
+.skip-link:focus-visible { transform: translateY(0); outline: 2px solid var(--color-primary); outline-offset: 3px; }
+#panel-main { scroll-margin-top: 72px; }
+#panel-main:focus { outline: none; }
+#panel-main :is(.btn, .select, .input, .textarea) { min-height: 44px; }
+#panel-main :is(.btn-square, .btn-circle) { min-width: 44px; }
+#panel-main :is(.btn, a, button, select, input, textarea, summary):focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) { .skip-link { transition: none; } }
 #boost-monitor [data-products] { container-type: inline-size; }
 #boost-monitor .boost-product-row { display: grid; grid-template-columns: 24px 48px minmax(0, 1fr); align-items: start; gap: 8px; border: 1px solid var(--color-base-300); border-radius: 8px; padding: 12px; cursor: pointer; }
 #boost-monitor .boost-product-row input { grid-column: 1; grid-row: 1; width: 24px; height: 24px; margin: 12px 0 0; }
