@@ -1,6 +1,6 @@
 # Shopdash audit implementation — 2026-10-12
 
-All changes in this audit are isolated on branch `audit/implement-20261012`.
+All changes in this audit were prepared on branch `audit/implement-20261012`.
 The pre-audit Git bundle is stored outside the repository at
 `../backups/shopdash-pre-audit-20261012.bundle`.
 
@@ -28,12 +28,37 @@ The pre-audit Git bundle is stored outside the repository at
 - PHP lint across the repository
 - JavaScript syntax check across `public/assets/js`
 - `git diff --check`
-- 17 local regression suites covering sync, Finance, Ads, Boost, AI,
+- 24 local PHP regression suites covering sync, Finance, Ads, Boost, AI,
   customers, chat, releases, and workspace behavior
+- Production npm dependency audit: zero vulnerabilities. The full audit still
+  reports five high-severity development/build dependency advisories.
+- Manual browser verification on the Reports preview at port 8132: light,
+  dark, system preference, reload, keyboard navigation, Escape and Tab-out.
 
-No merge or push is performed by this branch. After manual validation, merge
-this branch into `main`; the bundle can restore the pre-audit commit if a
-rollback is needed.
+These results were obtained during the audit through commit `95e3405`, not
+rerun as part of the merge. Playwright suites were not run because its module
+was unavailable in the worktree.
+
+## Integration and remaining limits, 2026-10-13
+
+The user authorized integration into `main` after preview and audit. Integrate
+with a merge commit and push normally to `origin/main`, preserving the audit
+branch and pre-audit bundle. For a code rollback after publication, revert the
+merge commit with `git revert -m 1 <merge-commit>` and push normally; do not
+reset or force-push shared history. Git rollback does not restore database
+data or reverse additive migrations.
+
+The final review found no remaining high-severity tenant/auth isolation
+finding. Two medium-severity integrity risks remain:
+
+- Generic sync helpers only check the job lease before and after a complete
+  helper call. If it outlives the lease and another worker reclaims it, helper
+  writes may overwrite newer data for the same shop.
+- Remote `shop_id` uniqueness is not enforced across local shop rows, so the
+  same remote seller may still be attached more than once.
+
+The merge is repository publication. It does not prove external Shopee
+reconciliation, database migration completion or deployment health.
 
 ## Deployment notes
 
