@@ -16,7 +16,10 @@ class ProductSynchronizer {
   }
   private $pageSize = 48;
 
+  private static $checkpointSchemaReady = false;
+
   private function ensureCheckpointSchema() {
+    if (self::$checkpointSchemaReady) return;
     $this->db->query("CREATE TABLE IF NOT EXISTS sync_checkpoints (
       shop_id INT NOT NULL,
       sync_type VARCHAR(50) NOT NULL,
@@ -31,6 +34,7 @@ class ProductSynchronizer {
       PRIMARY KEY (shop_id, sync_type)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $this->db->exe();
+    self::$checkpointSchemaReady = true;
   }
 
   public function run(array $shop, $mode = 'diff', $maxPages = 2, $rateMs = 350) {
@@ -73,27 +77,39 @@ class ProductSynchronizer {
       $rows = is_array($response['products'] ?? null) ? $response['products'] : [];
       $pageInfo = is_array($response['page_info'] ?? null) ? $response['page_info'] : [];
       $nextCursor = (string)($pageInfo['cursor'] ?? '');
+      if ($mode === 'full' && !array_key_exists('total', $pageInfo)) {
+        $this->saveCheckpoint($shopId, $mode, $cursor, $page, $seenProducts, $seenModels, 'failed', 'Jumlah produk tidak terverifikasi.');
+        return ['ok' => false, 'message' => 'Jumlah produk tidak terverifikasi; rekonsiliasi ditunda.'];
+      }
       if ((!$rows && !array_key_exists('total', $pageInfo))
         || ($nextCursor !== '' && ($nextCursor === $previousCursor || !$rows))
         || (!$rows && (int)($pageInfo['total'] ?? 0) > count($seenProducts))) {
         return ['ok' => false, 'message' => 'Halaman produk tidak bergerak atau respons tidak lengkap.'];
       }
+      $validProductCount = 0;
+      foreach ($rows as $product) if ((int)($product['id'] ?? 0) > 0) $validProductCount++;
+      if ($rows && $validProductCount === 0) {
+        $this->saveCheckpoint($shopId, $mode, $cursor, $page, $seenProducts, $seenModels, 'failed', 'Respons produk tidak memiliki ID yang valid.');
+        return ['ok' => false, 'message' => 'Respons produk tidak valid; rekonsiliasi ditunda.'];
+      }
       $total = max($total, (int)($pageInfo['total'] ?? 0));
       foreach ($rows as $product) {
         $productId = (int)($product['id'] ?? 0);
         if ($productId < 1) continue;
+        $storedProduct = $this->upsertProduct($productModel, $product, $shopId, $added, $updated);
+        if (!$storedProduct) continue;
         $seenProducts[$productId] = true;
         foreach (($product['model_list'] ?? []) as $model) {
           $modelId = (int)($model['id'] ?? 0);
           if ($modelId > 0) $seenModels[$modelId] = true;
         }
-        $this->upsertProduct($productModel, $product, $shopId, $added, $updated);
         foreach (($product['model_list'] ?? []) as $model) {
           $modelId = (int)($model['id'] ?? 0);
           if ($modelId < 1) continue;
           $data = [
             'id' => $modelId,
             'product_id' => $productId,
+            'shop_id' => $shopId,
             'name' => (string)($model['name'] ?? ''),
             'sku' => (string)($model['sku'] ?? ''),
             'stock' => (int)($model['stock_detail']['total_available_stock'] ?? 0),
@@ -146,9 +162,16 @@ class ProductSynchronizer {
 
   private function upsertProduct($model, array $product, $shopId, &$added, &$updated) {
     $id = (int)($product['id'] ?? 0);
-    $this->db->query('SELECT * FROM products WHERE id = :id LIMIT 1');
+    $this->db->query('SELECT * FROM products WHERE id = :id AND shop_id = :shop_id LIMIT 1');
     $this->db->bind('id', $id);
+    $this->db->bind('shop_id', (int)$shopId);
     $exists = $this->db->single();
+    $this->db->query('SELECT id, shop_id FROM products WHERE id = :id LIMIT 1');
+    $this->db->bind('id', $id);
+    $anyProduct = $this->db->single();
+    // A remote ID returned under the wrong local shop is a duplicate input,
+    // not permission to reassign the existing product.
+    if (!$exists && $anyProduct && (int)$anyProduct['shop_id'] !== (int)$shopId) return false;
     $data = [
       'id' => $id,
       'shop_id' => $shopId,
@@ -180,12 +203,17 @@ class ProductSynchronizer {
       $model->insert($data);
       $added++;
     }
+    return true;
   }
 
   private function upsertModel($model, array $data) {
-    $this->db->query('SELECT * FROM product_models WHERE id = :id LIMIT 1');
+    $this->db->query('SELECT pm.*, p.shop_id AS parent_shop_id FROM product_models pm LEFT JOIN products p ON p.id = pm.product_id WHERE pm.id = :id LIMIT 1');
     $this->db->bind('id', (int)$data['id']);
     $exists = $this->db->single();
+    if ($exists) {
+      $ownerShop = (int)($exists['shop_id'] ?? 0) ?: (int)($exists['parent_shop_id'] ?? 0);
+      if ($ownerShop !== (int)($data['shop_id'] ?? 0)) return false;
+    }
     if ($exists) {
       $id = $data['id'];
       unset($data['id']);
@@ -193,6 +221,7 @@ class ProductSynchronizer {
     } else {
       $model->insert($data);
     }
+    return true;
   }
 
   private function changed(array $existing, array $data) {

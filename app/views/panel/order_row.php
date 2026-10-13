@@ -59,7 +59,7 @@ $needsSync = empty($ord['order_sn'])
            <img src="<?= htmlspecialchars($itemImg); ?>" alt="<?= htmlspecialchars('Produk: ' . $itemName, ENT_QUOTES, 'UTF-8'); ?>" class="w-8 h-8 rounded object-cover border border-base-200 shrink-0" />
            <?php else: ?>
            <div class="w-8 h-8 rounded bg-base-200 border border-base-300 shrink-0 flex items-center justify-center">
-             <span class="material-symbols-outlined text-[14px] opacity-50">image</span>
+             <span class="material-symbols-outlined text-[14px] opacity-50" aria-hidden="true">image</span>
            </div>
            <?php endif; ?>
            <div class="flex-1 min-w-0">
@@ -192,7 +192,7 @@ $needsSync = empty($ord['order_sn'])
   </td>
   <td class="text-center">
     <button type="button" class="btn btn-ghost btn-square" data-order-details="<?= (int)$ord['id']; ?>" aria-label="Lihat rincian pesanan <?= htmlspecialchars($ord['order_sn'] ?: $ord['id'],ENT_QUOTES,'UTF-8'); ?>">
-      <span class="material-symbols-outlined text-[18px]">visibility</span>
+      <span class="material-symbols-outlined text-[18px]" aria-hidden="true">visibility</span>
     </button>
   </td>
 </tr>

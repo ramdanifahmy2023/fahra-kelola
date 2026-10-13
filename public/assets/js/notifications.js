@@ -3,7 +3,7 @@
   if(!root)return;
   const $=id=>document.getElementById('notification-'+id);
   const panel=$('panel'),bell=$('button');
-  let unreadOnly=true,offset=0,rows=[],busy=false,revision=0,hasMore=false,group=null,grouped=false;
+  let unreadOnly=true,offset=0,rows=[],busy=false,revision=0,hasMore=false,group=null,grouped=false,returnFocus=null;
   const soundKey='shopdash:chat-sound:'+root.dataset.user, cursorKey=soundKey+':cursor';
   let audio=null,soundLoaded=false,soundBusy=false;
   function stored(key){try{return localStorage.getItem(key);}catch{return null;}}
@@ -69,7 +69,7 @@
   const text=(tag,value,className='')=>{const el=document.createElement(tag);el.textContent=value;el.className=className;return el;};
   const icon=name=>{const el=text('span',name,'material-symbols-outlined');el.setAttribute('aria-hidden','true');return el;};
   const date=value=>value ? new Date(value.replace(' ','T')+'Z').toLocaleString('id-ID',{timeZone:'Asia/Jakarta',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})+' WIB' : 'Waktu sumber belum tersedia';
-  function close(focus=false){panel.hidden=true;bell.setAttribute('aria-expanded','false');if(focus)bell.focus();}
+  function close(focus=false){panel.hidden=true;bell.setAttribute('aria-expanded','false');panel.removeAttribute('aria-busy');if(focus) (returnFocus||bell).focus();returnFocus=null;}
   function error(message){$('error').textContent=message;$('error').hidden=false;}
   async function request(action,items){
     const response=await fetch(root.dataset.endpoint+'/'+action,{method:items?'POST':'GET',cache:'no-store',headers:items?{'Content-Type':'application/json','X-CSRF-Token':root.dataset.csrf}:{},body:items?JSON.stringify({items}):undefined});
@@ -143,7 +143,7 @@
   }
   async function load(automatic=false){
     if(busy)return;
-    const token=++revision;$('reload').disabled=true;
+    const token=++revision;$('reload').disabled=true;panel.setAttribute('aria-busy','true');
     try{
       const params=new URLSearchParams({unread_only:unreadOnly?'1':'0',limit:'10',offset:String(offset),urgent_only:$('urgent').checked?'1':'0',grouped:group?'0':'1'});if(group){params.set('shop_id',group.shop_id);params.set('type',group.type);}
       const data=await request('summary?'+params);
@@ -152,7 +152,7 @@
       render(data,automatic&&!panel.hidden);
       await chatSound(data.chat_cursor);
     }catch(e){if(token===revision)error(e.message);}
-    finally{if(token===revision)$('reload').disabled=false;}
+    finally{if(token===revision){$('reload').disabled=false;panel.setAttribute('aria-busy','false');}}
   }
   async function mark(items,action='acknowledge'){
     if(busy)return;
@@ -165,10 +165,18 @@
     finally{busy=false;root.querySelectorAll('.notification-read,.notification-later,[data-notification-filter],#notification-back,#notification-urgent').forEach(b=>b.disabled=false);$('mark-all').disabled=!rows.some(row=>row.unread);$('reload').disabled=false;$('prev').disabled=offset===0;$('next').disabled=!hasMore;}
     if(!failed){await load();if(!panel.hidden)$('mark-all').disabled?$('reload').focus():$('mark-all').focus();}
   }
-  bell.addEventListener('click',()=>{if(!panel.hidden){close();return;}panel.hidden=false;bell.setAttribute('aria-expanded','true');load();});
+  bell.addEventListener('click',()=>{if(!panel.hidden){close(true);return;}returnFocus=document.activeElement;panel.hidden=false;bell.setAttribute('aria-expanded','true');$('close').focus();load();});
   $('close').addEventListener('click',()=>close(true));
-  document.addEventListener('click',e=>{if(!root.contains(e.target))close();});
-  root.addEventListener('keydown',e=>{if(e.key==='Escape'&&!panel.hidden){e.preventDefault();close(true);}});
+  document.addEventListener('click',e=>{if(!root.contains(e.target))close(true);});
+  root.addEventListener('keydown',e=>{
+    if(panel.hidden)return;
+    if(e.key==='Escape'){e.preventDefault();close(true);return;}
+    if(e.key!=='Tab')return;
+    const focusable=[...panel.querySelectorAll('button,input,select,textarea,a[href]')].filter(el=>!el.disabled&&!el.hidden&&el.getClientRects().length);
+    const first=focusable[0],last=focusable[focusable.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}
+  });
   root.querySelectorAll('[data-notification-filter]').forEach(button=>button.addEventListener('click',()=>{
     unreadOnly=button.dataset.notificationFilter==='new';offset=0;
     root.querySelectorAll('[data-notification-filter]').forEach(el=>el.setAttribute('aria-pressed',String(el===button)));load();

@@ -48,6 +48,19 @@
   <script>
     window.shopdashWorkspace=<?= json_encode($workspaceConfig,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
     (()=>{const config=window.shopdashWorkspace,url=new URL(location.href);for(const key of config.keys)if(config.query[key]!==undefined&&!url.searchParams.has(key))url.searchParams.set(key,config.query[key]);history.replaceState(null,'',url);})();
+    (() => {
+      const csrf = <?= json_encode(authCsrfToken(), JSON_HEX_TAG|JSON_HEX_APOS|JSON_HEX_QUOT); ?>;
+      const nativeFetch = window.fetch.bind(window);
+      window.fetch = (resource, init = {}) => {
+        const method = String(init.method || (resource?.method || 'GET')).toUpperCase();
+        if (method !== 'POST' && method !== 'PUT' && method !== 'PATCH' && method !== 'DELETE') return nativeFetch(resource, init);
+        const requestUrl = new URL(typeof resource === 'string' ? resource : resource?.url || location.href, location.href);
+        if (requestUrl.origin !== location.origin) return nativeFetch(resource, init);
+        const headers = new Headers(init.headers || {});
+        if (!headers.has('X-CSRF-Token') && !headers.has('X-XSRF-Token') && !headers.has('csrf_token')) headers.set('X-CSRF-Token', csrf);
+        return nativeFetch(resource, {...init, headers});
+      };
+    })();
   </script>
   <script src="<?= assets; ?>/js/workspace.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/workspace.js'); ?>" defer></script>
   <link rel="stylesheet" href="<?= assets; ?>/css/style.css?v=<?= filemtime(__DIR__ . '/../../../../public/assets/css/style.css'); ?>">
@@ -57,7 +70,15 @@
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Lewati ke konten utama</a>
   <?php Alert::show(); ?>
+  <div id="shopdash-live-status" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+  <script>
+    window.shopdashAnnounce = (message, tone = 'status') => {
+      const live = document.getElementById('shopdash-live-status');
+      if (live) { live.className = tone === 'error' ? 'sr-only text-error' : 'sr-only'; live.textContent = String(message || ''); }
+    };
+  </script>
   <div id="workspace-save-error" role="alert" hidden>Pilihan terakhir belum tersimpan.<button type="button" id="workspace-save-retry" class="btn">Coba simpan lagi</button></div>
 
   <div id="floating-tooltip" class="pointer-events-none fixed z-[100] hidden max-w-xs rounded-md bg-neutral px-2.5 py-1.5 text-[11px] font-medium text-neutral-content shadow-xl"></div>
@@ -87,8 +108,8 @@
     })();
   </script>
   <div class="drawer lg:drawer-open">
-    <input id="panel-drawer" type="checkbox" class="drawer-toggle" />
+    <input id="panel-drawer" type="checkbox" class="drawer-toggle" aria-label="Tampilkan navigasi" />
     <div class="drawer-content flex min-h-screen flex-col bg-base-200">
       <?php require_once __DIR__ . '/navbar.php'; ?>
-      <main class="relative flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-5">
+      <main id="main-content" tabindex="-1" class="relative flex-1 px-3 py-4 sm:px-5 lg:px-6 lg:py-5">
         <div class="mx-auto w-full max-w-[1600px]">

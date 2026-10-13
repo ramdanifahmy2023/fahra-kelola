@@ -393,7 +393,15 @@
       if(sequence!==dialogSequence)return;
       $('cost-history').innerHTML=result.rows.length ? '<ul>'+result.rows.map(r=>`<li><span>Mulai ${esc(day(r.valid_from))}: ${esc(money(Number(r.unit_cost)))} per unit</span>${r.previous_cost===null ? '' : `<button type="button" class="finance-history-action" data-revert-cost="${esc(r.valid_from)}">Pulihkan ${esc(money(Number(r.previous_cost)))}</button>`}</li>`).join('')+'</ul>' : '<p>HPP produk ini belum pernah diisi.</p>';
       $('cost-history').querySelectorAll('[data-revert-cost]').forEach(button=>button.addEventListener('click',async()=>{
-        if(!confirm('Pulihkan HPP pada tanggal ini ke nilai sebelumnya?')) return;
+        if(button.dataset.confirmRevert !== 'true'){
+          button.dataset.confirmRevert='true';
+          button.dataset.revertLabel=button.textContent;
+          button.textContent='Klik lagi untuk memulihkan';
+          $('cost-copy-status').textContent='Klik lagi untuk memulihkan HPP sebelumnya, atau pilih tindakan lain.';
+          window.setTimeout(()=>{if(button.dataset.confirmRevert==='true'){delete button.dataset.confirmRevert;button.textContent=button.dataset.revertLabel||'Pulihkan HPP sebelumnya';delete button.dataset.revertLabel;}},5000);
+          return;
+        }
+        delete button.dataset.confirmRevert; delete button.dataset.revertLabel;
         button.disabled=true;
         try { const result=await api('revert',{shop_id:editing.shop_id,product_id:editing.product_id,model_id:editing.model_id,version:editing.version,valid_from:button.dataset.revertCost}); editing={...editing,version:result.version,unit_cost:result.unit_cost}; await openCost(editing); $('cost-copy-status').textContent='HPP sebelumnya dipulihkan.'; costFeedback('HPP sebelumnya dipulihkan.'); loadList(); }
         catch(error) { $('cost-error').textContent=error.message; $('cost-error').hidden=false; button.disabled=false; }

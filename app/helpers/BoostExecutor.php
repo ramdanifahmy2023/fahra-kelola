@@ -23,7 +23,10 @@ class BoostExecutor {
       $ids=BoostPolicy::ids($ids);
       if(!preg_match('/^[a-zA-Z0-9_-]{16,80}$/',$requestKey))throw new BoostError('Kunci permintaan tidak valid. Muat ulang halaman.',422);
     }
-    $s=$this->store;$token=$s->lock($shopId);
+    $s=$this->store;
+    // Validate tenant ownership before any recovery or lock mutation.
+    $s->shop($shopId);
+    $token=$s->lock($shopId);
     try {
       $s->recover($shopId);$profile=$s->profile($shopId);$version=$profile['version'];
       if($mode==='auto'){
@@ -77,7 +80,9 @@ class BoostExecutor {
     }finally{$s->unlock($shopId);}
   }
   public function inspect(int $shopId): array {
-    $s=$this->store;$s->lock($shopId);
+    $s=$this->store;
+    $s->shop($shopId);
+    $s->lock($shopId);
     try {
       $s->recover($shopId);$shop=$s->shop($shopId);$p=$s->profile($shopId);
       $ids=array_values(array_unique(array_merge($p['product_ids'],array_map('strval',array_column($s->unresolved($shopId),'product_id')))));

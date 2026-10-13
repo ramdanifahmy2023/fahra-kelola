@@ -7,6 +7,19 @@ class AutomationProfile extends BaseModel {
     AiConnectionSettings::schema($this->db);
   }
 
+  private function shopOwned(int $shopId, int $actorId): bool {
+    if (function_exists('authIsLoggedIn') && !authIsLoggedIn()) return true;
+    try { $this->db->query("SHOW COLUMNS FROM shops LIKE 'account_id'"); }
+    catch (Throwable $ignore) { return false; }
+    $hasAccount = (bool)$this->db->single();
+    if (!$hasAccount) {
+      return false;
+    }
+    $this->db->query('SELECT id FROM shops WHERE id=:shop AND account_id=:actor LIMIT 1');
+    $this->db->bind('shop',$shopId); $this->db->bind('actor',$actorId);
+    return (bool)$this->db->single();
+  }
+
   public function forShop(int $shopId): array {
     $this->db->query('SELECT version, config_json, connection_id, updated_at FROM automation_profiles WHERE shop_id = :shop');
     $this->db->bind('shop', $shopId);
@@ -22,10 +35,12 @@ class AutomationProfile extends BaseModel {
     if ($connectionId !== null && (!is_int($connectionId) || $connectionId < 1)) throw new InvalidArgumentException('Koneksi toko tidak valid.');
     $this->db->begin();
     try {
+      if (!$this->shopOwned($shopId, $actorId)) throw new InvalidArgumentException('Toko tidak ditemukan.');
       if ($connectionId !== null) {
         // The same row lock is used by deletion, so assignment cannot race secret removal.
-        $this->db->query('SELECT id FROM ai_connections WHERE id=:connection AND deleted_at IS NULL FOR UPDATE');
+        $this->db->query('SELECT id FROM ai_connections WHERE id=:connection AND created_by=:actor AND deleted_at IS NULL FOR UPDATE');
         $this->db->bind('connection',$connectionId);
+        $this->db->bind('actor',$actorId);
         if (!$this->db->single()) throw new InvalidArgumentException('Koneksi sudah dihapus. Pilih koneksi lain.');
       }
       if ($version === 0) {

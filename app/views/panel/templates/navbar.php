@@ -10,13 +10,13 @@
   <div class="panel-navbar-actions flex-none flex items-center gap-1.5 sm:gap-2">
     <button type="button" id="quick-search-button" class="btn btn-ghost btn-square" aria-label="Cari pesanan, produk, atau pelanggan" aria-haspopup="dialog" aria-controls="quick-search" aria-expanded="false"><span class="material-symbols-outlined" aria-hidden="true">search</span></button>
     <div class="dropdown dropdown-end" id="theme-menu">
-      <button type="button" id="theme-menu-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Pilih tema" aria-expanded="false" aria-controls="theme-menu-list" tabindex="0">
+      <button type="button" id="theme-menu-button" class="btn btn-ghost btn-square relative rounded-xl border border-transparent hover:border-primary/30" aria-label="Pilih tema" aria-haspopup="menu" aria-expanded="false" aria-controls="theme-menu-list">
         <span id="theme-menu-icon" class="material-symbols-outlined" aria-hidden="true">contrast</span>
       </button>
-      <ul id="theme-menu-list" tabindex="-1" role="menu" aria-label="Pilihan tema" class="menu dropdown-content z-50 mt-2 w-48 rounded-2xl border border-base-content/10 bg-base-100 p-2 shadow-2xl">
-        <li><button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false"><span class="material-symbols-outlined text-base">routine</span><span class="flex-1 text-left">Sistem</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
-        <li><button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false"><span class="material-symbols-outlined text-base">light_mode</span><span class="flex-1 text-left">Terang</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
-        <li><button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false"><span class="material-symbols-outlined text-base">dark_mode</span><span class="flex-1 text-left">Gelap</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary">check</span></button></li>
+      <ul id="theme-menu-list" tabindex="-1" role="menu" aria-label="Pilihan tema" hidden class="menu dropdown-content z-50 mt-2 w-48 rounded-2xl border border-base-content/10 bg-base-100 p-2 shadow-2xl">
+        <li><button type="button" role="menuitemradio" data-theme-choice="system" aria-checked="false"><span class="material-symbols-outlined text-base" aria-hidden="true">routine</span><span class="flex-1 text-left">Sistem</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary" aria-hidden="true">check</span></button></li>
+        <li><button type="button" role="menuitemradio" data-theme-choice="light" aria-checked="false"><span class="material-symbols-outlined text-base" aria-hidden="true">light_mode</span><span class="flex-1 text-left">Terang</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary" aria-hidden="true">check</span></button></li>
+        <li><button type="button" role="menuitemradio" data-theme-choice="dark" aria-checked="false"><span class="material-symbols-outlined text-base" aria-hidden="true">dark_mode</span><span class="flex-1 text-left">Gelap</span><span class="theme-choice-check material-symbols-outlined hidden text-base text-primary" aria-hidden="true">check</span></button></li>
       </ul>
     </div>
     <div id="notification-menu" data-endpoint="<?= htmlspecialchars(burl.'/procnotifications',ENT_QUOTES,'UTF-8'); ?>" data-base="<?= htmlspecialchars(burl,ENT_QUOTES,'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(),ENT_QUOTES,'UTF-8'); ?>" data-user="<?= (int)(authUser()['id'] ?? 0); ?>">
@@ -25,8 +25,8 @@
         <span id="notification-badge" hidden>0</span>
       </button>
       <span id="notification-live" class="sr-only" role="status" aria-atomic="true"></span>
-      <section id="notification-panel" aria-label="Notifikasi" hidden>
-        <header class="notification-heading"><div><h2>Notifikasi</h2><p id="notification-summary">Memuat notifikasi…</p></div><button type="button" id="notification-close" class="btn" aria-label="Tutup notifikasi"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></header>
+      <section id="notification-panel" role="dialog" aria-modal="true" aria-labelledby="notification-title" aria-describedby="notification-summary" hidden>
+        <header class="notification-heading"><div><h2 id="notification-title">Notifikasi</h2><p id="notification-summary">Memuat notifikasi…</p></div><button type="button" id="notification-close" class="btn" aria-label="Tutup notifikasi"><span class="material-symbols-outlined" aria-hidden="true">close</span></button></header>
         <div class="notification-toolbar">
           <div class="notification-filters" role="group" aria-label="Tampilkan notifikasi"><button type="button" data-notification-filter="new" aria-pressed="true">Baru</button><button type="button" data-notification-filter="active" aria-pressed="false">Semua aktif</button></div>
           <button type="button" id="notification-reload" class="btn" aria-label="Muat ulang notifikasi"><span class="material-symbols-outlined" aria-hidden="true">refresh</span></button>
@@ -40,24 +40,29 @@
       </section>
     </div>
     <div id="sync-detail-card" class="hidden h-9 max-w-[205px] items-center gap-2 rounded-lg border border-primary/15 bg-primary/8 px-2.5 transition-all duration-300">
-      <span class="loading loading-spinner loading-xs text-primary"></span>
+      <span class="loading loading-spinner loading-xs text-primary" aria-hidden="true"></span>
       <div class="flex min-w-0 flex-col">
         <span id="sync-detail-text" class="truncate text-[10px] font-bold leading-tight text-base-content">Sinkronisasi</span>
         <span id="sync-detail-id" class="truncate font-mono text-[9px] leading-tight text-base-content/50"></span>
       </div>
       <div id="sync-detail-badge" class="badge badge-primary badge-xs shrink-0 font-bold">0%</div>
     </div>
-    <progress id="sync-detail-progress" class="hidden" value="0" max="100"></progress>
+    <progress id="sync-detail-progress" class="hidden" value="0" max="100" aria-label="Kemajuan sinkronisasi"></progress>
     <?php $authUser = authUser() ?? []; $authName = trim((string)($authUser['name'] ?? 'Pengguna')); $authEmail = (string)($authUser['email'] ?? ''); $authInitial = strtoupper(substr($authName !== '' ? $authName : 'P', 0, 1)); ?>
     <div class="dropdown dropdown-end">
-      <div tabindex="0" role="button" aria-label="Menu akun" class="panel-user-trigger btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
+      <button type="button" id="account-menu-button" aria-label="Menu akun" aria-haspopup="menu" aria-expanded="false" aria-controls="account-menu-list" class="panel-user-trigger btn btn-ghost h-9 min-h-9 gap-2 rounded-lg border border-base-content/10 px-1.5 pr-2 hover:border-primary/30">
         <div class="panel-user-avatar grid h-7 w-7 place-items-center rounded-md text-xs font-black"><?= htmlspecialchars($authInitial, ENT_QUOTES); ?></div>
         <span class="hidden max-w-28 truncate text-xs font-semibold sm:block"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span>
         <span class="panel-user-chevron material-symbols-outlined hidden text-base-content/50 sm:block" aria-hidden="true">expand_more</span>
-      </div>
-      <ul tabindex="0" class="menu dropdown-content z-[1] mt-2 w-52 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
+      </button>
+      <ul id="account-menu-list" tabindex="-1" role="menu" aria-label="Menu akun" hidden class="menu dropdown-content z-[1] mt-2 w-52 rounded-xl border border-base-content/10 bg-base-100 p-2 shadow-xl">
         <li class="menu-title px-3 py-2"><span class="text-xs font-bold text-base-content"><?= htmlspecialchars($authName, ENT_QUOTES); ?></span><span class="text-[10px] font-normal normal-case text-base-content/50"><?= htmlspecialchars($authEmail, ENT_QUOTES); ?></span></li>
-        <li class="mt-1 text-error"><a href="<?= burl; ?>/auth/logout"><span class="material-symbols-outlined text-base">logout</span>Keluar</a></li>
+        <li class="mt-1 text-error">
+          <form method="POST" action="<?= burl; ?>/auth/logout">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(authCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+            <button type="submit" role="menuitem" class="w-full text-left"><span class="material-symbols-outlined text-base" aria-hidden="true">logout</span>Keluar</button>
+          </form>
+        </li>
       </ul>
     </div>
   </div>
@@ -84,6 +89,7 @@
   const themeMenu = document.getElementById('theme-menu');
   const themeIcon = document.getElementById('theme-menu-icon');
   const themeChoices = Array.from(document.querySelectorAll('[data-theme-choice]'));
+  const themeMenuList = document.getElementById('theme-menu-list');
   const themeIcons = { system: 'routine', light: 'light_mode', dark: 'dark_mode' };
   const themeLabels = { system: 'Sistem', light: 'Terang', dark: 'Gelap' };
   function renderTheme(mode) {
@@ -96,7 +102,53 @@
       choice.querySelector('.theme-choice-check')?.classList.toggle('hidden', !active);
     });
   }
-  themeChoices.forEach(choice => choice.addEventListener('click', () => window.shopdashTheme?.setMode(choice.dataset.themeChoice)));
+  const setThemeOpen = open => {
+    if (!themeButton || !themeMenu || !themeMenuList) return;
+    const next = Boolean(open);
+    themeMenu.classList.toggle('dropdown-open', next);
+    themeMenuList.hidden = !next;
+    themeMenuList.setAttribute('aria-hidden', String(!next));
+    themeButton.setAttribute('aria-expanded', String(next));
+    if (next) themeChoices.find(choice => choice.getAttribute('aria-checked') === 'true')?.focus();
+  };
+  themeButton?.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    setThemeOpen(themeMenuList?.hidden ?? true);
+  });
+  themeChoices.forEach(choice => choice.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    window.shopdashTheme?.setMode(choice.dataset.themeChoice);
+    setThemeOpen(false);
+    themeButton?.focus();
+  }));
+  themeMenuList?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); setThemeOpen(false); themeButton?.focus(); return; }
+    if (!['ArrowDown','ArrowUp'].includes(event.key)) return;
+    event.preventDefault(); const index = themeChoices.indexOf(document.activeElement); const next = (index + (event.key === 'ArrowDown' ? 1 : -1) + themeChoices.length) % themeChoices.length; themeChoices[next]?.focus();
+  });
+  themeMenuList?.addEventListener('focusout', event => {
+    if (themeMenuList.hidden || themeMenu?.contains(event.relatedTarget)) return;
+    setThemeOpen(false);
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && themeMenuList && !themeMenuList.hidden) {
+      event.preventDefault(); setThemeOpen(false); themeButton?.focus();
+    }
+  });
+  document.addEventListener('click', event => { if (themeMenu && !themeMenu.contains(event.target)) setThemeOpen(false); });
+  const accountButton = document.getElementById('account-menu-button');
+  const accountMenu = document.getElementById('account-menu-list');
+  const setAccountOpen = open => { if (!accountButton || !accountMenu) return; accountMenu.hidden = !open; accountButton.setAttribute('aria-expanded', String(open)); if (open) accountMenu.querySelector('[role="menuitem"]')?.focus(); };
+  accountButton?.addEventListener('click', () => setAccountOpen(accountMenu.hidden));
+  accountMenu?.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); setAccountOpen(false); accountButton?.focus(); return; }
+    if (!['ArrowDown','ArrowUp'].includes(event.key)) return;
+    const items = [...accountMenu.querySelectorAll('[role="menuitem"]')]; if (!items.length) return;
+    event.preventDefault(); const index = items.indexOf(document.activeElement); const next = (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; items[next].focus();
+  });
+  document.addEventListener('click', event => { if (accountButton && accountMenu && !accountButton.closest('.dropdown')?.contains(event.target)) setAccountOpen(false); });
   window.addEventListener('shopdash:theme', event => renderTheme(event.detail?.mode));
   renderTheme();
 

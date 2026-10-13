@@ -16,7 +16,7 @@ if ($pickerPage === 'products' && ($data['movement_view'] ?? false)) {
 }
 ?>
 <div class="shop-picker dropdown dropdown-bottom dropdown-end">
-  <button type="button" class="btn w-full justify-start gap-3 font-normal shadow-sm" id="selectedShopDisplay" aria-label="Pilih toko: <?= htmlspecialchars($pickerActive['name'] ?? 'Belum ada toko', ENT_QUOTES, 'UTF-8'); ?>" <?= !$pickerShops ? 'disabled' : ''; ?>>
+  <button type="button" class="btn w-full justify-start gap-3 font-normal shadow-sm" id="selectedShopDisplay" aria-label="Pilih toko: <?= htmlspecialchars($pickerActive['name'] ?? 'Belum ada toko', ENT_QUOTES, 'UTF-8'); ?>" aria-haspopup="menu" aria-expanded="false" aria-controls="shop-picker-options" <?= !$pickerShops ? 'disabled' : ''; ?>>
     <?php if (!empty($pickerActive['shop_logo'])): ?>
       <img src="<?= htmlspecialchars($pickerActive['shop_logo'], ENT_QUOTES, 'UTF-8'); ?>" alt="" width="24" height="24" />
     <?php else: ?>
@@ -25,10 +25,10 @@ if ($pickerPage === 'products' && ($data['movement_view'] ?? false)) {
     <span class="min-w-0 flex-1 truncate text-left"><?= htmlspecialchars($pickerActive['name'] ?? 'Belum ada toko', ENT_QUOTES, 'UTF-8'); ?></span>
     <span class="material-symbols-outlined" aria-hidden="true">expand_more</span>
   </button>
-  <ul tabindex="-1" class="shop-picker-list dropdown-content menu rounded-box mt-2 bg-base-100 p-2 shadow-lg" aria-label="Daftar toko">
+  <ul id="shop-picker-options" tabindex="-1" role="menu" class="shop-picker-list dropdown-content menu rounded-box mt-2 bg-base-100 p-2 shadow-lg" aria-label="Daftar toko">
     <?php foreach ($pickerShops as $pickerShop): ?>
       <li>
-        <a href="<?= burl; ?>/panel/<?= $pickerPage; ?>?<?= htmlspecialchars(http_build_query(['shop_id' => (int)$pickerShop['id']] + $pickerQuery), ENT_QUOTES, 'UTF-8'); ?>" data-product-shop="<?= (int)$pickerShop['id']; ?>" <?= (int)$pickerShop['id'] === $pickerShopId ? 'aria-current="page" class="bg-base-200"' : ''; ?>>
+        <a role="menuitem" href="<?= burl; ?>/panel/<?= $pickerPage; ?>?<?= htmlspecialchars(http_build_query(['shop_id' => (int)$pickerShop['id']] + $pickerQuery), ENT_QUOTES, 'UTF-8'); ?>" data-product-shop="<?= (int)$pickerShop['id']; ?>" <?= (int)$pickerShop['id'] === $pickerShopId ? 'aria-current="page" class="bg-base-200"' : ''; ?>>
           <?php if (!empty($pickerShop['shop_logo'])): ?>
             <img src="<?= htmlspecialchars($pickerShop['shop_logo'], ENT_QUOTES, 'UTF-8'); ?>" alt="" width="24" height="24" />
           <?php else: ?>
@@ -41,3 +41,24 @@ if ($pickerPage === 'products' && ($data['movement_view'] ?? false)) {
   </ul>
   <input type="hidden" id="<?= $pickerPage === 'reports' ? 'report-shop' : 'selectedShopId'; ?>" value="<?= $pickerShopId; ?>" />
 </div>
+<script>
+(() => {
+  const root = document.currentScript?.previousElementSibling;
+  const trigger = root?.querySelector('#selectedShopDisplay');
+  const menu = root?.querySelector('#shop-picker-options');
+  if (!root || !trigger || !menu) return;
+  const setOpen = open => { menu.hidden = !open; trigger.setAttribute('aria-expanded', String(open)); };
+  setOpen(false);
+  trigger.addEventListener('click', () => setOpen(trigger.getAttribute('aria-expanded') !== 'true'));
+  root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget)) setOpen(false); });
+  root.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); setOpen(false); trigger.focus(); return; }
+    const items = [...menu.querySelectorAll('[role="menuitem"]')];
+    if (event.target === trigger && event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); items[0]?.focus(); return; }
+    if (items.includes(event.target) && ['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
+      event.preventDefault(); const index = items.indexOf(event.target); const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; items[next]?.focus();
+    }
+  });
+  document.addEventListener('click', event => { if (!root.contains(event.target)) setOpen(false); });
+})();
+</script>

@@ -76,6 +76,9 @@ try {
   $source->pages = [productPage(11, '', 99)];
   checkProduct(!$sync->run($shop, 'full', 2, 0)['ok'], 'Missing products prevent successful reconciliation');
   checkProduct(count(productSql('SELECT id FROM products')) === 3, 'Total mismatch keeps existing catalog');
+  $source->pages = [['products' => [['name' => 'Malformed']], 'page_info' => ['cursor' => '', 'total' => 1]]];
+  checkProduct(!$sync->run($shop, 'full', 2, 0)['ok'], 'Invalid product IDs cannot complete reconciliation');
+  checkProduct(count(productSql('SELECT id FROM products')) === 3, 'Invalid product page keeps existing catalog');
   echo "PASS: {$checks} product synchronization checks\n";
 } finally {
   foreach (array_reverse($tables) as $table) { $db->query("DROP TEMPORARY TABLE IF EXISTS {$table}"); $db->exe(); }

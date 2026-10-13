@@ -10,6 +10,18 @@ class ShopeeCurl {
     // Base URL Seller Shopee (bisa disesuaikan versi API-nya)
     private $baseUrl = 'https://seller.shopee.co.id/api';
 
+    private function safeUrl(string $endpoint): ?string {
+        $url = preg_match('#^https?://#i', $endpoint) ? $endpoint : $this->baseUrl . '/' . ltrim($endpoint, '/');
+        $parts = parse_url($url);
+        if (!is_array($parts)) return null;
+        $host = strtolower((string)($parts['host'] ?? ''));
+        $port = $parts['port'] ?? null;
+        if (strtolower((string)($parts['scheme'] ?? '')) !== 'https' || ($port !== null && (int)$port !== 443) || isset($parts['user']) || isset($parts['pass']) || isset($parts['fragment'])) return null;
+        $allowed = ['seller.shopee.co.id', 'shopee.co.id'];
+        if (!in_array($host, $allowed, true)) return null;
+        return $url;
+    }
+
     /**
      * Base cURL method yang fleksibel untuk berbagai macam request ke Shopee
      * 
@@ -21,8 +33,17 @@ class ShopeeCurl {
      * @return array Hasil respons berupa Array (dari JSON)
      */
     public function request($method, $endpoint, $cookie, $data = [], $customHeaders = []) {
+        $cookie = (string)$cookie;
+        if (preg_match('/[\x00-\x1F\x7F]/', $cookie)) {
+            $this->lastRequestDiagnostics = ['method' => strtoupper((string)$method), 'endpoint' => null, 'requested_at' => gmdate('c'), 'blocked' => true, 'reason' => 'cookie_header_invalid'];
+            return ['success' => false, 'message' => 'Cookie toko tidak valid.'];
+        }
         // Jika endpoint sudah berupa URL utuh, gunakan langsung. Jika belum, gabung dengan baseUrl.
-        $url = (strpos($endpoint, 'http') === 0) ? $endpoint : $this->baseUrl . $endpoint;
+        $url = $this->safeUrl((string)$endpoint);
+        if ($url === null) {
+            $this->lastRequestDiagnostics = ['method' => strtoupper((string)$method), 'endpoint' => null, 'requested_at' => gmdate('c'), 'blocked' => true, 'reason' => 'endpoint_not_allowed'];
+            return ['success' => false, 'message' => 'Endpoint eksternal tidak diizinkan.'];
+        }
         
         $ch = curl_init();
         
@@ -76,9 +97,12 @@ class ShopeeCurl {
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER     => $headers,
             CURLOPT_ENCODING       => '', // Mengizinkan semua tipe encoding (gzip, deflate)
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => false,
-            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_MAXREDIRS      => 0,
+            CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
+            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
             CURLOPT_TIMEOUT        => 30,
             CURLOPT_CUSTOMREQUEST  => $method
         ]);
@@ -94,7 +118,7 @@ class ShopeeCurl {
         if ($err) {
             return [
                 'success' => false, 
-                'message' => 'cURL Error: ' . $err
+                'message' => 'Permintaan ke Shopee gagal diproses.'
             ];
         }
 
@@ -104,8 +128,7 @@ class ShopeeCurl {
             return [
                 'success' => false,
                 'http_code' => $httpCode,
-                'message' => 'Respons bukan JSON yang valid. Mungkin cookie kedaluwarsa atau IP diblokir.',
-                'raw_response' => $response
+                'message' => 'Respons Shopee tidak dapat diproses.'
             ];
         }
 
@@ -580,28 +603,13 @@ class ShopeeCurl {
         preg_match('/SPC_CDS=([^;]+)/', $cookie, $matches);
         $spcCds = $matches[1] ?? '';
 
-        $endpoint = 'https://seller.shopee.co.id/api/v3/order/get_package?SPC_CDS=' . $spcCds . '&SPC_CDS_VER=2&order_id=' . $orderId;
-        
-        $ch = curl_init($endpoint);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Cookie: ' . $cookie,
-            'Content-Type: application/json',
-            'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'
+        $endpoint = 'https://seller.shopee.co.id/api/v3/order/get_package?' . http_build_query([
+            'SPC_CDS' => $spcCds,
+            'SPC_CDS_VER' => 2,
+            'order_id' => (int)$orderId
         ]);
-
-        $response = curl_exec($ch);
-        curl_close($ch);
-
-        if ($response) {
-            $data = json_decode($response, true);
-            if (isset($data['code']) && $data['code'] === 0) {
-                return $data['data'] ?? [];
-            }
-        }
-        return false;
+        $data = $this->request('GET', $endpoint, $cookie);
+        return is_array($data) && (int)($data['code'] ?? -1) === 0 ? ($data['data'] ?? []) : false;
     }
 
     /**

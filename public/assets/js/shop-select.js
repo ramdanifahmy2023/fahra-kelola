@@ -8,9 +8,12 @@ window.enhanceShopSelect = select => {
   const menu = document.createElement('ul');
   menu.className = 'shop-picker-list dropdown-content menu rounded-box mt-2 bg-base-100 p-2 shadow-lg';
   menu.setAttribute('aria-label', 'Daftar toko');
+  menu.setAttribute('role', 'listbox');
+  menu.setAttribute('aria-multiselectable', String(select.multiple));
   menu.id = select.id + '-options';
   menu.hidden = true;
   trigger.setAttribute('aria-controls', menu.id);
+  trigger.setAttribute('aria-haspopup', 'listbox');
   trigger.setAttribute('aria-expanded', 'false');
   select.before(picker);
   picker.append(trigger, menu);
@@ -67,9 +70,11 @@ window.enhanceShopSelect = select => {
       button.dataset.shopValue = option.value;
       button.disabled = option.disabled;
       content(option, button);
+      button.setAttribute('role', 'option');
+      button.tabIndex = -1;
+      button.setAttribute('aria-selected', String(option.selected));
       if (option.selected) {
         button.classList.add('bg-base-200');
-        button.setAttribute('aria-current', 'true');
       }
       if (select.multiple) button.setAttribute('aria-pressed', String(option.selected));
       button.addEventListener('click', () => {
@@ -93,7 +98,14 @@ window.enhanceShopSelect = select => {
     if (event.key === 'ArrowDown' && event.target === trigger) {
       event.preventDefault();
       setOpen(true);
-      menu.querySelector('button:not(:disabled)')?.focus();
+      (menu.querySelector('button[aria-selected="true"]:not(:disabled)') || menu.querySelector('button:not(:disabled)'))?.focus();
+    }
+    if (menu.contains(event.target) && ['ArrowDown','ArrowUp','Home','End'].includes(event.key)) {
+      event.preventDefault();
+      const options = [...menu.querySelectorAll('button[role="option"]:not(:disabled)')];
+      const index = options.indexOf(event.target);
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? options.length - 1 : Math.max(0, Math.min(options.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1)));
+      options[next]?.focus();
     }
   });
   select.addEventListener('change', sync);

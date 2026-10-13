@@ -32,8 +32,8 @@ class ProcAiConnections extends Controller {
       session_write_close();
       $model=new AiConnection(); $model->ensureSchema();
       $result=match($action) {
-        'list'=>['connections'=>$model->listing()],
-        'detail'=>['connection'=>$model->detail($id)],
+        'list'=>['connections'=>$model->listing($actor)],
+        'detail'=>['connection'=>$model->detail($id,$actor)],
         'create'=>['connection'=>$model->create($input,$actor)],
         'update'=>['connection'=>$model->update($id,$version,$input,$actor)],
         'models','test'=>$model->probe($id,$version,$action,$action==='test' ? NineRouterClient::model($input['model'] ?? null) : '',$actor),
@@ -44,7 +44,7 @@ class ProcAiConnections extends Controller {
     catch (Throwable $error) { $this->json(['status'=>'error','message'=>'Koneksi belum dapat diproses. Coba lagi atau periksa server.'],500); }
   }
   private function remove(AiConnection $model,int $id,int $version,int $actor): array { $model->remove($id,$version,$actor); return []; }
-  public function index(): void { $this->json(['status'=>'error','message'=>'Pilih tindakan koneksi.'],404); }
+  public function index(): void { authRequireMethod('GET'); $this->json(['status'=>'error','message'=>'Pilih tindakan koneksi.'],404); }
   public function list(): void { $this->run('list'); }
   public function detail(): void { $this->run('detail'); }
   public function create(): void { $this->run('create'); }

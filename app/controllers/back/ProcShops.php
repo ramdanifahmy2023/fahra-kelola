@@ -3,7 +3,10 @@
 class ProcShops extends Controller {
   
   public function add() {
-    if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    authRequireMethod('POST');
+    authRequireCsrf();
+    if (authAccountId() < 1) authRedirect('/login');
+    {
       $cookie = trim($_POST['cookie'] ?? '');
       $email  = trim($_POST['email'] ?? '');
 
@@ -22,10 +25,11 @@ class ProcShops extends Controller {
         $userInfo = $this->m('ShopeeCurl')->getUserInfo($cookie);
         $shopLogo = isset($userInfo['portrait']) && !empty($userInfo['portrait']) ? 'https://cf.shopee.co.id/file/' . $userInfo['portrait'] : images . '/app_brands/shopee.png';
 
+        $cleanName = trim(preg_replace('/[\x00-\x1F\x7F]/', '', strip_tags((string)($shopeeResponse['shop']['name'] ?? ''))));
         $data = [
-          'account_id' => 1, // Hardcode sementara sampai fitur login ada
+          'account_id' => authAccountId(),
           'shop_id'    => $shopeeResponse['shop']['id'],
-          'name'       => $shopeeResponse['shop']['name'],
+          'name'       => mb_substr($cleanName, 0, 255),
           'shop_logo'  => $shopLogo,
           'username'   => $userInfo['user_name'] ?? '',
           'email'      => $email,
@@ -51,7 +55,7 @@ class ProcShops extends Controller {
             $data['ads_credit'] = $ads['total'];
         }
 
-        $insert = $this->m('Shop')->insert($data);
+        $insert = $this->m('Shop')->insertOwned($data, authAccountId());
 
         if ($insert > 0) {
           Alert::set('success', 'Berhasil! Toko ' . htmlspecialchars($data['name']) . ' berhasil disinkronkan dan ditambahkan.');
@@ -60,7 +64,7 @@ class ProcShops extends Controller {
         }
       } else {
         // Cookie ditolak Shopee
-        $pesanError = $shopeeResponse['message'] ?? 'Cookie tidak valid atau sesi login Shopee sudah kadaluarsa.';
+        $pesanError = mb_substr(trim(preg_replace('/[\x00-\x1F\x7F]/', '', strip_tags((string)($shopeeResponse['message'] ?? 'Cookie tidak valid atau sesi login Shopee sudah kadaluarsa.')))), 0, 300);
         Alert::set('error', 'Gagal Sinkron! ' . $pesanError);
       }
 
@@ -70,8 +74,10 @@ class ProcShops extends Controller {
   }
   // Hapus Toko
   public function delete($id = null) {
-    if (!empty($id)) {
-      $delete = $this->m('Shop')->delete($id);
+    authRequireMethod('POST');
+    authRequireCsrf();
+    if (!empty($id) && authAccountId() > 0) {
+      $delete = $this->m('Shop')->deleteOwned((int)$id, authAccountId());
       if ($delete > 0) {
         Alert::set('success', 'Berhasil! Toko telah dihapus dari sistem.');
       } else {
@@ -84,14 +90,17 @@ class ProcShops extends Controller {
 
   // Update & Sync Seluruh Data Toko
   public function update($id = null) {
-    if (!empty($id)) {
+    authRequireMethod('POST');
+    authRequireCsrf();
+    if (!empty($id) && authAccountId() > 0) {
       // Ambil data toko lama dari database untuk mendapatkan cookie
-      $shop = $this->m('Shop')->findBy('id', $id);
+      $shop = $this->m('Shop')->findOwned((int)$id, authAccountId());
       
       $isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest';
 
       if (!$shop || empty($shop['cookie'])) {
           if ($isAjax) {
+              header('Content-Type: application/json; charset=utf-8');
               echo json_encode(['status' => 'error', 'message' => 'Gagal! Data toko tidak ditemukan atau cookie kosong.']);
               exit;
           }
@@ -122,6 +131,17 @@ class ProcShops extends Controller {
       // 1. Cek info dasar (Shop ID, Name, Logo)
       $check = $shopee->check($cookie);
       if (isset($check['shop']) && !empty($check['shop']['id'])) {
+          if ((int)$check['shop']['id'] !== (int)($shop['shop_id'] ?? 0)) {
+              $message = 'Cookie Shopee cocok dengan toko lain. Pilih cookie toko ini.';
+              if ($isAjax) {
+                  header('Content-Type: application/json; charset=utf-8');
+                  echo json_encode(['status' => 'error', 'message' => $message]);
+                  exit;
+              }
+              Alert::set('error', $message);
+              header('Location: ' . burl . '/panel/shops');
+              exit;
+          }
           $data['shop_id'] = $check['shop']['id'];
           $data['name']    = $check['shop']['name'];
           
@@ -157,11 +177,12 @@ class ProcShops extends Controller {
       }
 
       // Eksekusi Update ke Database
-      $update = $this->m('Shop')->update($id, $data);
+      $update = $this->m('Shop')->updateOwned((int)$id, $data, authAccountId());
 
       $msg = ($update > 0) ? 'Berhasil! Data toko telah disinkronkan dan diperbarui dari Shopee.' : 'Sinkronisasi selesai (Data sudah paling mutakhir).';
 
       if ($isAjax) {
+          header('Content-Type: application/json; charset=utf-8');
           echo json_encode(['status' => 'success', 'message' => $msg]);
           exit;
       }
@@ -179,12 +200,23 @@ class ProcShops extends Controller {
 
   // Update Khusus Cookie Toko
   public function update_cookie($id = null) {
-    if ($_SERVER['REQUEST_METHOD'] == 'POST' && !empty($id)) {
+    authRequireMethod('POST');
+    authRequireCsrf();
+    if (!empty($id) && authAccountId() > 0) {
+      $shop = $this->m('Shop')->findOwned((int)$id, authAccountId());
+      $cookie = trim((string)($_POST['cookie'] ?? ''));
+      $check = $cookie !== '' ? $this->m('ShopeeCurl')->check($cookie) : [];
+      $remoteShopId = (int)($check['shop']['id'] ?? 0);
+      if (!$shop || $cookie === '' || $remoteShopId < 1 || $remoteShopId !== (int)($shop['shop_id'] ?? 0)) {
+        Alert::set('error', 'Gagal! Cookie tidak cocok dengan toko ini atau sudah kedaluwarsa.');
+        header('Location: ' . burl . '/panel/shops');
+        exit;
+      }
       $data = [
-        'cookie' => $_POST['cookie'] ?? ''
+        'cookie' => $cookie
       ];
 
-      $update = $this->m('Shop')->update($id, $data);
+      $update = $this->m('Shop')->updateOwned((int)$id, $data, authAccountId());
 
       if ($update > 0) {
         Alert::set('success', 'Berhasil! Cookie toko telah diperbarui.');

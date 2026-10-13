@@ -6,6 +6,19 @@
  */
 class BackgroundSync extends BaseModel {
   private $schemaReady = false;
+  private static $schemaReadyGlobal = false;
+  private $scheduleLeaseColumns = null;
+
+  private function scheduleLeaseColumns(): bool {
+    if ($this->scheduleLeaseColumns !== null) return $this->scheduleLeaseColumns;
+    try {
+      $this->db->query("SHOW COLUMNS FROM sync_schedules LIKE 'scheduler_lease_until'");
+      $this->scheduleLeaseColumns = (bool)$this->db->single();
+    } catch (Throwable $error) {
+      $this->scheduleLeaseColumns = false;
+    }
+    return $this->scheduleLeaseColumns;
+  }
 
   private $definitions = [
     'finance' => ['interval' => 600, 'full_interval' => 0, 'mode' => 'diff'],
@@ -22,7 +35,10 @@ class BackgroundSync extends BaseModel {
   ];
 
   public function ensureSchema() {
-    if ($this->schemaReady) return;
+    if ($this->schemaReady || self::$schemaReadyGlobal) {
+      $this->schemaReady = true;
+      return;
+    }
     $this->db->query("CREATE TABLE IF NOT EXISTS sync_schedules (
       shop_id INT NOT NULL,
       sync_type VARCHAR(50) NOT NULL,
@@ -31,6 +47,8 @@ class BackgroundSync extends BaseModel {
       mode VARCHAR(16) NOT NULL DEFAULT 'diff',
       enabled TINYINT(1) NOT NULL DEFAULT 1,
       next_run_at DATETIME NULL,
+      scheduler_owner CHAR(64) NULL,
+      scheduler_lease_until DATETIME NULL,
       last_enqueued_at DATETIME NULL,
       last_success_at DATETIME NULL,
       last_full_at DATETIME NULL,
@@ -50,12 +68,23 @@ class BackgroundSync extends BaseModel {
       $this->db->query("ALTER TABLE sync_schedules ADD COLUMN full_interval_seconds INT NOT NULL DEFAULT 0 AFTER interval_seconds");
       $this->db->exe();
     }
+    foreach (['scheduler_owner' => 'CHAR(64) NULL', 'scheduler_lease_until' => 'DATETIME NULL'] as $column => $definition) {
+      $this->db->query("SELECT COUNT(*) AS c FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sync_schedules' AND COLUMN_NAME = :column");
+      $this->db->bind('column', $column);
+      if (empty($this->db->single()['c'])) {
+        $this->db->query("ALTER TABLE sync_schedules ADD COLUMN {$column} {$definition}");
+        $this->db->exe();
+      }
+    }
     $this->schemaReady = true;
+    self::$schemaReadyGlobal = true;
   }
 
   public function ensureSchedules() {
     $this->ensureSchema();
-    $this->db->query('SELECT id FROM shops ORDER BY id ASC');
+    $account = function_exists('authAccountId') ? authAccountId() : 0;
+    $this->db->query('SELECT id FROM shops' . ($account > 0 ? ' WHERE account_id=:account' : '') . ' ORDER BY id ASC');
+    if ($account > 0) $this->db->bind('account',$account);
     foreach ($this->db->getAll() as $shop) {
       foreach ($this->definitions as $type => $definition) {
       $this->db->query("INSERT INTO sync_schedules (shop_id, sync_type, interval_seconds, full_interval_seconds, mode, next_run_at) VALUES (:shop_id, :sync_type, :interval_seconds, :full_interval_seconds, :mode, NOW()) ON DUPLICATE KEY UPDATE full_interval_seconds = VALUES(full_interval_seconds)");
@@ -72,11 +101,33 @@ class BackgroundSync extends BaseModel {
   public function enqueueDue($limit = 50) {
     $this->ensureSchedules();
     $limit = max(1, min(200, (int)$limit));
-    $this->db->query("SELECT * FROM sync_schedules WHERE enabled = 1 AND (next_run_at IS NULL OR next_run_at <= NOW()) ORDER BY COALESCE(next_run_at, NOW()), shop_id, sync_type LIMIT {$limit}");
+    $leaseColumns = $this->scheduleLeaseColumns();
+    $leaseWhere = $leaseColumns ? ' AND (scheduler_lease_until IS NULL OR scheduler_lease_until < NOW())' : '';
+    $this->db->query("SELECT shop_id, sync_type FROM sync_schedules WHERE enabled = 1 AND (next_run_at IS NULL OR next_run_at <= NOW()){$leaseWhere} ORDER BY COALESCE(next_run_at, NOW()), shop_id, sync_type LIMIT {$limit}");
     $due = $this->db->getAll();
     $sync = new SyncJob();
     $enqueued = [];
-    foreach ($due as $row) {
+    foreach ($due as $candidate) {
+      // A scheduler tick is short, but it still needs an owner.  Claiming the
+      // row atomically prevents two launchd ticks from creating duplicate jobs.
+      $owner = bin2hex(random_bytes(24));
+      $claimed = true;
+      if ($leaseColumns) {
+        $this->db->query("UPDATE sync_schedules SET scheduler_owner = :owner, scheduler_lease_until = DATE_ADD(NOW(), INTERVAL 60 SECOND) WHERE shop_id = :shop_id AND sync_type = :sync_type AND enabled = 1 AND (next_run_at IS NULL OR next_run_at <= NOW()) AND (scheduler_lease_until IS NULL OR scheduler_lease_until < NOW())");
+      } else {
+        $this->db->query("UPDATE sync_schedules SET next_run_at = next_run_at WHERE shop_id = :shop_id AND sync_type = :sync_type AND enabled = 1 AND (next_run_at IS NULL OR next_run_at <= NOW())");
+      }
+      if ($leaseColumns) $this->db->bind('owner', $owner);
+      $this->db->bind('shop_id', (int)$candidate['shop_id']);
+      $this->db->bind('sync_type', (string)$candidate['sync_type']);
+      $this->db->exe();
+      if ($leaseColumns && $this->db->row() < 1) $claimed = false;
+      if (!$claimed) continue;
+      $this->db->query('SELECT * FROM sync_schedules WHERE shop_id = :shop_id AND sync_type = :sync_type LIMIT 1');
+      $this->db->bind('shop_id', (int)$candidate['shop_id']);
+      $this->db->bind('sync_type', (string)$candidate['sync_type']);
+      $row = $this->db->single();
+      if (!$row) continue;
       $type = (string)$row['sync_type'];
       $mode = (string)$row['mode'];
       $fullDue = in_array($type, ['orders', 'products'], true)
@@ -86,13 +137,24 @@ class BackgroundSync extends BaseModel {
       $jobId = $type === 'orders'
         ? $sync->enqueue((int)$row['shop_id'], 'diff')
         : $sync->enqueueType((int)$row['shop_id'], $type, $mode);
-      if ($type === 'orders' && ($fullDue || $mode === 'full')) $sync->enqueue((int)$row['shop_id'], 'full');
+      if ($type === 'orders' && ($fullDue || $mode === 'full')) {
+        $fullJobId = $sync->enqueue((int)$row['shop_id'], 'full');
+        if ($jobId < 1) $jobId = $fullJobId;
+      }
       if ($jobId > 0) {
-        $this->db->query("UPDATE sync_schedules SET last_enqueued_at = NOW(), next_run_at = DATE_ADD(NOW(), INTERVAL interval_seconds SECOND) WHERE shop_id = :shop_id AND sync_type = :sync_type");
+        $this->db->query("UPDATE sync_schedules SET last_enqueued_at = NOW(), next_run_at = DATE_ADD(NOW(), INTERVAL interval_seconds SECOND)" . ($leaseColumns ? ', scheduler_owner = NULL, scheduler_lease_until = NULL' : '') . " WHERE shop_id = :shop_id AND sync_type = :sync_type" . ($leaseColumns ? ' AND scheduler_owner = :owner' : ''));
         $this->db->bind('shop_id', (int)$row['shop_id']);
         $this->db->bind('sync_type', $type);
+        if ($leaseColumns) $this->db->bind('owner', $owner);
         $this->db->exe();
         $enqueued[] = ['shop_id' => (int)$row['shop_id'], 'sync_type' => $type, 'mode' => $mode, 'job_id' => $jobId];
+      } else {
+        if ($leaseColumns) $this->db->query("UPDATE sync_schedules SET scheduler_owner = NULL, scheduler_lease_until = NULL WHERE shop_id = :shop_id AND sync_type = :sync_type AND scheduler_owner = :owner");
+        else $this->db->query("UPDATE sync_schedules SET next_run_at = next_run_at WHERE shop_id = :shop_id AND sync_type = :sync_type");
+        $this->db->bind('shop_id', (int)$row['shop_id']);
+        $this->db->bind('sync_type', $type);
+        if ($leaseColumns) $this->db->bind('owner', $owner);
+        $this->db->exe();
       }
     }
     return $enqueued;
@@ -101,7 +163,10 @@ class BackgroundSync extends BaseModel {
   public function requestShopHealth($minAgeSeconds = 300) {
     $this->ensureSchedules();
     $minAgeSeconds = max(60, min(86400, (int)$minAgeSeconds));
-    $this->db->query("UPDATE sync_schedules SET next_run_at = NOW() WHERE sync_type = 'shops' AND enabled = 1 AND (last_enqueued_at IS NULL OR last_enqueued_at <= DATE_SUB(NOW(), INTERVAL {$minAgeSeconds} SECOND))");
+    $account = function_exists('authAccountId') ? authAccountId() : 0;
+    $scope = $account > 0 ? ' AND shop_id IN (SELECT id FROM shops WHERE account_id=:account)' : '';
+    $this->db->query("UPDATE sync_schedules SET next_run_at = NOW() WHERE sync_type = 'shops' AND enabled = 1 AND (last_enqueued_at IS NULL OR last_enqueued_at <= DATE_SUB(NOW(), INTERVAL {$minAgeSeconds} SECOND)){$scope}");
+    if ($account > 0) $this->db->bind('account',$account);
     $this->db->exe();
   }
 
@@ -124,10 +189,14 @@ class BackgroundSync extends BaseModel {
 
   public function status($shopId = 0) {
     $this->ensureSchedules();
-    $where = '';
-    if ((int)$shopId > 0) $where = ' WHERE s.shop_id = :shop_id';
-    $this->db->query("SELECT s.*, sh.name AS shop_name, j.id AS job_id, j.status AS job_status, j.last_error AS job_error, j.started_at AS job_started_at, j.completed_at AS job_completed_at, j.page_number job_page_number, j.next_retry_at job_next_retry_at FROM sync_schedules s LEFT JOIN shops sh ON sh.id = s.shop_id LEFT JOIN sync_jobs j ON j.id = (SELECT MAX(j2.id) FROM sync_jobs j2 WHERE j2.shop_id = s.shop_id AND CAST(j2.sync_type AS BINARY) = CAST(s.sync_type AS BINARY)) {$where} ORDER BY s.shop_id, s.sync_type");
-    if ($where) $this->db->bind('shop_id', (int)$shopId);
+    $where = [];
+    if ((int)$shopId > 0) $where[] = 's.shop_id = :shop_id';
+    $account = function_exists('authAccountId') ? authAccountId() : 0;
+    if ($account > 0) $where[] = 'sh.account_id = :account';
+    $whereSql = $where ? ' WHERE ' . implode(' AND ', $where) : '';
+    $this->db->query("SELECT s.*, sh.name AS shop_name, j.id AS job_id, j.status AS job_status, j.last_error AS job_error, j.started_at AS job_started_at, j.completed_at AS job_completed_at, j.page_number job_page_number, j.next_retry_at job_next_retry_at FROM sync_schedules s LEFT JOIN shops sh ON sh.id = s.shop_id LEFT JOIN sync_jobs j ON j.id = (SELECT MAX(j2.id) FROM sync_jobs j2 WHERE j2.shop_id = s.shop_id AND CAST(j2.sync_type AS BINARY) = CAST(s.sync_type AS BINARY)) {$whereSql} ORDER BY s.shop_id, s.sync_type");
+    if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+    if ($account > 0) $this->db->bind('account',$account);
     $rows=$this->db->getAll();
     $ids=array_values(array_filter(array_map('intval',array_column($rows,'job_id'))));$details=[];$pages=[];
     if ($ids) {

@@ -39,6 +39,7 @@ class ProcChat extends Controller {
   }
 
   public function overview() {
+    authRequireMethod('GET');
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? 0);
     $result = $this->monitor()->overview($shopId > 0 ? $shopId : null, false);
@@ -46,6 +47,7 @@ class ProcChat extends Controller {
   }
 
   public function conversations() {
+    authRequireMethod('GET');
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? 0);
     $rows = $this->monitor()->conversations(
@@ -59,6 +61,7 @@ class ProcChat extends Controller {
   }
 
   public function messages() {
+    authRequireMethod('GET');
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? 0);
     $conversationId = trim((string)($_GET['conversation_id'] ?? ''));

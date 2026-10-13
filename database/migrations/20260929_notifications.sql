@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS notification_checks (
   checked_at DATETIME NULL,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS notification_account_checks (
+  account_id INT UNSIGNED NOT NULL,
+  checked_at DATETIME NULL,
+  PRIMARY KEY (account_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 CREATE TABLE IF NOT EXISTS notification_snoozes (
  alert_id BIGINT UNSIGNED NOT NULL,
  user_id INT NOT NULL,

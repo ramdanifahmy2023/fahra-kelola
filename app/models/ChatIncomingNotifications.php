@@ -64,7 +64,17 @@ class ChatIncomingNotifications extends StockAlert {
 
   public function cursor(): string {
     $this->ensureSchema();
-    $this->db->query('SELECT COALESCE(MAX(e.id),0) event_cursor FROM chat_incoming_events e JOIN shops s ON s.id=e.shop_id');
+    $accountId = function_exists('authAccountId') ? authAccountId() : 0;
+    if ($accountId > 0) {
+      try {
+        $this->db->query("SHOW COLUMNS FROM shops LIKE 'account_id'");
+        if (!$this->db->single()) return '0';
+      } catch (Throwable $error) {
+        return '0';
+      }
+    }
+    $this->db->query('SELECT COALESCE(MAX(e.id),0) event_cursor FROM chat_incoming_events e JOIN shops s ON s.id=e.shop_id' . ($accountId > 0 ? ' WHERE s.account_id=:account_id' : ''));
+    if ($accountId > 0) $this->db->bind('account_id', $accountId);
     return (string)$this->db->single()['event_cursor'];
   }
 }

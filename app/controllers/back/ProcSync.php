@@ -13,7 +13,13 @@ class ProcSync extends Controller {
     if (!$isAjax) $this->json(['status' => 'error', 'message' => 'Invalid request.'], 400);
   }
 
+  private function requireStateChange() {
+    authRequireMethod('POST');
+    authRequireCsrf();
+  }
+
   public function enqueue() {
+    $this->requireStateChange();
     $this->requireAjax();
     $shopId = (int)($_POST['shop_id'] ?? 0);
     $type = strtolower(trim((string)($_POST['sync_type'] ?? '')));
@@ -39,6 +45,7 @@ class ProcSync extends Controller {
   }
 
   public function status() {
+    authRequireMethod('GET');
     $this->requireAjax();
     $shopId = (int)($_GET['shop_id'] ?? $_POST['shop_id'] ?? 0);
     $rows = $this->m('BackgroundSync')->status($shopId);
@@ -46,24 +53,27 @@ class ProcSync extends Controller {
   }
 
   public function retry() {
-    if ($_SERVER['REQUEST_METHOD']!=='POST') $this->json(['status'=>'error'],405);
-    if (!authVerifyCsrf($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')) $this->json(['status'=>'error','message'=>'Muat ulang halaman.'],403);
+    $this->requireStateChange();
+    $this->requireAjax();
     $_POST['sync_mode']='diff';$this->enqueue();
   }
 
   public function pulse() {
+    $this->requireStateChange();
     $this->requireAjax();
     $this->m('BackgroundSync')->requestShopHealth();
     $this->json(['status' => 'accepted', 'message' => 'Health-check toko masuk antrean background.']);
   }
 
   public function configure() {
+    $this->requireStateChange();
     $this->requireAjax();
     $shopId = (int)($_POST['shop_id'] ?? 0);
     $type = strtolower(trim((string)($_POST['sync_type'] ?? '')));
     $interval = (int)($_POST['interval_seconds'] ?? 0);
     $enabled = (int)($_POST['enabled'] ?? 1) === 1 ? 1 : 0;
     if ($shopId < 1 || $interval < 30) $this->json(['status' => 'error', 'message' => 'Parameter jadwal tidak valid.'], 422);
+    if (!$this->m('Shop')->findBy('id', $shopId)) $this->json(['status' => 'error', 'message' => 'Toko tidak ditemukan.'], 404);
     if (!$this->m('BackgroundSync')->configure($shopId, $type, $interval, $enabled)) $this->json(['status' => 'error', 'message' => 'Tipe sinkronisasi tidak valid.'], 422);
     $this->json(['status' => 'success', 'message' => 'Jadwal sinkronisasi diperbarui.']);
   }

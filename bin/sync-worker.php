@@ -49,11 +49,17 @@ if ($packageMode) {
     fwrite(STDERR, "Shop cookie unavailable\n");
     exit(1);
   }
+  try {
+    verifyWorkerShopIdentity($shopee, $shop);
+  } catch (Throwable $identityError) {
+    fwrite(STDERR, $identityError->getMessage() . "\n");
+    exit(1);
+  }
   $db->query("SELECT id FROM orders WHERE shop_id = :shop_id AND deleted_at IS NULL AND detail_synced_at IS NOT NULL AND (package_synced_at IS NULL OR shipping_cargo IS NULL OR shipping_cargo = '' OR tracking_number IS NULL OR tracking_number = '') ORDER BY id ASC LIMIT {$packageLimit}");
   $db->bind('shop_id', $shopId);
   $packageIds = $db->getAll();
   foreach ($packageIds as $packageRow) {
-    enrichPackage($db, $shopee, (int)$packageRow['id'], $shop['cookie']);
+    enrichPackage($db, $shopee, (int)$packageRow['id'], $shop['cookie'], $shopId);
     usleep($rateMs * 1000);
   }
   fwrite(STDOUT, json_encode(['package_processed' => count($packageIds)]) . PHP_EOL);
@@ -64,16 +70,28 @@ do {
   if (!$job) {
     break;
   }
+  $jobId = (int)$job['id'];
+  $leaseOwner = $job['lease_owner'] ?? null;
   $db->query("SELECT * FROM shops WHERE id = :shop_id LIMIT 1");
   $db->bind('shop_id', (int)$job['shop_id']);
   $shop = $db->single();
   if (!$shop || empty($shop['cookie'])) {
-    (new BackgroundSync())->markResult((int)$job['shop_id'], (string)($job['sync_type'] ?? 'orders'), false, 'Shop cookie unavailable', (string)($job['mode'] ?? 'diff'));
-    $sync->releaseJob((int)$job['id'], 'failed', 'Shop cookie unavailable');
+    $released = $sync->releaseJob($jobId, 'failed', 'Shop cookie unavailable', $leaseOwner);
+    if ($released) (new BackgroundSync())->markResult((int)$job['shop_id'], (string)($job['sync_type'] ?? 'orders'), false, 'Shop cookie unavailable', (string)($job['mode'] ?? 'diff'));
     break;
   }
-  $jobId = (int)$job['id'];
+  try {
+    verifyWorkerShopIdentity($shopee, $shop);
+  } catch (Throwable $identityError) {
+    $message = $identityError->getMessage();
+    $released = $sync->releaseJob($jobId, $identityError instanceof SyncIdentityTransientException ? 'queued' : 'failed', $message, $leaseOwner);
+    if ($released) (new BackgroundSync())->markResult((int)$job['shop_id'], (string)($job['sync_type'] ?? 'orders'), false, $message, (string)($job['mode'] ?? 'diff'));
+    $loops++;
+    continue;
+  }
   if (($job['sync_type'] ?? 'orders') !== 'orders') {
+    if (!$sync->ownsLease($jobId, $leaseOwner)) { $loops++; continue; }
+    $sync->heartbeat($jobId, [], $leaseOwner);
     try {
       $genericResult = processGenericJob($db, $job, $shop, $shopee, $rateMs, $packageLimit);
       [$genericOk, $genericError] = $genericResult;
@@ -83,22 +101,27 @@ do {
       $genericComplete = true;
       $genericError = 'Worker error: ' . get_class($exception);
     }
-    if ($genericOk && !$genericComplete) {
-      $sync->releaseJob($jobId, 'running');
+    if (!$sync->ownsLease($jobId, $leaseOwner)) { $loops++; continue; }
+    if ($genericOk && !$genericComplete && empty($genericResult[3])) {
+      $sync->releaseJob($jobId, 'running', null, $leaseOwner);
       $loops++;
       continue;
     }
-    $background = new BackgroundSync();
-    $background->markResult((int)$job['shop_id'], (string)$job['sync_type'], $genericOk, $genericError, (string)($job['mode'] ?? 'diff'));
-    $sync->releaseJob($jobId, $genericOk ? 'completed' : 'failed', $genericError);
+    if (!$genericComplete && !empty($genericResult[3])) {
+      $sync->releaseJob($jobId, 'queued', $genericError ?: 'Worker sedang dipakai; akan dicoba kembali.', $leaseOwner);
+    } else {
+      $background = new BackgroundSync();
+      $released = $sync->releaseJob($jobId, $genericOk ? 'completed' : 'failed', $genericError, $leaseOwner);
+      if ($released) $background->markResult((int)$job['shop_id'], (string)$job['sync_type'], $genericOk, $genericError, (string)($job['mode'] ?? 'diff'));
+    }
     $loops++;
     continue;
   }
   if ((int)$job['page_number'] > 0) {
     try {
-      $indexOk = processIndex($db, $sync, $shopee, $job, $shop);
+      $indexOk = processIndex($db, $sync, $shopee, $job, $shop, $leaseOwner);
     } catch (Throwable $error) {
-      $sync->releaseJob($jobId, 'queued', 'Worker order index error: ' . get_class($error));
+      $sync->releaseJob($jobId, 'queued', 'Worker order index error: ' . get_class($error), $leaseOwner);
       $indexOk = false;
     }
     if (!$indexOk) {
@@ -106,18 +129,18 @@ do {
       continue;
     }
   }
-  $tasks = $sync->claimOrders($jobId, $batchSize);
+  $tasks = $sync->claimOrders($jobId, $batchSize, $leaseOwner);
   foreach ($tasks as $task) {
-    $sync->heartbeat($jobId, array_column($tasks, 'id'));
+    $sync->heartbeat($jobId, array_column($tasks, 'id'), $leaseOwner);
     try {
       $requestCount = 0;
-      $orderOk = processOrder($db, $sync, $shopee, $task, $shop, false, $requestCount);
+      $orderOk = processOrder($db, $sync, $shopee, $task, $shop, false, $requestCount, $leaseOwner);
     } catch (Throwable $error) {
-      $sync->finishOrder((int)$task['id'], 'retry', 'Worker order detail error: ' . get_class($error));
+      $sync->finishOrder((int)$task['id'], 'retry', 'Worker order detail error: ' . get_class($error), $leaseOwner);
       $orderOk = false;
     }
-    recordRun($db, $jobId, $orderOk ? 'detail_success' : 'detail_failed');
-    recordRun($db, $jobId, 'api_requests', $requestCount);
+    recordRun($db, $jobId, $orderOk ? 'detail_success' : 'detail_failed', 1, $leaseOwner);
+    recordRun($db, $jobId, 'api_requests', $requestCount, $leaseOwner);
     usleep($rateMs * 1000);
   }
   $db->query("SELECT COALESCE(SUM(status IN ('queued','retry','running')),0) AS c,
@@ -131,12 +154,10 @@ do {
   if ($remaining === 0 && $pageState === 0) {
     $ok = empty($detailState['failed']);
     $error = $ok ? null : 'Sebagian detail pesanan gagal diperbarui.';
-    (new BackgroundSync())->markResult((int)$job['shop_id'], 'orders', $ok, $error, (string)($job['mode'] ?? 'diff'));
-    $sync->releaseJob($jobId, $ok ? 'completed' : 'failed', $error);
+    $released = $sync->releaseJob($jobId, $ok ? 'completed' : 'failed', $error, $leaseOwner);
+    if ($released) (new BackgroundSync())->markResult((int)$job['shop_id'], 'orders', $ok, $error, (string)($job['mode'] ?? 'diff'));
   } else {
-    $db->query("UPDATE sync_jobs SET lease_until = NULL WHERE id = :job_id");
-    $db->bind('job_id', $jobId);
-    $db->exe();
+    $sync->releaseJob($jobId, 'running', null, $leaseOwner);
   }
   $loops++;
 } while (!$once && $loops < 100);

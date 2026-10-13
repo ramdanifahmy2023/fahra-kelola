@@ -20,9 +20,12 @@ class PromotionMonitor extends BaseModel {
 
   private function shops($shopId = null) {
     $where = '';
+    $account = function_exists('authIsLoggedIn') && authIsLoggedIn() ? authAccountId() : 0;
     if ((int)$shopId > 0) $where = ' WHERE id = :shop_id';
+    if ($account > 0) $where .= ($where ? ' AND' : ' WHERE') . ' account_id = :account_id';
     $this->db->query("SELECT id, name, sync_status, cookie FROM shops{$where} ORDER BY name ASC");
-    if ($where) $this->db->bind('shop_id', (int)$shopId);
+    if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+    if ($account > 0) $this->db->bind('account_id', $account);
     return $this->db->getAll();
   }
 

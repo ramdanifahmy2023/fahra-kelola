@@ -3,6 +3,7 @@ require_once __DIR__.'/../../helpers/FinancePolicy.php';
 
 class ProcDashboard extends Controller {
   public function overview(): void {
+    authRequireMethod('GET');
     header('Content-Type: application/json'); header('Cache-Control: no-store');
     try {
       $shops=$this->m('Finance')->shops($_GET['shops'] ?? '');

@@ -652,6 +652,17 @@
   #automation-page .automation-tabs .material-symbols-outlined { display: none; }
   #automation-page .automation-section, #automation-page .ai-row { padding: 16px; }
 }
+
+/* Shared keyboard, motion, and touch affordances. */
+.skip-link { position: fixed; left: 1rem; top: .75rem; z-index: 200; transform: translateY(-180%); border-radius: .5rem; background: var(--color-base-100); color: var(--color-base-content); padding: .7rem 1rem; font-weight: 750; box-shadow: 0 4px 20px #0003; }
+.skip-link:focus { transform: translateY(0); outline: 3px solid var(--color-primary); outline-offset: 2px; }
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--color-primary); outline-offset: 3px; }
+:where(button, a.btn, .btn, summary) { touch-action: manipulation; }
+.material-symbols-outlined[aria-hidden="true"] { pointer-events: none; }
+table caption.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
 @media (max-height: 600px) { #automation-page .automation-save { position: static; } }
 
 .panel-navbar #panel-menu-button:focus-visible, .panel-navbar .panel-mobile-brand:focus-visible { outline: 2px solid var(--color-base-content); outline-offset: 2px; }

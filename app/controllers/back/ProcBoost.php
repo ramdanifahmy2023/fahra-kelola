@@ -23,11 +23,15 @@ class ProcBoost extends Controller {
     if(!is_array($data) || !is_int($data['shop_id']??null) || $data['shop_id']<1)throw new BoostError('Toko tidak valid.',422);
     return $data;
   }
+  private function requireGet(): void {
+    if(($_SERVER['REQUEST_METHOD']??'')!=='GET')throw new BoostError('Gunakan GET.',405);
+  }
   private function version(array $d): int {
     if(!is_int($d['version']??null) || $d['version']<0)throw new BoostError('Versi tidak valid.',422);return $d['version'];
   }
   public function status(): void {
     $this->respond(function(){
+      $this->requireGet();
       $id=filter_var($_GET['shop_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
       if(!$id)throw new BoostError('Toko tidak valid.',422);
       $s=$this->store();$shop=$s->shop($id);$preview=(new BoostExecutor($s))->preview($id);
@@ -36,13 +40,14 @@ class ProcBoost extends Controller {
   }
   public function catalog(): void {
     $this->respond(function(){
+      $this->requireGet();
       $id=(int)($_GET['shop_id']??0);$s=$this->store();$s->shop($id);
       return $s->catalog($id,mb_substr(trim((string)($_GET['search']??'')),0,100),max(1,(int)($_GET['page']??1)));
     });
   }
   public function recommendations(): void {
     $this->respond(function(){
-      if(($_SERVER['REQUEST_METHOD']??'')!=='GET')throw new BoostError('Gunakan GET.',405);
+      $this->requireGet();
       $id=filter_var($_GET['shop_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
       if(!$id)throw new BoostError('Toko tidak valid.',422);
       $s=$this->store();$s->shop($id);

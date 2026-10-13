@@ -1,6 +1,6 @@
 <section id="products-page" aria-label="Produk toko">
 <!-- Loading Overlay -->
-<div id="page-loader" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
+<div id="page-loader" role="status" aria-live="polite" aria-busy="false" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
   <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
   <p class="text-lg font-medium text-base-content">Sedang Memuat Data...</p>
 </div>
@@ -29,15 +29,15 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
   <div class="min-w-0">
     <div class="flex flex-wrap items-center gap-2">
       <h2 class="text-2xl font-bold mb-1 text-base-content"><?= $isCriticalFilter ? 'Stok Kritis' : 'Daftar Produk'; ?></h2>
-      <?php if ($isCriticalFilter): ?><span class="badge badge-error badge-sm gap-1"><span class="material-symbols-outlined text-[14px]">warning</span>Di bawah 15</span><?php endif; ?>
+      <?php if ($isCriticalFilter): ?><span class="badge badge-error badge-sm gap-1"><span class="material-symbols-outlined text-[14px]" aria-hidden="true">warning</span>Di bawah 15</span><?php endif; ?>
     </div>
     <?php if ($isCriticalFilter): ?><p class="mt-1 text-sm">Produk aktif dengan stok di bawah 15.</p><?php endif; ?>
   </div>
   <div id="product-toolbar" class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-  <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]">close</span>Semua produk</a><?php endif; ?>
+  <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">close</span>Semua produk</a><?php endif; ?>
   <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>&view=movement" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">monitoring</span>Pergerakan produk</a>
   <button type="button" class="product-sync-action btn btn-primary btn-sm w-full gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
-    <span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang
+    <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang
   </button>
   <div class="form-control relative min-w-0 flex-1">
     <?php require __DIR__ . '/templates/shop-picker.php'; ?>
@@ -50,7 +50,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
   <div class="product-table-scroll overflow-x-auto">
-    <table role="table" class="product-table table w-full" aria-label="Daftar produk toko">
+    <table role="table" class="product-table table w-full" aria-label="Daftar produk toko"><caption class="sr-only">Daftar produk toko</caption>
       <!-- head -->
       <thead class="bg-base-200/50 text-base-content">
         <tr>
@@ -67,7 +67,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
         <tr>
           <td colspan="6" class="text-center py-10">
             <div class="flex flex-col items-center justify-center text-base-content/50">
-              <span class="material-symbols-outlined text-[48px] mb-2 opacity-50">inventory_2</span>
+              <span class="material-symbols-outlined text-[48px] mb-2 opacity-50" aria-hidden="true">inventory_2</span>
               <p><?= $isCriticalFilter ? 'Tidak ada produk aktif dengan stok di bawah 15.' : 'Belum ada produk yang ditarik dari Shopee.'; ?></p>
             </div>
           </td>
@@ -83,7 +83,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
                   <?php if (!empty($p['cover_image'])): ?>
                     <img src="https://cf.shopee.co.id/file/<?= htmlspecialchars($p['cover_image']); ?>" alt="" width="48" height="48" loading="lazy" class="product-cover w-full h-full object-cover" />
                   <?php else: ?>
-                    <span class="material-symbols-outlined opacity-50">inventory_2</span>
+                    <span class="material-symbols-outlined opacity-50" aria-hidden="true">inventory_2</span>
                   <?php endif; ?>
                 </div>
               </div>
@@ -161,9 +161,9 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
       // Previous Button
       if ($current > 1): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current - 1 ?><?= $stockQuery; ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">«</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current - 1 ?><?= $stockQuery; ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman produk sebelumnya">«</a>
       <?php else: ?>
-        <button class="join-item btn btn-sm btn-disabled border-base-300">«</button>
+        <button type="button" class="join-item btn btn-sm btn-disabled border-base-300" aria-label="Tidak ada halaman produk sebelumnya" disabled>«</button>
       <?php endif; ?>
       
       <!-- Page Numbers -->
@@ -173,9 +173,9 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
       // Next Button
       if ($current < $total): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current + 1 ?><?= $stockQuery; ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300">»</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?>&page=<?= $current + 1 ?><?= $stockQuery; ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman produk berikutnya">»</a>
       <?php else: ?>
-        <button class="join-item btn btn-sm btn-disabled border-base-300">»</button>
+        <button type="button" class="join-item btn btn-sm btn-disabled border-base-300" aria-label="Tidak ada halaman produk berikutnya" disabled>»</button>
       <?php endif; ?>
     </div>
     <?php endif; ?>
@@ -248,7 +248,7 @@ function queueBackgroundSync(type) {
         if (status) status.innerText = 'Sinkronisasi produk sudah masuk antrean background (job #' + data.job_id + ').';
       })
       .catch(error => { const status = document.getElementById('background-sync-status'); if (status) status.innerText = error.message; })
-      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]">sync</span>Sync sekarang'; } });
+      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; } });
 }
 
 function refreshBackgroundStatus(shopId) {
@@ -298,7 +298,7 @@ function syncProducts(id, sentinel = '', pageNumber = 1, syncMode = '') {
     activeProductSyncShopId = id;
     const loader = document.getElementById('page-loader');
     if (loader && !sentinel) {
-        loader.style.display = 'flex';
+        loader.style.display = 'flex'; loader.setAttribute('aria-busy', 'true');
         loader.style.opacity = '1';
         loader.querySelector('p').innerText = 'Sedang mengecek database...';
     }
@@ -387,9 +387,9 @@ function syncProducts(id, sentinel = '', pageNumber = 1, syncMode = '') {
                 setTimeout(() => loader.style.display = 'none', 500);
             }
             if (data.debug) {
-                alert(data.message + '\n\nDEBUG INFO:\n' + JSON.stringify(data.debug, null, 2));
+                window.shopdashAnnounce((data.message || 'Permintaan gagal.') + (data.debug ? ' Detail teknis tersedia di log.' : ''), 'error');
             } else {
-                alert(data.message);
+                window.shopdashAnnounce(data.message || 'Permintaan gagal.', 'error');
             }
         }
     })
@@ -407,7 +407,7 @@ function syncProducts(id, sentinel = '', pageNumber = 1, syncMode = '') {
             loader.style.opacity = '0';
             setTimeout(() => loader.style.display = 'none', 500);
         }
-        alert('Terjadi kesalahan saat menarik data produk.');
+        window.shopdashAnnounce('Terjadi kesalahan saat menarik data produk.', 'error');
     });
 }
 

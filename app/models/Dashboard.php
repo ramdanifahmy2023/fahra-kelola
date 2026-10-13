@@ -27,9 +27,13 @@ class Dashboard extends BaseModel {
       COALESCE(SUM(status=1 AND total_stock>0 AND total_stock<15),0) stock_low_count
       FROM products WHERE $scope")[0];
     $mapped=$this->rows("SELECT c.id FROM customer_shops cs JOIN customers c ON c.id=cs.customer_id WHERE cs.shop_id IN ($ids)");
-    // Materialize the selected buyers once; a correlated lookup scans orders for every customer.
-    $buyers=$this->rows("SELECT c.id FROM (SELECT DISTINCT buyer_username FROM orders
-      WHERE shop_id IN ($ids) AND deleted_at IS NULL AND buyer_username<>'') b JOIN customers c ON c.username=b.buyer_username");
+    // Authenticated customers are tenant-scoped by customer_shops. A
+    // username-only fallback would count another account's duplicate row.
+    $buyers=[];
+    if (!(function_exists('authAccountId') && authAccountId() > 0)) {
+      $buyers=$this->rows("SELECT c.id FROM (SELECT DISTINCT buyer_username FROM orders
+        WHERE shop_id IN ($ids) AND deleted_at IS NULL AND buyer_username<>'') b JOIN customers c ON c.username=b.buyer_username");
+    }
     $customers=count(array_unique(array_merge(array_column($mapped,'id'),array_column($buyers,'id'))));
     $health=$this->rows("SELECT id,name,sync_status,last_successful_sync_at FROM shops WHERE id IN ($ids) ORDER BY name,id");
     $stock=$this->rows("SELECT p.id,p.shop_id,p.name,p.total_stock,s.name shop_name FROM products p JOIN shops s ON s.id=p.shop_id

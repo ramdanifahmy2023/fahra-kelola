@@ -6,6 +6,7 @@ class ChatMonitor extends BaseModel {
   private $schemaReady = false;
   private $chatClient;
   private $incomingNotifications;
+  private $shopOwnershipColumn;
 
   public function __construct($db = null, $client = null, $incomingNotifications = null) {
     $this->db = $db ?: new Database();
@@ -112,10 +113,15 @@ class ChatMonitor extends BaseModel {
   }
 
   private function shops($shopId = null) {
-    $where = '';
-    if ((int)$shopId > 0) $where = ' WHERE id = :shop_id';
+    $conditions = [];
+    if ((int)$shopId > 0) $conditions[] = 'id = :shop_id';
+    $accountId = function_exists('authAccountId') ? authAccountId() : 0;
+    if ($accountId > 0 && !$this->hasShopOwnershipColumn()) return [];
+    if ($accountId > 0) $conditions[] = 'account_id = :account_id';
+    $where = $conditions ? ' WHERE ' . implode(' AND ', $conditions) : '';
     $this->db->query("SELECT id, shop_id AS remote_shop_id, name, cookie, sync_status FROM shops{$where} ORDER BY name ASC");
-    if ($where) $this->db->bind('shop_id', (int)$shopId);
+    if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+    if ($accountId > 0) $this->db->bind('account_id', $accountId);
     return $this->db->getAll();
   }
 
@@ -136,6 +142,16 @@ class ChatMonitor extends BaseModel {
   private function ownedSql($alias = 'c') {
     // Old mixed-feed rows remain recoverable, but cannot be read or sent under the wrong shop.
     return "JSON_VALID({$alias}.raw_payload) AND JSON_UNQUOTE(JSON_EXTRACT({$alias}.raw_payload, '$.shop_id')) = CAST(s.shop_id AS CHAR)";
+  }
+
+  private function hasShopOwnershipColumn(): bool {
+    if ($this->shopOwnershipColumn !== null) return $this->shopOwnershipColumn;
+    try {
+      $this->db->query("SHOW COLUMNS FROM shops LIKE 'account_id'");
+      return $this->shopOwnershipColumn = (bool)$this->db->single();
+    } catch (Throwable $error) {
+      return $this->shopOwnershipColumn = false;
+    }
   }
 
   private function utcDate($value) {
@@ -459,6 +475,7 @@ class ChatMonitor extends BaseModel {
   public function conversations($shopId, $search = '', $status = '', $unreadOnly = false, $refresh = true) {
     $this->ensureSchema();
     if ((int)$shopId > 0) {
+      if (!$this->shops($shopId)) return [];
       $snapshot = $this->snapshot($shopId);
       if ($refresh && $this->shouldRefresh($snapshot)) $this->syncShop($shopId);
     } elseif ($refresh) {
@@ -467,12 +484,16 @@ class ChatMonitor extends BaseModel {
       }
     }
     $where = [$this->ownedSql()];
+    $accountId = function_exists('authAccountId') ? authAccountId() : 0;
+    if ($accountId > 0 && !$this->hasShopOwnershipColumn()) return [];
+    if ($accountId > 0) $where[] = 's.account_id = :account_id';
     if ((int)$shopId > 0) { $where[] = 'c.shop_id = :shop_id'; }
     if ($search !== '') $where[] = '(c.buyer_name LIKE :search OR c.latest_message_text LIKE :search OR c.remote_conversation_id = :conversation_id)';
     if ($status !== '') $where[] = 'c.status = :status';
     if ($unreadOnly) $where[] = 'c.unread_count > 0';
     $this->db->query("SELECT c.id, c.shop_id, s.name AS shop_name, c.remote_conversation_id, c.buyer_id, c.buyer_name, c.buyer_avatar, c.buyer_shop_id, c.status, c.is_blocked, c.unread_count, c.latest_message_id, c.latest_message_type, c.latest_message_source, c.latest_message_text, c.latest_message_at, c.latest_message_region FROM chat_conversations c LEFT JOIN shops s ON s.id = c.shop_id WHERE " . implode(' AND ', $where) . ' ORDER BY COALESCE(c.latest_message_at, c.updated_at) DESC LIMIT 100');
     if ((int)$shopId > 0) $this->db->bind('shop_id', (int)$shopId);
+    if ($accountId > 0) $this->db->bind('account_id', $accountId);
     if ($search !== '') {
       $this->db->bind('search', '%' . $search . '%');
       $this->db->bind('conversation_id', $search);
@@ -482,6 +503,7 @@ class ChatMonitor extends BaseModel {
   }
 
   private function conversation($shopId, $conversationId) {
+    if (!$this->shops($shopId)) return null;
     $this->db->query('SELECT c.* FROM chat_conversations c JOIN shops s ON s.id = c.shop_id WHERE c.shop_id = :shop_id AND c.remote_conversation_id = :remote_id AND ' . $this->ownedSql() . ' LIMIT 1');
     $this->db->bind('shop_id', (int)$shopId);
     $this->db->bind('remote_id', (string)$conversationId);
