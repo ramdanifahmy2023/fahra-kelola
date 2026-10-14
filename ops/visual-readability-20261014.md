@@ -103,17 +103,19 @@ Checks completed for this review:
 
 ### Integration boundary and remaining recommendations
 
-The main checkout contains unrelated uncommitted Finance/HPP and P&L changes. Its newer `finance.js` expects `finance-profit-basis` and associated P&L nodes, while this review branch uses the committed Finance contract at its baseline. **Do not merge the new Dashboard view over that work without reconciling the P&L component and rerunning browser integration checks.** This is a known integration dependency, not a completed check. Preserve the other agent's changes and regenerate CSS from the combined sources. The review preview and tests above do not include that uncommitted feature.
+The user explicitly authorized merging to main on 2026-10-14. The main checkout still contained twelve unrelated, uncommitted Finance/HPP paths. Those changes were snapshotted and combined with this branch in the separate `shopdash-dashboard-merge-check-20261014` worktree before touching main. They remain separate from the Dashboard commit.
 
-Before requesting a main merge: settle the current Finance/HPP revision, integrate its Dashboard P&L contract in this worktree, run the affected browser checks, inspect the combined result, and obtain the user's explicit merge permission. Passing the isolated UI tests does not mean this integration step passed.
+The newer Finance script requires the P&L controls on Dashboard. Dashboard therefore accepts the Finance-owned, server-rendered `$financeProfitPanel` fragment. In the combined working tree, Finance renders that fragment before its Dashboard early return and reuses it at the existing Finance panel location. This keeps one P&L markup contract, its basis control and retry behavior, without duplicating financial calculations. Dashboard shows the matching report/HPP links only when the fragment is supplied. Preserve this initialization when committing the separate Finance feature. The committed baseline without that feature still works and does not show a nonfunctional P&L panel.
+
+Combined verification: CSS regenerated from both source changes; `tests/finance-visual-ui.cjs` passed all sixteen width/theme views, including the additional Finance profit tab and SKU dialog. `tests/dashboard-review-ui.cjs` passed all eight shell views with P&L present, cash/accrual selection, explicit unknown versus zero values, retry after failure, and shop/date propagation into P&L and HPP links. The combined screenshots were inspected; P&L shop rows use two readable columns on wide Dashboard and one on small screens. All endpoint data and actions were mocked. This verifies UI integration, not the separate feature's backend formulas, SKU persistence, or Shopee reconciliation.
 
 After the user accepts the Dashboard direction, the next UI priority is to reuse the hierarchy on data tables: a concise summary, clear status and next action, with long definitions outside the default view. Audit sidebar grouping and small section labels separately; the shared navigation is preserved in this phase. Do not restyle other pages as part of this first Dashboard review.
 
-### Antislop gate for the isolated Dashboard revision
+### Antislop gate for the Dashboard revision
 
 | Gate | Result and evidence |
 | --- | --- |
 | Hard gate | PASS within the tested Dashboard scope: real controls and destinations, no introduced fabricated business claims, labelled fixture data, responsive themes, measured contrast, error/empty states and keyboard tests. |
 | Purpose gate | PASS: color, type, hierarchy, spacing, chart, symbols and disclosures each have a stated content purpose above. The options-menu shadow identifies an overlay. |
 | Liveliness | PASS: the primary sales amount is the focal point; the chart uses the Shopdash accent; different source scopes have different section compositions; no decorative animation. |
-| Craft and consistency | PASS for the isolated view: DOM reading order, source semantics, filters, uncertainty, focus and full-shell interactions are verified. Integration with the uncommitted Finance/P&L feature remains explicitly pending. |
+| Craft and consistency | PASS for the committed view and the combined Finance/P&L UI: DOM reading order, source semantics, filters, uncertainty, focus and full-shell interactions are verified. The unrelated backend feature remains outside this UI verification. |

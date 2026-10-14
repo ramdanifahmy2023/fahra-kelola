@@ -35,6 +35,7 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
       const start=url.searchParams.get('start'),end=url.searchParams.get('end'),days=Math.round((Date.parse(end)-Date.parse(start))/86400000)+1;
       return route.fulfill({json:{status:'success',range:{start,end,days},stores:stores.filter(s=>!selected.length||selected.includes(String(s.id))).map(s=>({...s,released_days:days,gmv_days:days,ads:{...s.ads,days}}))}});
     }
+    if(p==='/procFinance/profitLoss')return route.fulfill({json:{status:'success',range:{start:url.searchParams.get('start'),end:url.searchParams.get('end'),days:14},stores:[],totals:{revenue:0,cost:null,gross_profit:null,ads:0,after_ads:null}}});
     if(p==='/procRealtime/metrics')return route.fulfill({json:realtime(url.searchParams.getAll('shop_ids[]').length?url.searchParams.getAll('shop_ids[]'):['1','2'])});
     if(p==='/procDashboard/overview')return route.fulfill({json:{status:'success',range:{start:'2026-10-01',end:'2026-10-14'},summary:{total_products:35,total_customers:240,total_orders:80,completed_orders:70,completed_order_value:5600000,stock_out_count:1,stock_low_count:2},shops:[{id:1,name:names[0],sync_status:'connected',last_successful_sync_at:timestamp}],low_stock:[{id:11,shop_id:1,shop_name:names[0],name:'Produk uji dengan stok yang perlu diperiksa',total_stock:3}],recent_orders:[]}});
     if(p==='/procFinance/sync'){writes++;return route.fulfill({json:{status:'success',message:'Pembaruan uji masuk antrean.'}});}
@@ -105,7 +106,15 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
     fail=true;await refresh();await page.locator('#finance-error').waitFor({state:'visible'});fail=false;stores[1].wallet.amount=0;await page.locator('#finance-retry').click();await loaded();
     await page.locator('#finance-sync').click();await loaded();
     if(route==='/panel/finance'){
+      if(await page.locator('[data-finance-tab="profit"]').count()){
+        await page.locator('[data-finance-tab="profit"]').click();await page.locator('#finance-profit-panel').waitFor({state:'visible'});await page.locator('.finance-profit-metrics').waitFor();
+        await page.selectOption('#finance-profit-basis','cash');await page.waitForFunction(()=>document.querySelector('#finance-profit-content')?.textContent.includes('Penghasilan bersih Shopee'));
+        assert.match(await page.locator('#finance-profit-content').innerText(),/Belum diketahui/);
+      }
       await page.locator('[data-finance-tab="cost"]').click();await page.locator('#finance-cost-panel').waitFor({state:'visible'});await page.locator('#finance-open-cost-batch').click();assert.equal(await page.locator('#finance-cost-batch-dialog').evaluate(el=>el.open),true);await page.keyboard.press('Escape');assert.equal(await page.locator('#finance-cost-batch-dialog').evaluate(el=>el.open),false);
+      if(await page.locator('#finance-open-sku-batch').count()){
+        await page.locator('#finance-open-sku-batch').click();assert.equal(await page.locator('#finance-cost-sku-dialog').evaluate(el=>el.open),true);await page.keyboard.press('Escape');assert.equal(await page.locator('#finance-cost-sku-dialog').evaluate(el=>el.open),false);
+      }
       await page.locator('[data-finance-tab="details"]').click();await page.locator('#finance-details-panel').waitFor({state:'visible'});await page.locator('[data-finance-tab="summary"]').click();await loaded();
     }
     stores=[store(1),store(2)];

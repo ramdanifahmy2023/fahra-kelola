@@ -29,6 +29,11 @@ if ($path==='/procFinance/summary') {
     },$scoped);
     $reply(['status'=>'success','range'=>compact('start','end','days'),'stores'=>$stores]);
 }
+if ($path==='/procFinance/profitLoss') {
+    $basis=$_GET['basis']??'accrual';
+    $stores=array_map(fn($s)=>$s+['revenue'=>2000000,'cost'=>null,'gross_profit'=>null,'after_ads'=>null,'incomplete_cost_orders'=>1,'missing_cost_units'=>2,'revenue_orders'=>10,'revenue_days'=>$days,'coverage'=>['complete'=>true,'expected_days'=>$days],'ads'=>['amount'=>0,'days'=>$days,'complete'=>true]],$scoped);
+    $reply(['status'=>'success','basis'=>$basis,'range'=>compact('start','end','days'),'stores'=>$stores,'totals'=>['revenue'=>2000000*count($stores),'cost'=>null,'gross_profit'=>null,'ads'=>0,'after_ads'=>null]]);
+}
 if ($path==='/procRealtime/metrics') {
     $ids=$_GET['shop_ids']??[1,2]; $count=count($ids);
     $reply(['status'=>'success','selected_shop_count'=>$count,'failures'=>[],'metrics'=>[

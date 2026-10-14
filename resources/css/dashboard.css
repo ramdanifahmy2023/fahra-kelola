@@ -88,6 +88,8 @@
 #finance-page.dashboard-overview .dashboard-detail-note { display: block; font-size: .8125rem; font-weight: 400; margin-top: 6px; }
 #finance-page.dashboard-overview .dashboard-detail-section #finance-pending-breakdown { padding: 16px 0; border: 0; border-top: 1px solid var(--color-base-300); border-radius: 0; margin: 0; }
 #finance-page.dashboard-overview #finance-summary-panel { margin-top: 24px; border-radius: 12px; }
+#finance-page.dashboard-overview .finance-profit-shop a { display: inline-flex; align-items: center; min-height: 44px; text-underline-offset: 3px; }
+#finance-page.dashboard-overview .finance-profit-shop dl { grid-template-columns: minmax(0,1fr); column-gap: 24px; }
 #finance-page.dashboard-overview :is(#dashboard-operations,#finance-pending-breakdown) { margin-top: 24px; border-radius: 12px; }
 #finance-page.dashboard-overview :is(#dashboard-stock-review,#dashboard-shop-review) { scroll-margin-top: 88px; }
 #finance-page.dashboard-overview .dashboard-operation-stats { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
@@ -110,6 +112,7 @@
   #finance-page.dashboard-overview .dashboard-operation-stats { grid-template-columns: repeat(4,minmax(0,1fr)); }
 }
 @container finance (min-width: 900px) {
+  #finance-page.dashboard-overview .finance-profit-shop dl { grid-template-columns: repeat(2,minmax(0,1fr)); }
   #finance-page.dashboard-overview .dashboard-toolbar { grid-template-columns: minmax(0,1.3fr) minmax(0,1fr) auto auto; }
   #finance-page.dashboard-overview .dashboard-filter-help { position: relative; grid-column: auto; }
   #finance-page.dashboard-overview .dashboard-filter-options { position: absolute; right: 0; top: calc(100% + 12px); z-index: 35; width: 320px; display: block; padding: 16px; border: 1px solid var(--dashboard-muted); border-radius: 10px; color: var(--color-base-content); background: var(--color-base-100); box-shadow: 0 6px 18px #0002; }

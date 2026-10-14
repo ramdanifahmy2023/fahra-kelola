@@ -21,7 +21,7 @@ fs.mkdirSync(output, { recursive: true });
         if (url.pathname === '/procFinance/sync') mutations++;
         return route.fulfill({ json: { status: 'success', message: 'Pratinjau: tidak ada sinkronisasi toko.' } });
       }
-      if (['/procFinance/summary', '/procDashboard/overview', '/procRealtime/metrics'].includes(url.pathname)) {
+      if (['/procFinance/summary', '/procFinance/profitLoss', '/procDashboard/overview', '/procRealtime/metrics'].includes(url.pathname)) {
         requests.push(url.pathname + url.search);
         if (mode === 'error') return route.fulfill({ status: 502, json: { status: 'error', message: 'Koneksi data contoh gagal.' } });
         const response = await route.fetch();
@@ -58,6 +58,15 @@ fs.mkdirSync(output, { recursive: true });
     await page.goto(base + '/panel');
     assert.match(await page.locator('main').innerText(), /Data contoh, tidak terhubung ke toko/);
     await loaded();
+    const hasProfit = await page.locator('#finance-profit-panel').count() > 0;
+    if (hasProfit) {
+      await page.locator('.finance-profit-metrics').waitFor();
+      assert.match(await page.locator('#finance-profit-content').innerText(), /Belum diketahui/);
+      assert.match(await page.locator('#finance-profit-content').innerText(), /Rp\s*0/);
+      await page.selectOption('#finance-profit-basis', 'cash');
+      await page.waitForFunction(() => document.querySelector('#finance-profit-content')?.textContent.includes('Penghasilan bersih Shopee'));
+      assert.match(await page.locator('#finance-open').getAttribute('href'), /tab=profit.*basis=cash/);
+    }
     assert.equal(await page.locator('#dashboard-live-metrics > div').count(), 4);
     assert.equal(await page.locator('#dashboard-traffic-metrics > div').count(), 2);
     assert.match(await page.locator('[data-live-metric="sales"]').innerText(), /2\.700\.000/);
@@ -144,7 +153,9 @@ fs.mkdirSync(output, { recursive: true });
     assert.match(await page.locator('#dashboard-live-metrics').innerText(), /Penjualan belum tersedia/);
     assert.match(await page.locator('#dashboard-attention').innerText(), /belum berhasil diperbarui/);
     assert.equal(await page.locator('#finance-error').isVisible(), true);
+    if (hasProfit) assert.equal(await page.locator('#finance-profit-error').isVisible(), true);
     mode = 'normal'; await page.locator('#finance-retry').click(); await page.locator('#dashboard-live-refresh').click(); await page.locator('#dashboard-operations-retry').click(); await loaded();
+    if (hasProfit) { await page.locator('#finance-profit-retry').click(); await page.locator('.finance-profit-metrics').waitFor(); assert.equal(await page.locator('#finance-profit-error').isVisible(), false); }
     await page.locator('#finance-shops-trigger').click(); await page.locator('[data-shop-value="2"]').click();
     assert.equal(await page.locator('#finance-filter-draft').isVisible(), true);
     await page.locator('#finance-filters button[type="submit"]').click(); await loaded();
@@ -159,6 +170,11 @@ fs.mkdirSync(output, { recursive: true });
     assert.match(await page.locator('#finance-scope-label').innerText(), /1 Sep 2026 sampai 7 Sep 2026/);
     assert.match(await page.locator('#dashboard-live-scope').innerText(), /terpisah dari periode/);
     assert.match(await page.locator('#finance-open').getAttribute('href'), /start=2026-09-01/);
+    if (hasProfit) {
+      await page.waitForFunction(() => document.querySelector('#finance-profit-scope')?.textContent.includes('1 Sep 2026 sampai 7 Sep 2026'));
+      assert.match(await page.locator('#finance-hpp-open').getAttribute('href'), /shops=2.*start=2026-09-01.*tab=cost/);
+      assert.ok(requests.some(value => value.startsWith('/procFinance/profitLoss?') && value.includes('shops=2') && value.includes('start=2026-09-01') && value.includes('basis=cash')));
+    }
     await page.locator('#finance-sync').click(); await loaded(); assert.equal(mutations, 1);
     await page.setViewportSize({ width: 500, height: 1000 });
     await page.evaluate(() => document.documentElement.style.fontSize='200%');
@@ -167,7 +183,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.match(await page.locator('.dashboard-empty h2').innerText(), /Mulai dengan menghubungkan toko/);
     assert.equal(await page.locator('.dashboard-jump-nav').count(), 0, 'No dead anchors without shops');
     assert.deepEqual(errors, []); assert.deepEqual(external, []);
-    fs.writeFileSync(path.join(output, 'checks.json'), JSON.stringify({ contrast, errors, external, mutations }, null, 2));
+    fs.writeFileSync(path.join(output, 'checks.json'), JSON.stringify({ contrast, errors, external, mutations, hasProfit }, null, 2));
     console.log('PASS: full panel shell, 8 width/theme views, contrast, 44px targets, mobile menu, source/pending disclosures, null/zero/partial/error/empty states, shop/date scope, mocked sync, keyboard focus and 200% text. No database or upstream requests.');
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exit(1); });

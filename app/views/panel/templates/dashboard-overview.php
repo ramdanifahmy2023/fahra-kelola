@@ -21,7 +21,7 @@
   <?php require __DIR__.'/dashboard-activity.php'; ?>
 
   <section id="finance-report-overview" aria-labelledby="dashboard-funds-title">
-    <div class="finance-section-heading"><div><h2 id="dashboard-funds-title">Ringkasan dana</h2><p id="finance-scope-label"></p></div><div class="finance-actions"><button id="finance-sync" class="btn" type="button"><span class="material-symbols-outlined" aria-hidden="true">sync</span>Perbarui saldo Shopee</button></div></div>
+    <div class="finance-section-heading"><div><h2 id="dashboard-funds-title">Ringkasan dana</h2><p id="finance-scope-label"></p></div><div class="finance-actions"><?php if (!empty($financeProfitPanel)): ?><a class="btn" href="#finance-profit-panel">Laba rugi</a><?php endif; ?><button id="finance-sync" class="btn" type="button"><span class="material-symbols-outlined" aria-hidden="true">sync</span>Perbarui saldo Shopee</button></div></div>
     <div class="finance-balances" aria-label="Saldo Shopee">
       <article><div class="finance-metric-heading"><span class="material-symbols-outlined" aria-hidden="true">hourglass_top</span><h3>Dana tertahan <span class="dashboard-alias">(Pending)</span></h3></div><p class="finance-amount" id="finance-pending">Memuat…</p><p class="finance-meta">Belum dilepas Shopee · posisi terbaru</p><p id="finance-pending-quality"></p><details class="finance-metric-detail"><summary>Sumber &amp; pembaruan</summary><p id="finance-pending-note" class="finance-meta"></p><a class="finance-text-button" href="#finance-pending-breakdown">Lihat bagian pending</a></details></article>
       <article><div class="finance-metric-heading"><span class="material-symbols-outlined" aria-hidden="true">account_balance_wallet</span><h3>Sudah dilepas Shopee</h3></div><p class="finance-amount" id="finance-released">Memuat…</p><p class="finance-meta" id="finance-released-period">Selama periode pilihan</p><p id="finance-released-quality"></p><p class="finance-meta">Belum berarti sudah ditarik ke bank.</p><details class="finance-metric-detail"><summary>Sumber &amp; pembaruan</summary><p id="finance-released-note" class="finance-meta"></p></details></article>
@@ -35,10 +35,11 @@
   <?php require __DIR__.'/dashboard-operations.php'; ?>
   <details class="dashboard-detail-section"><summary><span>Lihat tahap pesanan &amp; dana tertahan</span><span id="finance-pending-summary" class="dashboard-detail-note">Memuat rincian…</span></summary><?php require __DIR__.'/finance-pending.php'; ?></details>
   <section id="finance-summary-panel" class="finance-surface" aria-label="Ringkasan per toko">
-    <div class="finance-section-heading"><div><h2>Ringkasan per toko</h2><p id="finance-store-period"></p></div><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance">Buka Keuangan &amp; HPP</a></div>
+    <div class="finance-section-heading"><div><h2>Ringkasan per toko</h2><p id="finance-store-period"></p></div><?php if (!empty($financeProfitPanel)): ?><div class="finance-actions"><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance?tab=profit">Laporan laba rugi</a><a id="finance-hpp-open" class="btn" href="<?= burl; ?>/panel/finance?tab=cost">Atur HPP</a></div><?php else: ?><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance">Buka Keuangan &amp; HPP</a><?php endif; ?></div>
     <div id="finance-store-list"></div>
     <details class="finance-explanation"><summary>Cara membaca angka toko</summary><p>Pending dan Saldo Penjual adalah posisi terbaru. Dana dilepas, omset, top up, dan biaya iklan mengikuti periode laporan. Rincian pengiriman dan retur sudah termasuk Pending.</p><p>Ringkasan Shopee dan jumlah rincian dapat berbeda. Lihat sumber dan waktu pembaruan setiap toko sebelum membandingkan.</p></details>
   </section>
+  <?= $financeProfitPanel ?? ''; ?>
   <?php require __DIR__.'/shop-logos.php'; ?>
   <script src="<?= assets; ?>/js/shop-select.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/shop-select.js'); ?>"></script>
   <script src="<?= assets; ?>/js/finance.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/finance.js'); ?>" defer></script>
