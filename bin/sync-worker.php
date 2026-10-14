@@ -28,9 +28,9 @@ $once = array_key_exists('once', $options);
 $packageMode = array_key_exists('packages', $options);
 $packageLimit = max(1, min(500, (int)($options['limit'] ?? 50)));
 
-$sync = new SyncJob();
-$sync->ensureSchema();
 $db = new Database();
+$sync = new SyncJob($db);
+$sync->ensureSchema();
 $shopee = new ShopeeCurl();
 
 require_once '../app/helpers/SyncWorkerTasks.php';

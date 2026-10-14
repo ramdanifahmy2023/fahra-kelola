@@ -74,6 +74,7 @@ Source defaults in `BackgroundSync.php`: orders 180s with full 12h; products 900
 | Orders seem stuck | Worker service, pending/running detail counts, leases, retry dates, parent cursor | Resetting all jobs or starting duplicate workers |
 | Ads unavailable | Channel/period identity, report availability, source/error category; existing ads docs | Treating a successful identity call as report success or filling unknown values with zero |
 | Chat forbidden | Channel-specific access state | Marking the entire shop expired solely from `user_is_forbidden` |
+| Order index lock timeout | Keep `SyncJob` and page publication on the worker's same `Database` connection; `sync_pages.sync_run_id` references the row updated during publication | Opening a second connection inside the page-publish transaction |
 | Local page fails | PHP error log, DB connectivity, migrations/schema availability, route casing | Fresh-install schema import over existing data |
 
 Relevant evidence: [queue recovery](sync-recovery-20260929.md), [sync improvements](sync-improvements-20260929.md), [ads campaign sync](ads-campaign-sync.md), [ads data mapping](ads-data-mapping.md), [browser import pilot](ads-browser-pilot.md). These notes describe their observation dates, not guaranteed current restrictions.

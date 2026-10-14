@@ -192,6 +192,8 @@ function processIndex(Database $db, SyncJob $sync, ShopeeCurl $shopee, array $jo
     return false;
   }
   $continue = OrderSyncPolicy::continueIndex((string)($job['mode'] ?? 'diff'), $ids, $existingIds, $next);
+  // The worker passes one Database to SyncJob so the sync_pages foreign key
+  // can read the sync_runs row updated in this same transaction.
   $db->begin();
   try {
     // Lock the parent row while publishing this page. A reclaimed worker then

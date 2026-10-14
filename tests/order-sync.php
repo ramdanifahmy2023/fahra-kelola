@@ -22,6 +22,9 @@ class OrderTestJob extends SyncJob {
   public function __construct($db) { $this->db = $db; }
   public function ensureSchema() {}
 }
+class OrderSyncConnectionProbe extends SyncJob {
+  public function sharesDatabase(Database $db): bool { return $this->db === $db; }
+}
 class OrderTestSource extends ShopeeCurl {
   public $response;
   public $detail;
@@ -29,6 +32,8 @@ class OrderTestSource extends ShopeeCurl {
   public function getOneOrder($cookie, $orderId) { if ($this->detail === null) throw new RuntimeException('Fresh detail should not be requested'); return $this->detail; }
 }
 $now = strtotime('2026-09-29 00:00:00 UTC');
+$connectionProbe = new OrderSyncConnectionProbe($db);
+checkOrder($connectionProbe->sharesDatabase($db), 'Sync worker can share one database connection across page publication');
 $known = ['1' => ['created_at' => '2026-09-28 00:00:00', 'detail_synced_at' => '2026-09-29 00:00:00']];
 checkOrder(OrderSyncPolicy::continueIndex('diff', [1,2], $known, 'opaque', $now), 'Mixed known/new page continues');
 checkOrder(OrderSyncPolicy::continueIndex('diff', [1], $known, 'opaque', $now), 'Known recent page continues within overlap');

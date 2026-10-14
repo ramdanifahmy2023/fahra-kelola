@@ -6,6 +6,10 @@ class SyncJob extends BaseModel {
   private $schemaReady = false;
   private $columnCache = [];
 
+  public function __construct(?Database $db = null) {
+    $this->db = $db ?? new Database();
+  }
+
   private function hasColumn(string $table, string $column): bool {
     $key = $table . '.' . $column;
     if (array_key_exists($key, $this->columnCache)) return $this->columnCache[$key];
