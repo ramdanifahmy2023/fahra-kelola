@@ -9,12 +9,12 @@
     <h2 class="text-xl font-black tracking-tight text-base-content">Daftar Pelanggan</h2>
   </div>
   <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-    <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueCustomerBackgroundSync()" id="customer-sync-button" aria-describedby="customer-sync-status"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang</button>
-    <p id="customer-sync-status" class="sr-only" role="status" aria-live="polite"></p>
+    <button type="button" class="btn btn-primary btn-sm min-h-11 gap-1 px-4" onclick="queueCustomerBackgroundSync()" id="customer-sync-button" aria-describedby="customer-sync-status"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang</button>
     <div class="badge badge-outline h-9 gap-2 px-3 text-xs font-bold"><span class="material-symbols-outlined text-sm text-primary" aria-hidden="true">database</span><?= number_format($data['total_customers']) ?> pelanggan</div>
     <div class="w-full min-w-0 sm:w-64"><?php require __DIR__ . '/templates/shop-picker.php'; ?></div>
   </div>
 </div>
+<p id="customer-sync-status" class="mb-4 text-sm text-base-content/65" role="status" aria-live="polite">Rekap menghitung pelanggan dan pesanan yang sudah tersimpan di Shopdash.</p>
 
 <?php if (!empty($data['page_recap'])) require __DIR__ . '/templates/page-recap.php'; ?>
 <?php if (!empty($data['customer_filter'])): ?>
@@ -25,6 +25,7 @@
 <script>
 let customerSyncController = null;
 let customerSyncToken = 0;
+const customerCsrfToken = <?= json_encode(authCsrfToken(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT); ?>;
 
 function updateCustomerSyncIndicator(label, detail, percentage) {
   const card = document.getElementById('sync-detail-card');
@@ -49,7 +50,7 @@ function syncCustomers(force = false) {
 
   fetch('<?= burl; ?>/proccustomers/sync', {
     method: 'POST',
-    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': customerCsrfToken },
     signal: customerSyncController.signal
   })
   .then(response => response.json())
@@ -72,11 +73,73 @@ function syncCustomers(force = false) {
 
 function queueCustomerBackgroundSync() {
   const button = document.getElementById('customer-sync-button');
+  const status = document.getElementById('customer-sync-status');
+  if (button?.disabled) return;
   if (button) { button.disabled = true; button.innerText = 'Mengantrikan...'; }
-  const fd = new FormData(); fd.append('shop_id', document.getElementById('selectedShopId').value); fd.append('sync_type', 'customers');
-  fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
-    .then(r => r.json()).then(data => { if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat'); document.getElementById('customer-sync-status').textContent = 'Sinkronisasi pelanggan masuk antrean background.'; })
-    .catch(error => { document.getElementById('customer-sync-status').textContent = error.message || 'Antrean sinkronisasi gagal dibuat.'; }).finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; } });
+  if (status) status.textContent = 'Meminta sinkronisasi data pelanggan…';
+  const fd = new FormData();
+  fd.append('shop_id', document.getElementById('selectedShopId').value);
+  fd.append('sync_type', 'customers');
+  fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': customerCsrfToken, 'Accept': 'application/json'}, body: fd })
+    .then(async response => {
+      const data = await response.json();
+      if (!response.ok || data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat.');
+      const jobs = Array.isArray(data.jobs) ? data.jobs : (data.job_id ? [data] : []);
+      if (!jobs.length) throw new Error('Server belum mengembalikan pekerjaan sinkronisasi.');
+      return jobs;
+    })
+    .then(async jobs => {
+      if (status) status.textContent = 'Sinkronisasi pelanggan diproses untuk ' + jobs.length + ' toko…';
+      const results = await waitForCustomerBackgroundSync(jobs);
+      const completed = results.filter(result => result.status === 'completed');
+      const failed = results.filter(result => result.status === 'failed');
+      const unfinished = results.filter(result => result.status !== 'completed' && result.status !== 'failed');
+      if (completed.length) {
+        const message = unfinished.length
+          ? 'Sinkronisasi selesai untuk ' + completed.length + ' dari ' + jobs.length + ' toko. ' + unfinished.length + ' toko masih diproses; rekap diperbarui untuk toko yang berhasil.'
+          : failed.length
+            ? 'Sinkronisasi selesai untuk ' + completed.length + ' dari ' + jobs.length + ' toko. ' + failed.length + ' toko gagal; rekap diperbarui untuk toko yang berhasil.'
+            : 'Sinkronisasi selesai untuk ' + completed.length + ' toko. Rekap pelanggan diperbarui.';
+        sessionStorage.setItem('customer-sync-result', message);
+        if (status) status.textContent = message + ' Memuat data terbaru…';
+        window.setTimeout(() => window.location.reload(), 900);
+        return;
+      }
+      if (status) status.textContent = failed.length && unfinished.length
+        ? 'Sinkronisasi gagal untuk ' + failed.length + ' toko; ' + unfinished.length + ' toko lainnya masih diproses. Rekap memakai data tersimpan terakhir.'
+        : failed.length
+          ? 'Sinkronisasi gagal untuk seluruh toko. Rekap tetap memakai data tersimpan terakhir; periksa jadwal sinkronisasi.'
+          : 'Sinkronisasi masih berjalan. Status terbaru bisa diperiksa di halaman Jadwal sinkronisasi.';
+      if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Coba sinkronkan lagi'; }
+    })
+    .catch(error => {
+      if (status) status.textContent = error.message || 'Antrean sinkronisasi gagal dibuat.';
+      if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Coba sinkronkan lagi'; }
+    });
+}
+
+async function waitForCustomerBackgroundSync(jobs) {
+  const results = new Map();
+  const requested = jobs.map(job => ({shop_id: Number(job.shop_id), job_id: Number(job.job_id)}));
+  for (let attempt = 0; attempt < 360; attempt++) {
+    const response = await fetch('<?= burl; ?>/procsync/status?shop_id=0', {headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, cache: 'no-store'});
+    const data = await response.json();
+    if (!response.ok || data.status !== 'success' || !Array.isArray(data.schedules)) throw new Error(data.message || 'Status sinkronisasi pelanggan gagal dibaca.');
+    for (const job of requested) {
+      const key = job.shop_id + ':' + job.job_id;
+      if (results.has(key)) continue;
+      const row = data.schedules.find(item => Number(item.shop_id) === job.shop_id && item.sync_type === 'customers' && Number(item.job_id) === job.job_id);
+      if (row && ['completed', 'failed'].includes(row.job_status)) {
+        results.set(key, {shop_id: job.shop_id, job_id: job.job_id, status: row.job_status, shop_name: row.shop_name || 'Toko'});
+      }
+    }
+    const done = [...results.values()];
+    const status = document.getElementById('customer-sync-status');
+    if (status) status.textContent = 'Sinkronisasi pelanggan: ' + done.length + ' dari ' + requested.length + ' toko selesai…';
+    if (results.size === requested.length) return done;
+    await new Promise(resolve => window.setTimeout(resolve, 3000));
+  }
+  return [...results.values()].concat(requested.filter(job => !results.has(job.shop_id + ':' + job.job_id)).map(job => ({...job, status: 'timeout'})));
 }
 
 function changeCustomerLimit(limit) {
@@ -87,6 +150,12 @@ function changeCustomerLimit(limit) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const previousResult = sessionStorage.getItem('customer-sync-result');
+  if (previousResult) {
+    const status = document.getElementById('customer-sync-status');
+    if (status) status.textContent = previousResult;
+    sessionStorage.removeItem('customer-sync-result');
+  }
   const url = new URL(window.location.href);
   const syncFromSidebar = url.searchParams.get('sync') === '1';
   if (syncFromSidebar) {
@@ -236,7 +305,7 @@ function openCustomerHistory(username) {
   const formData = new FormData();
   formData.append('username', username);
   formData.append('shop_id', document.getElementById('selectedShopId').value);
-  fetch('<?= burl; ?>/proccustomers/history', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' }, body: formData })
+  fetch('<?= burl; ?>/proccustomers/history', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': customerCsrfToken }, body: formData })
     .then(response => response.json())
     .then(data => {
       if (data.status !== 'success') throw new Error(data.message || 'Gagal memuat riwayat.');

@@ -4,6 +4,8 @@
   const grid = root.querySelector('#ads-grid');
   const state = root.querySelector('#ads-state');
   const refresh = root.querySelector('#ads-refresh');
+  const syncButton = root.querySelector('#ads-sync');
+  const syncStatus = root.querySelector('#ads-sync-status');
   const period = root.querySelector('#ads-period');
   const channel = root.querySelector('#ads-channel');
   const shopFilter = root.querySelector('#ads-shop');
@@ -42,6 +44,7 @@
   let controller;
   let shops = [];
   let loaded = false;
+  let syncInProgress = false;
   let requestId = 0;
   let topupRequestId = 0;
 
@@ -312,6 +315,105 @@
     loadTopups();
   }
 
+  async function syncAdsReports() {
+    if (!loaded || syncInProgress) return;
+    const selectedShop = shopFilter.value;
+    const targets = shops.filter(shop => !selectedShop || String(shop.shop_id) === selectedShop);
+    if (!targets.length) {
+      syncStatus.textContent = 'Tidak ada toko untuk disinkronkan.';
+      return;
+    }
+
+    syncInProgress = true;
+    syncButton.disabled = true;
+    syncButton.textContent = 'Mengantrikan…';
+    syncStatus.textContent = 'Meminta laporan terbaru untuk ' + targets.length + ' toko…';
+    const jobs = [];
+    const enqueueFailures = [];
+    for (const shop of targets) {
+      try {
+        const form = new FormData();
+        form.append('shop_id', String(shop.shop_id));
+        form.append('sync_type', 'ads');
+        form.append('sync_mode', 'diff');
+        const response = await fetch(root.dataset.syncEndpoint, {
+          method: 'POST',
+          headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': root.dataset.csrf || '', 'Accept': 'application/json'},
+          body: form,
+          cache: 'no-store'
+        });
+        const payload = await response.json();
+        if (!response.ok || payload.status !== 'accepted' || !payload.job_id) throw new Error(payload.message || 'Antrean ditolak.');
+        jobs.push({shop_id: Number(payload.shop_id || shop.shop_id), job_id: Number(payload.job_id), shop_name: shop.shop_name || 'Toko'});
+      } catch (error) {
+        enqueueFailures.push({shop_name: shop.shop_name || 'Toko', message: error.message || 'Antrean gagal dibuat.'});
+      }
+    }
+
+    if (!jobs.length) {
+      syncStatus.textContent = 'Sinkronisasi tidak berhasil dimulai. ' + enqueueFailures.map(item => item.shop_name + ': ' + item.message).join(' ');
+      finishAdsSync();
+      return;
+    }
+
+    syncButton.textContent = 'Sinkronisasi…';
+    syncStatus.textContent = 'Sinkronisasi laporan berjalan untuk ' + jobs.length + ' dari ' + targets.length + ' toko…';
+    const jobResults = await pollAdsReports(jobs);
+    const completed = jobResults.filter(job => job.status === 'completed');
+    const failed = jobResults.filter(job => job.status === 'failed');
+    const unfinished = jobResults.filter(job => !['completed', 'failed'].includes(job.status));
+    if (completed.length) {
+      syncStatus.textContent = 'Sinkronisasi selesai untuk ' + completed.length + ' dari ' + targets.length + ' toko. Memuat ulang ringkasan…';
+      await loadAds();
+      const issues = failed.length + enqueueFailures.length;
+      syncStatus.textContent = unfinished.length
+        ? 'Ringkasan diperbarui untuk ' + completed.length + ' toko. ' + unfinished.length + ' toko masih diproses; data tersimpan sebelumnya tetap ditampilkan.'
+        : issues
+          ? 'Ringkasan diperbarui untuk ' + completed.length + ' toko. ' + issues + ' toko gagal disinkronkan; data tersimpan sebelumnya tetap ditampilkan.'
+        : 'Sinkronisasi selesai. Ringkasan iklan sudah diperbarui dari data terbaru.';
+    } else if (failed.length) {
+      syncStatus.textContent = unfinished.length
+        ? 'Sinkronisasi gagal untuk ' + failed.length + ' toko; ' + unfinished.length + ' toko lainnya masih diproses. Rekap menampilkan laporan tersimpan terakhir.'
+        : 'Sinkronisasi gagal. Rekap tetap menampilkan laporan tersimpan terakhir. Periksa jadwal sinkronisasi.';
+    } else {
+      syncStatus.textContent = 'Sinkronisasi masih berjalan. Periksa statusnya di halaman Jadwal sinkronisasi.';
+    }
+    finishAdsSync();
+  }
+
+  async function pollAdsReports(jobs) {
+    const terminal = new Map();
+    for (let attempt = 0; attempt < 360; attempt++) {
+      try {
+        const url = new URL(root.dataset.syncStatusEndpoint, window.location.href);
+        url.searchParams.set('shop_id', '0');
+        const response = await fetch(url, {headers: {'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json'}, cache: 'no-store'});
+        const payload = await response.json();
+        if (response.ok && payload.status === 'success' && Array.isArray(payload.schedules)) {
+          for (const job of jobs) {
+            const key = job.shop_id + ':' + job.job_id;
+            if (terminal.has(key)) continue;
+            const row = payload.schedules.find(item => Number(item.shop_id) === job.shop_id && item.sync_type === 'ads' && Number(item.job_id) === job.job_id);
+            if (row && ['completed', 'failed'].includes(row.job_status)) terminal.set(key, {...job, status: row.job_status});
+          }
+        }
+      } catch (error) {
+        // Keep polling through temporary status endpoint errors; the job itself may still be running.
+      }
+      const finished = [...terminal.values()];
+      syncStatus.textContent = 'Sinkronisasi laporan: ' + finished.length + ' dari ' + jobs.length + ' toko selesai…';
+      if (finished.length === jobs.length) return finished;
+      await new Promise(resolve => window.setTimeout(resolve, 3000));
+    }
+    return jobs.map(job => terminal.get(job.shop_id + ':' + job.job_id) || {...job, status: 'timeout'});
+  }
+
+  function finishAdsSync() {
+    syncInProgress = false;
+    syncButton.disabled = !loaded;
+    syncButton.textContent = 'Sinkronkan laporan';
+  }
+
   async function loadAds() {
     controller?.abort();
     controller = new AbortController();
@@ -352,6 +454,7 @@
       if (current === requestId) {
         refresh.disabled = false;
         shopFilter.disabled = !loaded;
+        syncButton.disabled = !loaded || syncInProgress;
         syncShopPicker();
         grid.setAttribute('aria-busy', 'false');
       }
@@ -365,6 +468,7 @@
   topupPeriod.addEventListener('change', updateTopupRange);
   topupStart.addEventListener('change', loadTopups);
   topupEnd.addEventListener('change', loadTopups);
+  syncButton.addEventListener('click', syncAdsReports);
   refresh.addEventListener('click', loadAds);
   loadAds();
   window.setInterval(() => { if (!document.hidden && !refresh.disabled) loadAds(); }, 300000);

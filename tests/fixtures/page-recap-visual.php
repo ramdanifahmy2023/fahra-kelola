@@ -13,6 +13,21 @@ $data = [
   'active_conversation_id' => '',
 ];
 $page = (string)($argv[1] ?? 'overview');
+if ($page === 'orders-sync') {
+  $data = array_merge($data, [
+    'active_menu' => 'orders', 'active_shop_id' => 6, 'start_date' => '2026-10-01', 'end_date' => '2026-10-14',
+    'limit' => 10, 'order_filter' => '', 'total_orders' => 0, 'total_pages' => 1, 'current_page' => 1,
+    'focused_order_id' => null, 'orders' => [],
+    'page_recap' => ['id' => 'orders-recap', 'title' => 'Ringkasan pesanan', 'description' => 'Data tersimpan dari sinkronisasi toko.', 'scope' => 'Toko uji · 1–14 Okt 2026', 'primary' => ['label' => 'Pesanan tercatat', 'value' => 0], 'metrics' => [], 'segments' => [], 'trend' => []],
+  ]);
+}
+if ($page === 'customers-sync') {
+  $data = array_merge($data, [
+    'active_menu' => 'customers', 'active_shop_id' => 6, 'limit' => 10, 'customer_filter' => '',
+    'total_customers' => 0, 'total_pages' => 1, 'current_page' => 1, 'focused_customer_id' => null, 'customers' => [],
+    'page_recap' => ['id' => 'customers-recap', 'title' => 'Ringkasan pelanggan', 'description' => 'Data tersimpan dari pesanan toko.', 'scope' => 'Toko uji', 'primary' => ['label' => 'Pelanggan', 'value' => 0], 'metrics' => [], 'segments' => [], 'trend' => []],
+  ]);
+}
 if (str_starts_with($page, 'picker-')) {
   $pickerPage = substr($page, 7);
   $data['active_menu'] = $pickerPage;
@@ -32,6 +47,8 @@ elseif ($page === 'chat') require __DIR__ . '/../../app/views/panel/chat.php';
 elseif ($page === 'sync') require __DIR__ . '/../../app/views/panel/sync.php';
 elseif ($page === 'ads') require __DIR__ . '/../../app/views/panel/ads.php';
 elseif ($page === 'promotions') require __DIR__ . '/../../app/views/panel/promotions.php';
+elseif ($page === 'orders-sync') require __DIR__ . '/../../app/views/panel/orders.php';
+elseif ($page === 'customers-sync') require __DIR__ . '/../../app/views/panel/customers.php';
 else {
   $data['page_recap'] = [
     'id' => 'fixture-recap', 'title' => 'Ringkasan pesanan', 'description' => 'Tampilan uji data yang sudah diketahui.', 'scope' => 'Toko uji · 1–14 Okt 2026',

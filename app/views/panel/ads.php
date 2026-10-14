@@ -1,10 +1,14 @@
-<section id="ads-monitor" data-endpoint="<?= htmlspecialchars(burl . '/procads/summary', ENT_QUOTES, 'UTF-8'); ?>" data-topups-endpoint="<?= htmlspecialchars(burl . '/procads/topups', ENT_QUOTES, 'UTF-8'); ?>" aria-labelledby="ads-title">
+<section id="ads-monitor" data-endpoint="<?= htmlspecialchars(burl . '/procads/summary', ENT_QUOTES, 'UTF-8'); ?>" data-topups-endpoint="<?= htmlspecialchars(burl . '/procads/topups', ENT_QUOTES, 'UTF-8'); ?>" data-sync-endpoint="<?= htmlspecialchars(burl . '/procsync/enqueue', ENT_QUOTES, 'UTF-8'); ?>" data-sync-status-endpoint="<?= htmlspecialchars(burl . '/procsync/status', ENT_QUOTES, 'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>" aria-labelledby="ads-title">
   <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
     <div>
       <h2 id="ads-title" class="text-2xl font-black tracking-tight text-base-content">Monitoring iklan</h2>
     </div>
-    <button id="ads-refresh" type="button" class="btn btn-sm min-h-11 rounded-lg">Muat ulang data</button>
+    <div class="flex w-full flex-wrap gap-2 sm:w-auto">
+      <button id="ads-sync" type="button" class="btn btn-primary btn-sm min-h-11 rounded-lg" disabled>Sinkronkan laporan</button>
+      <button id="ads-refresh" type="button" class="btn btn-sm min-h-11 rounded-lg">Muat ulang data</button>
+    </div>
   </div>
+  <p id="ads-sync-status" class="mb-4 text-sm text-base-content/65" role="status" aria-live="polite">Rekap memakai laporan iklan yang tersimpan. Sinkronkan laporan untuk meminta data terbaru dari Shopee.</p>
   <div class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4">
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div>
@@ -31,7 +35,7 @@
     <p id="ads-period-help" class="mt-3 text-sm text-base-content"></p>
     <details class="mt-2 text-sm">
       <summary class="min-h-11 cursor-pointer py-3 font-semibold">Tentang data iklan</summary>
-      <p>Muat ulang menampilkan data tersimpan. <a href="<?= burl; ?>/panel/sync" class="ads-inline-link">Lihat jadwal sinkronisasi</a></p>
+      <p>Sinkronkan laporan meminta data terbaru dari Shopee. Muat ulang hanya membaca data tersimpan. <a href="<?= burl; ?>/panel/sync" class="ads-inline-link">Lihat jadwal sinkronisasi</a></p>
       <p>Pesanan mengikuti kartu Pesanan Seller Centre. Penjualan memakai atribusi total Shopee. Nilai antarjenis iklan tidak dijumlahkan. Data periode berjalan masih dapat berubah.</p>
       <p class="mt-2">CTR = klik ÷ tayangan. ROAS = penjualan ÷ biaya iklan. Tanda - berarti metrik belum tersedia, belum terverifikasi, atau tidak dapat dihitung.</p>
     </details>

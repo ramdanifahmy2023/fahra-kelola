@@ -31,7 +31,9 @@ const schedules = [
   {shop_id:7,shop_name:shops[1].shop_name,sync_type:'customers',job_status:'success',last_success_at:'2026-10-14 02:00:00',next_run_at:'2026-10-14 03:00:00',enabled:1,interval_seconds:3600,presentation:{tone:'success',stage:'Selesai',message:'Sinkronisasi selesai.',percent:null,can_retry:false}},
 ];
 let browser, context, session;
-const errors = [], requestScopes = [];
+const errors = [], requestScopes = [], syncWrites = [], syncStatusReads = [], syncJobs = [];
+let adsSummaryRequests = 0;
+let nextFixtureJobId = 900;
 
 function fixtureHtml(page) {
   return execFileSync('php',['tests/fixtures/page-recap-visual.php',page],{cwd:root,encoding:'utf8'});
@@ -63,6 +65,10 @@ async function responsiveCheck(page, kind) {
       }));
       assert.equal(overflow.page,false,`${kind} ${width}px ${theme}: page overflows`);
       assert.deepEqual(overflow.recap,[],`${kind} ${width}px ${theme}: recap overflows`);
+      if (kind==='orders-sync' || kind==='customers-sync') {
+        const id=kind==='orders-sync'?'#order-sync-button':'#customer-sync-button';
+        assert.ok(await page.locator(id).evaluate(el=>el.getBoundingClientRect().height>=44),`${kind} ${width}px ${theme}: sync button meets the 44px touch target`);
+      }
       if(width===1600){
         const contrasts=await page.evaluate(()=>{
           const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
@@ -93,15 +99,33 @@ async function responsiveCheck(page, kind) {
           if (!fs.existsSync(file)) return route.fulfill({status:404,body:''});
           return route.fulfill({path:file,contentType:mime(file)});
         }
-        const match=pathname.match(/^\/fixture\/(overview|chat|sync|ads|promotions|picker-orders|picker-products|picker-customers)$/);
+        const match=pathname.match(/^\/fixture\/(overview|chat|sync|ads|promotions|orders-sync|customers-sync|picker-orders|picker-products|picker-customers)$/);
         if (match) return route.fulfill({contentType:'text/html',body:fixtureHtml(match[1])});
         if (pathname==='/procChat/overview') return route.fulfill({json:{status:'success',shops,totals:{unread_count:11,conversation_count:22,active_count:16,expired_shops:1}}});
         if (pathname==='/procChat/conversations') {
           requestScopes.push(url.searchParams.get('shop_id'));
           return route.fulfill({json:{status:'success',conversations:[]}});
         }
-        if (pathname==='/procsync/status') return route.fulfill({json:{status:'success',schedules}});
-        if (pathname==='/procads/summary') return route.fulfill({json:{status:'success',shops:adShops}});
+        if (pathname==='/procsync/enqueue' && route.request().method()==='POST') {
+          const body=route.request().postData()||'';
+          const read=name=>body.match(new RegExp('name="'+name+'"\\r\\n\\r\\n([^\\r\\n]+)'))?.[1]||'';
+          const job={shop_id:Number(read('shop_id')),sync_type:read('sync_type'),job_id:nextFixtureJobId++};
+          syncWrites.push({path:pathname,method:'POST',csrf:route.request().headers()['x-csrf-token'],body});
+          syncJobs.push(job);
+          return route.fulfill({json:{status:'accepted',...job}});
+        }
+        if (pathname==='/procsync/status') {
+          syncStatusReads.push({path:pathname,shop_id:url.searchParams.get('shop_id')});
+          const active=syncJobs.map(job=>({...job,job_status:'completed'}));
+          return route.fulfill({json:{status:'success',schedules:[...schedules,...active]}});
+        }
+        if (pathname==='/procorders/sync_status' && route.request().method()==='POST') {
+          syncWrites.push({path:pathname,method:'POST',csrf:route.request().headers()['x-csrf-token'],body:route.request().postData()||''});
+          const body=route.request().postData()||'';
+          const read=name=>body.match(new RegExp('name="'+name+'"\\r\\n\\r\\n([^\\r\\n]+)'))?.[1]||'';
+          return route.fulfill({json:{status:'success',job:{id:Number(read('job_id')),shop_id:Number(read('shop_id')),status:'completed',progress_percent:100}}});
+        }
+        if (pathname==='/procads/summary') { adsSummaryRequests++; return route.fulfill({json:{status:'success',shops:adShops}}); }
         if (pathname==='/procads/topups') return route.fulfill({json:{status:'success',report:{months:[],shops:[],shop_options:[],start_date:'2026-08-01',end_date:'2026-10-14'}}});
         if (pathname==='/procPromotions/summary') return route.fulfill({json:{status:'success',shops:promotions}});
         return route.fulfill({status:404,contentType:'application/json',body:'{}'});
@@ -146,6 +170,21 @@ async function responsiveCheck(page, kind) {
         await shopButton.focus(); await page.keyboard.press('Enter');
         await page.waitForFunction(()=>document.querySelectorAll('#ads-grid article').length===1);
         assert.equal(await page.locator('#ads-shop').inputValue(),'6','Ads comparison selects the corresponding shop');
+        await page.locator('#ads-sync').click();
+        await page.waitForFunction(()=>document.getElementById('ads-sync-status').textContent.includes('diperbarui'));
+        const adsWrite=syncWrites.filter(item=>item.path==='/procsync/enqueue').at(-1);
+        assert.equal(adsWrite.csrf,'fixture-token','Ads sync carries the CSRF token');
+        assert.match(adsWrite.body,/name="shop_id"\r\n\r\n6/,'Ads sync queues the selected shop');
+        assert.match(adsWrite.body,/name="sync_type"\r\n\r\nads/,'Ads sync queues the ads job type');
+        assert.ok(adsSummaryRequests>=2,'Ads recap reloads its saved report after the job completes');
+        const beforeAllShopSync=syncWrites.filter(item=>item.path==='/procsync/enqueue').length;
+        await page.evaluate(()=>{const select=document.querySelector('#ads-shop');select.value='';select.dispatchEvent(new Event('change',{bubbles:true}));});
+        await page.locator('#ads-sync').click();
+        await page.waitForFunction(()=>document.getElementById('ads-sync-status').textContent.startsWith('Sinkronisasi selesai. Ringkasan iklan'));
+        const allShopWrites=syncWrites.filter(item=>item.path==='/procsync/enqueue').slice(beforeAllShopSync);
+        assert.equal(allShopWrites.length,2,'Ads sync queues every shop when the filter is Semua toko');
+        assert.ok(allShopWrites.every(item=>item.csrf==='fixture-token'&&/name="sync_type"\r\n\r\nads/.test(item.body)),'Every all-shop Ads request is CSRF protected and uses the ads job type');
+        assert.ok(adsSummaryRequests>=3,'All-shop Ads sync also reloads the saved report');
       }
       if (kind==='promotions') {
         assert.equal(await page.locator('#promotion-recap-vouchers').textContent(),'6');
@@ -158,6 +197,27 @@ async function responsiveCheck(page, kind) {
       await responsiveCheck(page,kind);
       if (kind==='overview') { await page.evaluate(()=>document.documentElement.dataset.theme='shopdash-light'); await page.screenshot({path:path.join(output,'overview-1600-light.png'),animations:'disabled'}); }
       if (kind==='chat') { await page.setViewportSize({width:320,height:900}); await page.evaluate(()=>document.documentElement.dataset.theme='shopdash-light'); await page.screenshot({path:path.join(output,'chat-320-light.png'),animations:'disabled'}); }
+    }
+    for (const [kind,button,statusId,expectedPath] of [
+      ['orders-sync','#order-sync-button','#order-background-sync-status','/procorders/sync_status'],
+      ['customers-sync','#customer-sync-button','#customer-sync-status','/procsync/status'],
+    ]) {
+      await page.goto(fixtureOrigin+'/fixture/'+kind);
+      const beforeWrites=syncWrites.length;
+      const beforeReads=syncStatusReads.length;
+      const navigation=page.waitForEvent('framenavigated',frame=>frame===page.mainFrame());
+      await page.locator(button).click();
+      await navigation;
+      await page.locator(statusId).waitFor({state:'visible'});
+      const writes=syncWrites.slice(beforeWrites);
+      const enqueue=writes.find(item=>item.path==='/procsync/enqueue');
+      assert.ok(enqueue,`${kind} sends a background sync request`);
+      assert.equal(enqueue.csrf,'fixture-token',`${kind} includes the CSRF token`);
+      assert.match(enqueue.body,/name="shop_id"\r\n\r\n6/,`${kind} queues the selected shop`);
+      assert.ok((expectedPath==='/procsync/status'?syncStatusReads.slice(beforeReads): writes).some(item=>item.path===expectedPath),`${kind} checks the real sync job status`);
+      assert.ok(writes.every(item=>item.csrf==='fixture-token'),`${kind} protects all POST requests with CSRF`);
+      assert.match(await page.locator(statusId).textContent(),/selesai|diperbarui/i,`${kind} reports completion after refreshing its recap`);
+      await responsiveCheck(page,kind);
     }
     for (const [section,parameter,value] of [['orders','status','completed'],['products','stock','low'],['customers','segment','repeat']]) {
       await page.goto(fixtureOrigin+'/fixture/picker-'+section);
@@ -181,7 +241,7 @@ async function responsiveCheck(page, kind) {
       assert.equal(await page.locator(selector).count(),1,`${pathName} contains the expected page summary or shell`);
     }
     assert.deepEqual(errors,[],`Browser page errors: ${errors.join('; ')}`);
-    console.log('PASS: real recap template and Chat, Sync, Ads, Promotions fixtures; keyboard drilldowns, partial coverage, 4 widths × 2 themes, and eight authenticated local worktree routes. All API writes stayed mocked or unused.');
+    console.log('PASS: real recap, Orders, Customers, Ads, Chat, Sync, and Promotions templates; CSRF-protected mocked queueing, job polling and recap refresh; keyboard drilldowns, 4 widths × 2 themes, and eight authenticated local worktree routes. No live API writes.');
   } finally {
     await browser?.close();
     session?.cleanup();

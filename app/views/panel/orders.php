@@ -1,4 +1,4 @@
-<section id="orders-page">
+<section id="orders-page" data-csrf="<?= htmlspecialchars(authCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
 <!-- Loading Overlay -->
 <div id="page-loader" role="status" aria-live="polite" aria-busy="false" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
   <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
@@ -25,7 +25,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
     <h2 class="text-2xl font-bold mb-1 text-base-content">Daftar Pesanan</h2>
   </div>
   <div class="flex flex-wrap items-center gap-3">
-    <button type="button" class="btn btn-primary btn-sm gap-1" onclick="queueOrderBackgroundSync()" id="order-sync-button">
+    <button type="button" class="btn btn-primary btn-sm min-h-11 gap-1 px-4" onclick="queueOrderBackgroundSync()" id="order-sync-button">
       <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang
     </button>
     <div class="join h-9" aria-label="Filter bulan pesanan">
@@ -154,6 +154,8 @@ let orderSyncToken = 0;
 let activeOrderSyncShopId = null;
 let orderDetailController = null;
 let orderDetailToken = 0;
+const orderCsrfToken = document.getElementById('orders-page')?.dataset.csrf || '';
+const orderRequestHeaders = () => ({'X-Requested-With': 'XMLHttpRequest', 'X-CSRF-Token': orderCsrfToken});
 
 function applyOrderMonth() {
     const url = new URL(window.location.href);
@@ -191,19 +193,29 @@ function formatOrderDate(date) {
 function queueOrderBackgroundSync() {
     const shopId = '<?= $data['active_shop_id'] ?? '' ?>';
     const button = document.getElementById('order-sync-button');
-    if (!shopId) return;
+    const status = document.getElementById('order-background-sync-status');
+    if (!shopId || activeOrderSyncShopId) return;
+    activeOrderSyncShopId = shopId;
     if (button) { button.disabled = true; button.innerText = 'Mengantrikan...'; }
+    if (status) status.innerText = 'Meminta sinkronisasi pesanan…';
     const fd = new FormData();
     fd.append('shop_id', shopId);
     fd.append('sync_type', 'orders');
     fd.append('sync_mode', 'diff');
-    fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
-      .then(r => r.json()).then(data => {
-        if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat');
-        const status = document.getElementById('order-background-sync-status');
-        if (status) status.innerText = 'Sinkronisasi pesanan sudah masuk antrean background (job #' + data.job_id + ').';
-      }).catch(error => { const status = document.getElementById('order-background-sync-status'); if (status) status.innerText = error.message; })
-      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; } });
+    fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: orderRequestHeaders(), body: fd })
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || data.status !== 'accepted' || !data.job_id) throw new Error(data.message || 'Antrean gagal dibuat.');
+        return data;
+      }).then(data => {
+        if (status) status.innerText = 'Sinkronisasi pesanan masuk antrean. Memantau hasil…';
+        renderDurableSync({status: 'queued', progress_percent: 0});
+        pollDurableSync(shopId, data.job_id);
+      }).catch(error => {
+        activeOrderSyncShopId = null;
+        if (status) status.innerText = error.message || 'Antrean sinkronisasi gagal dibuat.';
+        if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; }
+      });
 }
 
 function refreshOrderBackgroundStatus(shopId) {
@@ -211,7 +223,7 @@ function refreshOrderBackgroundStatus(shopId) {
       .then(r => r.json()).then(data => {
         const row = (data.schedules || []).find(item => item.sync_type === 'orders');
         const status = document.getElementById('order-background-sync-status');
-        if (!status || !row) return;
+        if (!status || !row || status.dataset.syncResult === 'true') return;
         const when = row.last_success_at ? new Date(row.last_success_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'belum pernah';
         status.innerText = 'Update terakhir: ' + when + '. Sinkronisasi berikutnya dijalankan otomatis di background.';
       }).catch(() => {});
@@ -288,9 +300,7 @@ function syncOrders(id, sentinel = '', pageNumber = 1, syncMode = '') {
 
     fetch('<?= burl; ?>/procorders/sync_index', {
         method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: orderRequestHeaders(),
         body: formData,
         signal: controller.signal
     })
@@ -445,9 +455,7 @@ function startDetailSync(shopId) {
         
         fetch('<?= burl; ?>/procorders/sync_detail', {
             method: 'POST',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            },
+            headers: orderRequestHeaders(),
             body: formData,
             signal: controller.signal
         })
@@ -504,9 +512,7 @@ function startDetailSync(shopId) {
     fd.append('shop_id', shopId);
     fetch('<?= burl; ?>/procorders/get_sync_queue', {
         method: 'POST',
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        },
+        headers: orderRequestHeaders(),
         body: fd
     })
     .then(r => r.json())
@@ -530,6 +536,12 @@ function startDetailSync(shopId) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const activeShopId = '<?= $data['active_shop_id'] ?? '' ?>';
+    const previousSyncResult = sessionStorage.getItem('orders-sync-result');
+    if (previousSyncResult) {
+        const status = document.getElementById('order-background-sync-status');
+        if (status) { status.innerText = previousSyncResult; status.dataset.syncResult = 'true'; }
+        sessionStorage.removeItem('orders-sync-result');
+    }
 
     const currentUrl = new URL(window.location.href);
     const syncFromSidebar = currentUrl.searchParams.get('sync') === '1';
@@ -581,19 +593,39 @@ function pollDurableSync(shopId, jobId) {
     const fd = new FormData();
     fd.append('shop_id', shopId);
     fd.append('job_id', jobId);
-    fetch('<?= burl; ?>/procorders/sync_status', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
-        .then(response => response.json())
+    fetch('<?= burl; ?>/procorders/sync_status', { method: 'POST', headers: orderRequestHeaders(), body: fd })
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok || data.status !== 'success' || !data.job) throw new Error(data.message || 'Status sinkronisasi belum bisa dibaca.');
+            return data;
+        })
         .then(data => {
-            if (data.status !== 'success') return;
-            renderDurableSync(data.job);
-            if (data.job && ['queued', 'running'].includes(data.job.status)) {
+            const job = data.job;
+            const status = document.getElementById('order-background-sync-status');
+            renderDurableSync(job);
+            if (['queued', 'running'].includes(job.status)) {
+                if (status) status.innerText = job.status === 'queued' ? 'Sinkronisasi pesanan menunggu worker…' : 'Sinkronisasi pesanan sedang berjalan (' + Number(job.progress_percent || 0) + '%).';
                 durableSyncTimer = setTimeout(() => pollDurableSync(shopId, jobId), 2000);
-            } else {
+            } else if (job.status === 'completed') {
                 activeOrderSyncShopId = null;
-                setTimeout(() => window.location.reload(), 500);
+                sessionStorage.setItem('orders-sync-result', 'Sinkronisasi selesai. Rekap pesanan sudah diperbarui dari data terbaru.');
+                if (status) status.innerText = 'Sinkronisasi selesai. Memuat ulang rekap pesanan…';
+                setTimeout(() => window.location.reload(), 800);
+            } else if (job.status === 'failed') {
+                activeOrderSyncShopId = null;
+                if (status) status.innerText = 'Sinkronisasi gagal. Rekap tetap menampilkan data tersimpan terakhir; periksa jadwal sinkronisasi.';
+                const button = document.getElementById('order-sync-button');
+                if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Coba sinkronkan lagi'; }
+            } else {
+                if (status) status.innerText = 'Sinkronisasi masih diproses…';
+                durableSyncTimer = setTimeout(() => pollDurableSync(shopId, jobId), 3000);
             }
         })
-        .catch(() => { durableSyncTimer = setTimeout(() => pollDurableSync(shopId, jobId), 5000); });
+        .catch(error => {
+            const status = document.getElementById('order-background-sync-status');
+            if (status) status.innerText = error.message + ' Mencoba kembali…';
+            durableSyncTimer = setTimeout(() => pollDurableSync(shopId, jobId), 5000);
+        });
 }
 
 function syncOrders(id) {
@@ -604,7 +636,7 @@ function syncOrders(id) {
     const formData = new FormData();
     formData.append('shop_id', id);
     formData.append('sync_mode', 'diff');
-    fetch('<?= burl; ?>/procorders/sync_index', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: formData })
+    fetch('<?= burl; ?>/procorders/sync_index', { method: 'POST', headers: orderRequestHeaders(), body: formData })
         .then(response => response.json())
         .then(data => {
             if (data.status !== 'accepted') throw new Error(data.message || 'Gagal membuat antrean');
@@ -623,7 +655,7 @@ function syncOrders(id) {
 function startDetailSync(shopId) {
     const fd = new FormData();
     fd.append('shop_id', shopId);
-    fetch('<?= burl; ?>/procorders/sync_status', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
+    fetch('<?= burl; ?>/procorders/sync_status', { method: 'POST', headers: orderRequestHeaders(), body: fd })
         .then(response => response.json())
         .then(data => {
             if (!data.job) return;
