@@ -21,6 +21,7 @@ window.enhanceShopSelect = select => {
   const label = document.querySelector('label[for="' + select.id + '"]');
   if (label) label.htmlFor = trigger.id;
   function setOpen(open) {
+    picker.classList.toggle('dropdown-open', open);
     menu.hidden = !open;
     trigger.setAttribute('aria-expanded', String(open));
   }

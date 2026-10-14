@@ -55,3 +55,5 @@ Automation browser tests use `AUTOMATION_TEST_URL` (default `http://127.0.0.1:81
 Report which commands passed and any test not run due to a concrete prerequisite. A source syntax pass is not a browser test; a local mock test is not Shopee reconciliation; a successful Git push is not a deployment test. Do not reuse historical passing totals as a current result.
 
 Automation visual regression coverage also checks task tabs, separate draft retention, unsaved indicators, hidden-field validation focus, closed shop-picker hit testing, and the connection action menu. See [visual verification](automation-visual-ui.md).
+
+Shop-picker pointer regression: `node tests/shop-picker-pointer-ui.cjs` uses the real shared PHP control, dynamic JS, and compiled CSS with synthetic shops. No database/session or upstream requests; covers pointer activation without focus and filter-preserving navigation at four widths in both themes.

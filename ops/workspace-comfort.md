@@ -29,3 +29,19 @@ UI UX Pro Max and antislop guided the implementation and final review: preserve 
 Verified: `tests/workspace-comfort.php` (21 checks), `tests/notifications.php` (43 checks), customer shop filtering and product sync (15 checks). Browser suites: workspace comfort, notifications, shared shop picker, products and ads (267 checks). Dashboard/finance regression ran an isolated copy using a synthetic session to avoid modifying a real account's preferences. Notification/sync writes in browser tests are mocked; no real upstream sends, retries or worker activation were performed.
 
 UI test sessions use nonexistent synthetic account IDs and clean their own preferences/session. Tests must not reuse production account sessions. A repository push is not evidence of public deployment.
+
+### 2026-10-14 — Shop picker pointer opening
+
+The shared PHP picker and dynamic `shop-select.js` now toggle DaisyUI's
+`dropdown-open` class alongside `hidden` and `aria-expanded`. Previously a pointer
+click that did not focus the trigger could set `aria-expanded=true` while the
+focus-dependent CSS kept the options invisible. The regression test reproduces
+this by preventing the pointer's default focus, without changing the production
+CSS. Outside click, focus leaving the picker, and Escape still close it.
+
+`tests/shop-picker-pointer-ui.cjs` renders the real shared template and dynamic
+script with synthetic shops and the built stylesheet. It checks pointer selection,
+URL navigation, September 2026 Orders date/limit retention and pagination reset,
+keyboard closing, scrolling, and 320/500/999/1600 light/dark layouts across Orders,
+Products, and Customers. This verifies the shared control, not authenticated live
+order retrieval; existing live suites need tenant-owned shop fixtures.

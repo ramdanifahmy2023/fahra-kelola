@@ -47,7 +47,11 @@ if ($pickerPage === 'products' && ($data['movement_view'] ?? false)) {
   const trigger = root?.querySelector('#selectedShopDisplay');
   const menu = root?.querySelector('#shop-picker-options');
   if (!root || !trigger || !menu) return;
-  const setOpen = open => { menu.hidden = !open; trigger.setAttribute('aria-expanded', String(open)); };
+  const setOpen = open => {
+    root.classList.toggle('dropdown-open', open);
+    menu.hidden = !open;
+    trigger.setAttribute('aria-expanded', String(open));
+  };
   setOpen(false);
   trigger.addEventListener('click', () => setOpen(trigger.getAttribute('aria-expanded') !== 'true'));
   root.addEventListener('focusout', event => { if (!root.contains(event.relatedTarget)) setOpen(false); });
