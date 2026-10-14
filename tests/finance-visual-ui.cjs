@@ -61,7 +61,9 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
         for(const el of document.querySelectorAll('.finance-balances article,.finance-secondary > div,.dashboard-live-metrics > div,.finance-store-values > div'))if(el.checkVisibility()&&el.scrollWidth>el.clientWidth+1)issues.push(el.className||el.tagName);
         return issues;
       }),[],route+' '+width+' '+theme);
-      await page.locator('#finance-shops-trigger').focus();await page.keyboard.press('ArrowDown');const menu=page.locator('#finance-shops-options');assert.equal(await menu.isVisible(),true);const box=await menu.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1);await page.keyboard.press('Escape');assert.equal(await menu.isVisible(),false);
+      await page.locator('#finance-shops-trigger').focus();await page.keyboard.press('ArrowDown');const menu=page.locator('#finance-shops-options');assert.equal(await menu.isVisible(),true);const box=await menu.boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1);
+      if(route==='/panel'&&width===320&&theme==='light')await page.screenshot({path:path.join(output,'dashboard-shops-320-light-open.png'),animations:'disabled'});
+      await page.keyboard.press('Escape');assert.equal(await menu.isVisible(),false);
       await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(output,`${route==='/panel'?'dashboard':'finance'}-${width}-${theme}.png`),animations:'disabled',fullPage:width===1600});
       if(width===1600){
         const ratios=await page.evaluate(()=>{
@@ -77,8 +79,22 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
         for(const result of ratios)assert.ok(result.ratio>=4.5,theme+' contrast '+JSON.stringify(result));
       }
     }
-    await page.locator('#finance-shops').evaluate(el=>{for(const o of el.options)o.selected=o.value==='2';el.dispatchEvent(new Event('change',{bubbles:true}));});await page.locator('#finance-filters button[type=submit]').click();await loaded();
+    const shopTrigger=page.locator('#finance-shops-trigger'),shopMenu=page.locator('#finance-shops-options');
+    await shopTrigger.click();await shopMenu.locator('[data-shop-value="2"]').click();
+    assert.equal(await page.locator('#finance-shops').evaluate(el=>el.selectedOptions.length),1,'Choosing one shop from Semua toko isolates that shop');
+    assert.equal(await shopMenu.locator('[data-shop-value="1"]').getAttribute('aria-pressed'),'false');
+    assert.equal(await shopMenu.isVisible(),true,'Multi-shop picker stays open after a selection');
+    assert.equal(await page.locator('#finance-filter-draft').isVisible(),true,'A changed selection prompts the user to apply it');
+    await page.locator('#finance-filters button[type=submit]').click();await loaded();
     assert.equal(await page.locator('.finance-store').count(),1);assert.equal(await page.locator('.finance-store').getAttribute('data-store-id'),'2');assert.match(await page.locator('#finance-wallet').innerText(),/Rp\s*0/);assert.deepEqual(requests.at(-1),['2']);
+    await page.locator('#finance-clear-shops').click();
+    assert.equal(await shopTrigger.innerText(), 'storefront\nPilih toko\nexpand_more');
+    assert.equal(await page.locator('#finance-all-shops').isVisible(),true,'An empty selection offers a way to restore all shops');
+    const requestCount=requests.length;await page.locator('#finance-filters button[type=submit]').click();
+    await page.locator('#finance-error').waitFor({state:'visible'});
+    assert.match(await page.locator('#finance-error').innerText(),/Pilih setidaknya satu toko/);
+    assert.equal(requests.length,requestCount,'An empty selection cannot silently become Semua toko');
+    await page.locator('#finance-all-shops').click();
     stores[1].wallet.amount=null;await refresh();await page.waitForFunction(()=>document.getElementById('finance-wallet').textContent==='Belum tersedia');assert.equal(await page.locator('#finance-wallet-quality .is-partial').isVisible(),true);
     fail=true;await refresh();await page.locator('#finance-error').waitFor({state:'visible'});fail=false;stores[1].wallet.amount=0;await page.locator('#finance-retry').click();await loaded();
     await page.locator('#finance-sync').click();await loaded();

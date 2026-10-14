@@ -16,6 +16,23 @@ const root = path.resolve(__dirname, '..'), base = 'https://shopdash-fixture.tes
       if (url.pathname.startsWith('/assets/')) return route.fulfill({path:path.join(root, 'public', url.pathname)});
       return route.fulfill({contentType:'text/html', body:execFileSync('php', ['tests/fixtures/shop-picker.php', url.search.slice(1), url.pathname.split('/').pop()], {cwd:root, encoding:'utf8'})});
     });
+    await page.goto(base+'/panel/finance');
+    const multi = page.locator('#dynamic-multiple-trigger'), multiMenu = page.locator('#dynamic-multiple-options');
+    await multi.click();
+    assert.equal(await multiMenu.isVisible(), true);
+    await multiMenu.locator('[data-shop-value="7"]').click();
+    assert.equal(await page.locator('#dynamic-multiple').evaluate(el => el.selectedOptions.length), 1);
+    assert.equal(await page.locator('#dynamic-multiple').evaluate(el => el.options[1].selected), false);
+    assert.equal(await multiMenu.isVisible(), true, 'Multi-select stays open after rebuilding its options');
+    assert.equal(await multiMenu.locator('[data-shop-value="7"]').getAttribute('aria-pressed'), 'true');
+    assert.equal(await multiMenu.locator('[data-shop-value="8"]').getAttribute('aria-pressed'), 'false');
+    assert.match(await multi.innerText(), /Toko Uji 7/);
+    await multiMenu.locator('[data-shop-value="8"]').click();
+    assert.equal(await multiMenu.isVisible(), true);
+    assert.equal(await page.locator('#dynamic-multiple').evaluate(el => el.selectedOptions.length), 2);
+    await multiMenu.locator('[data-shop-value="8"]').focus();
+    await page.keyboard.press('Escape');
+    await multiMenu.waitFor({state:'hidden'});
     for (const section of ['orders','products','customers']) for (const width of [320,500,999,1600]) for (const theme of ['light','dark']) {
       await page.setViewportSize({width,height:900});
       await page.goto(base+'/panel/'+section+'?shop_id=7&limit=10&startDate=2026-09-01&endDate=2026-09-30&page=3');
@@ -53,8 +70,12 @@ const root = path.resolve(__dirname, '..'), base = 'https://shopdash-fixture.tes
       await dynamic.evaluate(el => el.addEventListener('mousedown', event => event.preventDefault()));
       await dynamic.click();
       assert.equal(await page.locator('#dynamic-shop-options').isVisible(), true, 'Dynamic pointer opening without focus');
-      await page.locator('[data-shop-value="8"]').click();
+      await page.locator('#dynamic-shop-options [data-shop-value="8"]').click();
       assert.equal(await page.locator('#dynamic-shop').inputValue(), '8');
+      await page.locator('#dynamic-shop-options').waitFor({state:'hidden'});
+      await dynamic.click();
+      assert.equal(await page.locator('#dynamic-shop-options').isVisible(), true);
+      await page.locator('#outside').click();
       await page.locator('#dynamic-shop-options').waitFor({state:'hidden'});
     }
     assert.deepEqual(errors, []);

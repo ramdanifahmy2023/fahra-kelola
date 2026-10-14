@@ -16,7 +16,7 @@ $financeDashboard=!empty($data['finance_dashboard']);
   <?php endif; ?>
   <div id="finance-report-overview">
   <form id="finance-filters" class="finance-filters">
-    <div class="finance-shop-field"><label for="finance-shops">Toko</label><select id="finance-shops" multiple><?php foreach ($data['shops'] as $shop): ?><option selected value="<?= (int)$shop['id']; ?>"><?= htmlspecialchars($shop['name'],ENT_QUOTES,'UTF-8'); ?></option><?php endforeach; ?></select><button id="finance-all-shops" type="button" class="finance-text-button">Pilih semua toko</button></div>
+    <div class="finance-shop-field"><label for="finance-shops">Toko</label><select id="finance-shops" multiple><?php foreach ($data['shops'] as $shop): ?><option selected value="<?= (int)$shop['id']; ?>"><?= htmlspecialchars($shop['name'],ENT_QUOTES,'UTF-8'); ?></option><?php endforeach; ?></select><button id="finance-all-shops" type="button" class="finance-text-button">Pilih semua toko</button><button id="finance-clear-shops" type="button" class="finance-text-button">Hapus pilihan toko</button><p class="finance-help" id="finance-shop-hint">Saat semua toko dipilih, klik satu toko untuk fokus. Klik toko lain untuk membandingkan.</p></div>
     <div><label for="finance-period">Periode laporan</label><select class="select" id="finance-period"><option value="month">Bulan ini</option><option value="today">Hari ini</option><option value="custom">Pilih tanggal sendiri</option></select></div>
     <button class="btn" type="submit">Terapkan</button>
     <div id="finance-custom-dates" class="finance-custom-dates" hidden>

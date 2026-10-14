@@ -27,10 +27,11 @@ window.enhanceShopSelect = select => {
   }
   trigger.addEventListener('click', () => setOpen(menu.hidden));
   picker.addEventListener('focusout', event => {
-    if (!picker.contains(event.relatedTarget)) setOpen(false);
+    if (picker.contains(event.relatedTarget)) return;
+    queueMicrotask(() => { if (!picker.contains(document.activeElement)) setOpen(false); });
   });
   document.addEventListener('click', event => {
-    if (!picker.contains(event.target)) setOpen(false);
+    if (!event.composedPath().includes(picker)) setOpen(false);
   });
 
   function content(option, target) {
@@ -53,7 +54,7 @@ window.enhanceShopSelect = select => {
       const count = select.selectedOptions.length;
       if (count !== 1) {
         window.renderShopLogo(trigger.children[0], '0');
-        trigger.children[1].textContent = count === 0 || count === select.options.length ? 'Semua toko' : count + ' toko dipilih';
+        trigger.children[1].textContent = count === 0 ? 'Pilih toko' : count === select.options.length ? 'Semua toko' : count + ' toko dipilih';
       }
     }
     trigger.children[1].classList.add('truncate');
@@ -79,8 +80,11 @@ window.enhanceShopSelect = select => {
       }
       if (select.multiple) button.setAttribute('aria-pressed', String(option.selected));
       button.addEventListener('click', () => {
-        if (select.multiple) option.selected = !option.selected;
-        else select.value = option.value;
+        if (select.multiple) {
+          const allSelected = select.options.length > 0 && select.selectedOptions.length === select.options.length;
+          if (allSelected) Array.from(select.options).forEach(item => { item.selected = item === option; });
+          else option.selected = !option.selected;
+        } else select.value = option.value;
         if (!select.multiple) { setOpen(false); trigger.focus(); }
         sync();
         select.dispatchEvent(new Event('change', {bubbles: true}));

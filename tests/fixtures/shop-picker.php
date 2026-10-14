@@ -11,5 +11,7 @@ for ($id=7; $id<22; $id++) $data['shops'][]=['id'=>$id,'name'=>'Toko Uji '.$id.'
 <?php require __DIR__.'/../../app/views/panel/templates/shop-picker.php'; ?>
 </div><p id="loaded-shop">Data toko <?= $data['active_shop_id'] ?></p>
 <label for="dynamic-shop">Toko dinamis</label><select id="dynamic-shop"><option value="7">Toko Uji 7</option><option value="8">Toko Uji 8</option></select>
+<label for="dynamic-multiple">Toko dinamis multi-pilih</label><select id="dynamic-multiple" multiple><option value="7" selected>Toko Uji 7</option><option value="8" selected>Toko Uji 8</option></select>
 <script>window.renderShopLogo = el => { el.textContent = 'storefront'; };</script><script src="/assets/js/shop-select.js"></script><script>enhanceShopSelect(document.getElementById('dynamic-shop'));</script>
+<script>enhanceShopSelect(document.getElementById('dynamic-multiple'));</script>
 </main></body></html>

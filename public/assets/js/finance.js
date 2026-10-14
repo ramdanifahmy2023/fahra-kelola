@@ -17,9 +17,9 @@
   };
   const params = new URLSearchParams(location.search);
   const requested = (params.get('shops') || '').split(',');
-  if (requested.some(Boolean)) Array.from($('shops').options).forEach(o => { o.selected = requested.includes(o.value); });
+  if (requested.some(Boolean) && Array.from($('shops').options).some(o => requested.includes(o.value))) Array.from($('shops').options).forEach(o => { o.selected = requested.includes(o.value); });
   const syncPicker = window.enhanceShopSelect($('shops'));
-  const toggleAll = () => { $('all-shops').hidden=$('shops').selectedOptions.length===0 || $('shops').selectedOptions.length===$('shops').options.length; };
+  const toggleAll = () => { const selected=$('shops').selectedOptions.length; $('all-shops').hidden=selected===$('shops').options.length; $('clear-shops').hidden=selected===0; };
   toggleAll();
   for (const field of ['start','end']) if (/^\d{4}-\d{2}-\d{2}$/.test(params.get(field) || '')) $(field).value = params.get(field);
   const today = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -46,7 +46,7 @@
     try { localStorage.setItem(costPreferenceKey,JSON.stringify({status:costStatus,shop:costShop,search:costSearch})); } catch (_) {}
   }
   const query = extra => new URLSearchParams({...applied,...extra}).toString();
-  const readFilters = () => ({shops:$('shops').selectedOptions.length===$('shops').options.length ? '' : Array.from($('shops').selectedOptions, o => o.value).join(','),period:$('period').value,start:$('start').value,end:$('end').value});
+  const readFilters = () => ({shops:$('shops').selectedOptions.length===0 ? '__none__' : $('shops').selectedOptions.length===$('shops').options.length ? '' : Array.from($('shops').selectedOptions, o => o.value).join(','),period:$('period').value,start:$('start').value,end:$('end').value});
   const costQuery = extra => new URLSearchParams({...extra,shops:costShop}).toString();
   const costScopeIds = () => costShop ? new Set([costShop]) : new Set(Array.from($('shops').options,o=>o.value));
   const costScopePayload = () => ({scope_shops:[...costScopeIds()]});
@@ -588,11 +588,12 @@
   }
   const draft=()=>{ toggleAll(); $('filter-draft').hidden=JSON.stringify(readFilters())===JSON.stringify(applied); };
   $('all-shops').onclick=()=>{ Array.from($('shops').options).forEach(o=>{o.selected=true;}); syncPicker(); draft(); };
+  $('clear-shops').onclick=()=>{ Array.from($('shops').options).forEach(o=>{o.selected=false;}); syncPicker(); draft(); };
   $('period').addEventListener('change',()=>{preparePeriod();draft();});
   $('shops').addEventListener('change',draft);
   for(const field of ['start','end']) $(field).addEventListener('input',draft);
   $('filters').addEventListener('submit',event=>{
-    event.preventDefault(); if($('start').value>$('end').value){error('Tanggal mulai harus sebelum atau sama dengan tanggal akhir.');return;}
+    event.preventDefault(); if(!$('shops').selectedOptions.length){error('Pilih setidaknya satu toko sebelum menerapkan filter.');return;} if($('start').value>$('end').value){error('Tanggal mulai harus sebelum atau sama dengan tanggal akhir.');return;}
     applied=readFilters(); $('filter-draft').hidden=true; detailPage=costPage=1; costSelection.clear(); syncCostShopOptions(); url(); publishFilters(); loadSummary(true); loadList();
   });
   if(!dashboard) {

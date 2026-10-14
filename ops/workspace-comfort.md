@@ -45,3 +45,20 @@ URL navigation, September 2026 Orders date/limit retention and pagination reset,
 keyboard closing, scrolling, and 320/500/999/1600 light/dark layouts across Orders,
 Products, and Customers. This verifies the shared control, not authenticated live
 order retrieval; existing live suites need tenant-owned shop fixtures.
+
+### 2026-10-14 — Dynamic multi-shop selection
+
+Dashboard and Finance rebuild the multi-select options after a shop is clicked.
+The focused option is removed during that rebuild; immediate focus-out handling
+mistook the removal for leaving the picker and closed it before the updated choice
+was visible. Outside-click detection also used the detached event target. Defer the
+focus check until focus restoration completes and inspect the click's composed path.
+When all shops are selected, clicking one now focuses the picker on that shop;
+additional clicks can add comparison shops. “Hapus pilihan toko” and “Pilih semua
+toko” make selection recovery explicit. Empty selections are labeled accurately
+and cannot be applied as if they meant all shops.
+
+The Finance visual regression now exercises the real Dashboard and Finance
+multi-shop controls, including applying one shop through mocked requests and
+rejecting an empty scope. The pointer regression also covers dynamic multi-select,
+outside dismissal, and focus restoration. No real shop requests or writes are made.
