@@ -110,5 +110,7 @@ Use an ignored `tmp/` note for transient/private details. Persist a sanitized `o
 
 ## Frontend comfort follow-up
 
+- 2026-10-14: Dashboard now places daily activity before pending detail and the store ledger. Shared Finance balance source notes use native disclosures; scope and partial-data warnings stay visible. Existing warm themes and money semantics remain. See [visual audit, decisions and test limitations](ops/visual-readability-20261014.md).
+
 - On 2026-09-30 the user explicitly requested main integration after being informed that browser verification and remote push were blocked. Products now have stored-data details and labelled mobile summaries; Shops have mobile summaries and accessible connection actions; desktop order names/status reasons wrap. Existing chat/notification, Finance and worker logic is preserved. See [scope, checks and remaining verification](ops/frontend-comfort-followup.md).
 - Build, syntax, 15 database-free render checks and product-detail/action unit checks passed. Native browser layout, theme contrast, Escape/focus and full-panel regression remain pending; integration is not evidence that those checks passed. Retry browser verification and normal GitHub push when the environment allows them. Do not infer deployment success from local main integration.

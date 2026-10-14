@@ -171,7 +171,7 @@
     const restricted=wallets.filter(s=>s.wallet.withdrawal_restricted===true);
     $('wallet-restrictions').hidden=!restricted.length;
     $('wallet-restrictions').textContent=restricted.length ? `Penarikan dibatasi di ${restricted.length} toko · lihat alasan` : '';
-    function metric(title, symbol, amount, available, complete, missing, note) { return `<div><h2>${icon(symbol)}${esc(title)}</h2><strong>${esc(money(amount))}</strong>${quality(available,complete,count,missing)}<p>${esc(note)}</p><p>${esc(day(data.range.start)+' sampai '+day(data.range.end))} WIB</p></div>`; }
+    function metric(title, symbol, amount, available, complete, missing, note) { return `<div><h2>${icon(symbol)}${esc(title)}</h2><strong>${esc(money(amount))}</strong>${quality(available,complete,count,missing)}<p>${esc(note)}</p></div>`; }
     const gmv = stores.filter(s => s.gmv !== null), ads = stores.filter(s => s.ads.amount !== null), topups=stores.filter(s=>s.topups?.amount!==null && s.topups?.amount!==undefined);
     const gmvComplete=gmv.filter(s=>s.gmv_days===days).length, adsComplete=ads.filter(s=>s.ads.days===days).length;
     const topupComplete=topups.filter(s=>s.topups.complete).length, topupTimes=topups.map(s=>s.topups.updated_at).filter(Boolean).sort();
