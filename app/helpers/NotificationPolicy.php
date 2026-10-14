@@ -15,7 +15,7 @@ final class NotificationPolicy {
   public static function accessIssue(?string $error): ?string {
     $error = strtolower((string)$error);
     if (preg_match('/forbidden|access denied|permission|akses.*(ditolak|dibatasi)|\b403\b/', $error)) return 'access';
-    if (preg_match('/\b401\b|unauthorized|sesi.*(habis|tidak valid|diperbarui)|cookie.*(kosong|expired|tidak valid)|session.*expired|invalid.*(token|session)/', $error)) return 'session';
+    if (preg_match('/\b401\b|unauthorized|sesi.*(habis|tidak valid|diperbarui)|cookie.*(kosong|tersedia|expired|tidak valid|tidak cocok)|identitas toko.*tidak tersedia|session.*expired|invalid.*(token|session)/', $error)) return 'session';
     return null;
   }
 

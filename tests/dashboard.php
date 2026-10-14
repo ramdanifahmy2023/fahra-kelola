@@ -25,18 +25,21 @@ try {
     (3,1,'END','shared','Completed',NULL,'2026-09-01 16:59:59'),
     (4,1,'AFTER','shared','Completed',999,'2026-09-01 17:00:00'),
     (5,2,'OTHER','shop-two','Completed',200,'2026-09-01 10:00:00'),
+    (7,1,'LOCAL-DONE','shared','Selesai',150,'2026-09-01 09:00:00'),
+    (8,1,'LOCAL-CANCELLED','shared','Dibatalkan',999,'2026-09-01 10:00:00'),
     (6,1,'UNKNOWN','shared',NULL,NULL,NULL)");
   $range=FinancePolicy::range('2026-09-01','2026-09-01');
   $one=$model->overview([['id'=>1]],$range);
-  dashboardCheck((int)$one['summary']['total_orders']===2,'Inclusive WIB dates use UTC storage boundaries');
-  dashboardCheck((float)$one['summary']['completed_order_value']===100.0,'Other shops and dates excluded');
+  dashboardCheck((int)$one['summary']['total_orders']===4,'Inclusive WIB dates use UTC storage boundaries');
+  dashboardCheck((int)$one['summary']['completed_orders']===3,'English and Indonesian completed order statuses are included');
+  dashboardCheck((float)$one['summary']['completed_order_value']===250.0,'Localized cancellations are excluded from completed order value');
   dashboardCheck((int)$one['summary']['completed_missing_value']===1,'Missing values remain disclosed');
   dashboardCheck((int)$one['summary']['undated_orders']===1,'Undated orders are not silently in range');
   dashboardCheck((int)$one['summary']['total_customers']===1,'Shared customers counted once per selection');
   dashboardCheck(array_column($one['low_stock'],'shop_id')===[1],'Stock respects selection');
-  dashboardCheck(array_column($one['recent_orders'],'id')===[3,2],'Recent orders respect shop and period');
+  dashboardCheck(array_column($one['recent_orders'],'id')===[3,8,7,2],'Recent orders respect shop and period');
   $all=$model->overview([['id'=>1],['id'=>2]],$range);
-  dashboardCheck((int)$all['summary']['total_orders']===3 && (int)$all['summary']['total_customers']===2,'All shops aggregate without duplicating shared customer');
+  dashboardCheck((int)$all['summary']['total_orders']===5 && (int)$all['summary']['total_customers']===2,'All shops aggregate without duplicating shared customer');
   dashboardCheck((int)$model->overview([],$range)['summary']['total_products']===0,'No shops does not accidentally select every shop');
 } finally {foreach(array_reverse($tables) as $table)$execute('DROP TEMPORARY TABLE IF EXISTS '.$table);}
 $stores=[

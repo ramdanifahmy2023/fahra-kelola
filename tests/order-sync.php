@@ -37,7 +37,15 @@ checkOrder(!OrderSyncPolicy::continueIndex('diff', [1], $known, 'opaque', $now),
 checkOrder(OrderSyncPolicy::continueIndex('full', [1], $known, 'opaque', $now), 'History ignores known boundary');
 checkOrder(!OrderSyncPolicy::continueIndex('full', [1], $known, '', $now), 'Missing cursor ends traversal');
 checkOrder(!OrderSyncPolicy::needsDetail(['status_type'=>'completed','detail_synced_at'=>'2026-09-28 23:00:00'], $now), 'Fresh terminal details retained');
+checkOrder(!OrderSyncPolicy::needsDetail(['status_type'=>'Selesai','detail_synced_at'=>'2026-09-28 23:00:00'], $now), 'Indonesian completed status uses terminal refresh interval');
+checkOrder(!OrderSyncPolicy::needsDetail(['status_type'=>'Dibatalkan','detail_synced_at'=>'2026-09-28 23:00:00'], $now), 'Indonesian cancelled status uses terminal refresh interval');
 checkOrder(OrderSyncPolicy::needsDetail(['status_type'=>'shipped','detail_synced_at'=>'2026-09-28 23:56:00'], $now), 'Active details refresh after three minutes');
+checkOrder(OrderSyncPolicy::needsDetail(['status_type'=>'Perlu Dikirim','detail_synced_at'=>'2026-09-28 23:56:00'], $now), 'Indonesian active status refreshes after three minutes');
+checkOrder(normalizeStatus('Selesai')==='completed' && normalizeStatus('Dibatalkan')==='cancelled', 'Stored sync state recognizes localized terminal statuses');
+checkOrder(normalizeStatus('Perlu Dikirim')==='active' && normalizeStatus('Belum Bayar')==='active', 'Stored sync state recognizes localized active statuses');
+$pdoError = new PDOException('Do not persist this driver message');
+$pdoError->errorInfo = ['42S22', 1054, 'Do not persist this SQL message'];
+checkOrder(syncWorkerErrorSummary('Worker order index error', $pdoError) === 'Worker order index error: PDOException SQLSTATE 42S22 driver 1054', 'Worker stores safe PDO diagnostics but not raw driver messages');
 checkOrder(!OrderSyncPolicy::needsDetail(['sync_next_retry_at'=>'2026-09-29 01:00:00'], $now), 'Retry backoff preserved');
 $tables = ['orders', 'order_items', 'sync_jobs', 'sync_job_orders', 'sync_runs', 'sync_pages', 'sync_schedules'];
 try {
@@ -52,13 +60,19 @@ try {
   $diff = $sync->enqueue(1, 'diff');
   checkOrder($full !== $diff, 'History cannot block creation of recent job');
   checkOrder($sync->enqueue(1, 'full') === $full && $sync->enqueue(1, 'diff') === $diff, 'One active job per mode');
-  orderSql("INSERT INTO orders (id,shop_id,status_type,created_at,detail_synced_at) VALUES (1,1,'shipped','2026-09-01','2026-09-01'),(2,1,'completed','2026-09-01','2026-09-01'),(3,2,'shipped','2026-09-01','2026-09-01')");
+  orderSql("INSERT INTO orders (id,shop_id,status_type,created_at,detail_synced_at) VALUES
+    (1,1,'shipped','2026-09-01','2026-09-01'),
+    (2,1,'completed','2026-09-01','2026-09-01'),
+    (3,2,'shipped','2026-09-01','2026-09-01'),
+    (6,1,'Perlu Dikirim','2026-09-01','2026-09-01'),
+    (7,1,'Selesai','2026-09-01','2026-09-01'),
+    (8,1,'Dibatalkan','2026-09-01','2026-09-01')");
   $job = orderSql("SELECT * FROM sync_jobs WHERE id={$diff}")[0];
   OrderSyncPolicy::queueActive($db, $sync, $job);
   $tasks = orderSql('SELECT order_id FROM sync_job_orders');
-  checkOrder(count($tasks) === 1 && (int)$tasks[0]['order_id'] === 1, 'Old active order refreshed independently of index; terminal and other shop excluded');
+  checkOrder(array_map('intval',array_column($tasks,'order_id')) === [1,6], 'Old active orders refresh; English and Indonesian terminal orders plus other shops are excluded');
   OrderSyncPolicy::queueActive($db, $sync, $job);
-  checkOrder(count(orderSql('SELECT id FROM sync_job_orders')) === 1, 'Active refresh is idempotent');
+  checkOrder(count(orderSql('SELECT id FROM sync_job_orders')) === 2, 'Active refresh is idempotent');
   $source = new OrderTestSource();
   $source->response = ['code'=>0,'data'=>['index_list'=>[['order_id'=>1],['order_id'=>4]],'pagination'=>['next_page_sentinel'=>'opaque']]];
   checkOrder(processIndex($db, $sync, $source, $job, ['id'=>1,'cookie'=>'fixture']), 'Real index path accepts valid mixed page');

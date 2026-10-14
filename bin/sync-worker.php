@@ -99,7 +99,7 @@ do {
     } catch (Throwable $exception) {
       $genericOk = false;
       $genericComplete = true;
-      $genericError = 'Worker error: ' . get_class($exception);
+      $genericError = syncWorkerErrorSummary('Worker error', $exception);
     }
     if (!$sync->ownsLease($jobId, $leaseOwner)) { $loops++; continue; }
     if ($genericOk && !$genericComplete && empty($genericResult[3])) {
@@ -121,7 +121,7 @@ do {
     try {
       $indexOk = processIndex($db, $sync, $shopee, $job, $shop, $leaseOwner);
     } catch (Throwable $error) {
-      $sync->releaseJob($jobId, 'queued', 'Worker order index error: ' . get_class($error), $leaseOwner);
+      $sync->releaseJob($jobId, 'queued', syncWorkerErrorSummary('Worker order index error', $error), $leaseOwner);
       $indexOk = false;
     }
     if (!$indexOk) {
@@ -136,7 +136,7 @@ do {
       $requestCount = 0;
       $orderOk = processOrder($db, $sync, $shopee, $task, $shop, false, $requestCount, $leaseOwner);
     } catch (Throwable $error) {
-      $sync->finishOrder((int)$task['id'], 'retry', 'Worker order detail error: ' . get_class($error), $leaseOwner);
+      $sync->finishOrder((int)$task['id'], 'retry', syncWorkerErrorSummary('Worker order detail error', $error), $leaseOwner);
       $orderOk = false;
     }
     recordRun($db, $jobId, $orderOk ? 'detail_success' : 'detail_failed', 1, $leaseOwner);

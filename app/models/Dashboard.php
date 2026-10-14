@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/../helpers/FinancePolicy.php';
+require_once __DIR__.'/../helpers/OrderStatusPolicy.php';
 
 class Dashboard extends BaseModel {
   private function rows(string $sql, array $params = []): array {
@@ -14,11 +15,12 @@ class Dashboard extends BaseModel {
     $params=['start'=>FinancePolicy::date($range['start'])->setTimezone($utc)->format('Y-m-d H:i:s'),
       'end'=>FinancePolicy::date($range['end'])->modify('+1 day')->setTimezone($utc)->format('Y-m-d H:i:s')];
     $scope="shop_id IN ($ids) AND deleted_at IS NULL";
+    $completedStatus=OrderStatusPolicy::sql('status_type','completed');
     $orders=$this->rows("SELECT COUNT(*) total_orders,
-      COALESCE(SUM(status_type LIKE '%Completed%'),0) completed_orders,
-      CASE WHEN COALESCE(SUM(status_type LIKE '%Completed%'),0)=0 THEN 0
-        ELSE SUM(CASE WHEN status_type LIKE '%Completed%' THEN total_price END) END completed_order_value,
-      COALESCE(SUM(status_type LIKE '%Completed%' AND total_price IS NULL),0) completed_missing_value,
+      COALESCE(SUM({$completedStatus}),0) completed_orders,
+      CASE WHEN COALESCE(SUM({$completedStatus}),0)=0 THEN 0
+        ELSE SUM(CASE WHEN {$completedStatus} THEN total_price END) END completed_order_value,
+      COALESCE(SUM({$completedStatus} AND total_price IS NULL),0) completed_missing_value,
       COALESCE(SUM(order_sn IS NULL OR order_sn=''),0) pending_order_details
       FROM orders WHERE $scope AND created_at>=:start AND created_at<:end",$params)[0];
     $undated=$this->rows("SELECT COUNT(*) count FROM orders WHERE $scope AND created_at IS NULL")[0]['count'];

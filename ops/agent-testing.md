@@ -15,6 +15,7 @@ Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior
 | Live Chat | `php tests/chat.php`, `node tests/chat-ui.cjs` (`CHAT_TEST_URL`, default 8147); temporary tables and mocked chat mutations. Live transport limits: [implementation](live-chat-implementation-20260929.md). |
 | Order/product/package sync | `php tests/order-sync.php`, `php tests/product-sync.php`, `php tests/package-sync.php` |
 | Page-level data recap aggregates and filters | `php tests/page-recap-data.php`, plus `php tests/customer-shop-filter.php` |
+| Order status aliases and terminal refresh behavior | `php tests/order-sync.php`, `php tests/page-recap-data.php`, and `php tests/dashboard.php` |
 | Ads metric mapping | `php tests/ads-performance.php` |
 | Ads campaign traversal | `php tests/ads-campaign-reports.php` |
 | Browser report import | `php tests/ads-browser-import.php` |

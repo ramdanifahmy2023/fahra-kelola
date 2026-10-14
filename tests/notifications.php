@@ -52,6 +52,7 @@ try{
  checkNotify(NotificationPolicy::shipping(array_replace($order,['ship_by_date'=>$now]),$now)['stage']===2,'Overdue boundary');
  checkNotify(NotificationPolicy::accessIssue('Forbidden 403')==='access','Forbidden is not expired');
  checkNotify(NotificationPolicy::accessIssue('Sesi Shopee toko tidak valid.')==='session','Session classification');
+ checkNotify(NotificationPolicy::accessIssue('Cookie Shopee tidak cocok dengan toko yang diproses.')==='session','Mismatched shop cookie points to connection repair');
  checkNotify(NotificationPolicy::accessIssue('Network timeout')===null,'Network timeout is not invalid cookie');
  $sync=['enabled'=>1,'interval_seconds'=>180,'last_success_at'=>gmdate('Y-m-d H:i:s',$now-7200),'sync_type'=>'orders','shop_id'=>1,'progress_at'=>gmdate('Y-m-d H:i:s',$now+3600)];
  checkNotify(NotificationPolicy::sync($sync,$now)['severity']==='urgent','Future progress cannot hide stalled synchronization');

@@ -45,6 +45,106 @@
   let requestId = 0;
   let topupRequestId = 0;
 
+  function renderRecap(visible) {
+    const recap = root.querySelector('#ads-recap');
+    if (!visible.length) { recap.hidden = true; return; }
+    recap.hidden = false;
+
+    const reports = visible.map(shop => ({shop, report: shop.metrics?.performance || {}}));
+    const available = reports.filter(item => item.report.available === true);
+    const aggregate = field => {
+      const entries = available.filter(item => numeric(item.report[field]));
+      return {count: entries.length, value: entries.reduce((sum, item) => sum + Number(item.report[field]), 0)};
+    };
+    const cost = aggregate('ad_cost');
+    const sales = aggregate('sales');
+    const issues = visible.length - reports.filter(item => item.report.available === true && !item.report.stale && !expired(item.shop)).length;
+    const states = {ready: 0, stale: 0, expired: 0, failed: 0, pending: 0};
+    const labels = {ready: 'Tersedia', stale: 'Data lama', expired: 'Sesi habis', failed: 'Gagal', pending: 'Menunggu'};
+    reports.forEach(({shop, report}) => {
+      const key = expired(shop) ? 'expired'
+        : shop.status === 'error' || report.error_code ? 'failed'
+        : report.available === true && report.stale ? 'stale'
+        : report.available === true ? 'ready'
+        : report.request_state === 'queued' || report.request_state === 'pending' ? 'pending'
+        : 'failed';
+      states[key]++;
+    });
+
+    root.querySelector('#ads-recap-scope').textContent = periodLabels[period.value] + ' · ' + channel.selectedOptions[0].text + ' · mengikuti filter toko.';
+    root.querySelector('#ads-recap-coverage').textContent = visible.length + ' toko dalam cakupan';
+    root.querySelector('#ads-recap-cost').textContent = cost.count ? money(cost.value) : 'Belum tersedia';
+    root.querySelector('#ads-recap-cost-context').textContent = cost.count + ' dari ' + visible.length + ' toko memiliki biaya iklan pada laporan terpilih.';
+    root.querySelector('#ads-recap-sales').textContent = sales.count ? money(sales.value) : 'Belum tersedia';
+    root.querySelector('#ads-recap-sales-context').textContent = sales.count + ' dari ' + visible.length + ' toko memiliki penjualan teratribusikan.';
+    root.querySelector('#ads-recap-roas').textContent = cost.count && sales.count && cost.value > 0 ? number(sales.value / cost.value, 2) + 'x' : 'Belum tersedia';
+    root.querySelector('#ads-recap-roas-context').textContent = 'Penjualan tersedia dibagi biaya iklan tersedia; cakupan mengikuti laporan di atas.';
+    root.querySelector('#ads-recap-available').textContent = number(available.length);
+    root.querySelector('#ads-recap-issues').textContent = number(issues);
+    root.querySelector('#ads-recap-insight').textContent = cost.count
+      ? money(cost.value) + ' biaya iklan dan ' + (sales.count ? money(sales.value) + ' penjualan teratribusikan' : 'penjualan teratribusikan belum tersedia') + ' dari ' + cost.count + ' toko. Data yang belum tersedia ditampilkan terpisah.'
+      : 'Laporan biaya iklan belum tersedia. Periksa status sinkronisasi dan koneksi toko sebelum menyimpulkan tidak ada aktivitas.';
+
+    const tones = {ready: 'success', stale: 'warning', expired: 'error', failed: 'error', pending: 'neutral'};
+    const bar = root.querySelector('#ads-recap-bar');
+    bar.replaceChildren();
+    bar.setAttribute('role', 'img');
+    bar.setAttribute('aria-label', Object.keys(states).map(key => labels[key] + ': ' + states[key]).join(', '));
+    Object.keys(states).forEach(key => {
+      if (!states[key]) return;
+      const segment = document.createElement('span');
+      segment.dataset.tone = tones[key];
+      segment.style.setProperty('--page-recap-share', (states[key] / visible.length * 100).toFixed(3) + '%');
+      bar.append(segment);
+    });
+    const legend = root.querySelector('#ads-recap-legend');
+    legend.replaceChildren();
+    Object.keys(states).forEach(key => {
+      const item = document.createElement('li');
+      const line = document.createElement('span');
+      line.className = 'page-recap-segment-link';
+      const swatch = document.createElement('span');
+      swatch.className = 'page-recap-swatch';
+      swatch.dataset.tone = tones[key];
+      swatch.setAttribute('aria-hidden', 'true');
+      line.append(swatch, Object.assign(document.createElement('span'), {textContent: labels[key]}), Object.assign(document.createElement('strong'), {textContent: number(states[key])}));
+      item.append(line);
+      legend.append(item);
+    });
+
+    const ranked = reports.filter(item => item.report.available === true && numeric(item.report.ad_cost))
+      .sort((a, b) => Number(b.report.ad_cost) - Number(a.report.ad_cost)).slice(0, 5);
+    const target = root.querySelector('#ads-recap-shops');
+    target.replaceChildren();
+    if (!ranked.length) target.append(Object.assign(document.createElement('li'), {textContent: 'Perbandingan biaya belum tersedia.'}));
+    const max = Math.max(1, ...ranked.map(item => Number(item.report.ad_cost)));
+    ranked.forEach(({shop, report}) => {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'page-recap-shop-button';
+      button.setAttribute('aria-label', 'Tampilkan laporan iklan ' + (shop.shop_name || 'toko'));
+      const line = document.createElement('span');
+      line.className = 'page-recap-shop-line';
+      line.append(Object.assign(document.createElement('span'), {textContent: shop.shop_name || 'Toko #' + shop.shop_id}), Object.assign(document.createElement('strong'), {textContent: money(report.ad_cost)}));
+      const track = document.createElement('span');
+      track.className = 'page-recap-shop-track';
+      track.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('span');
+      fill.style.width = (Number(report.ad_cost) / max * 100).toFixed(2) + '%';
+      track.append(fill);
+      button.append(line, track);
+      button.addEventListener('click', () => {
+        shopFilter.value = String(shop.shop_id);
+        syncShopPicker();
+        render();
+        shopFilter.focus();
+      });
+      item.append(button);
+      target.append(item);
+    });
+  }
+
   function updateHelp() {
     const descriptions = {
       daily: 'Hari ini sejak 00.00 WIB',
@@ -59,6 +159,7 @@
     const openSources = new Set(Array.from(grid.querySelectorAll('article')).filter(card => card.querySelector('[data-source-detail]').open).map(card => card.dataset.shopId));
     grid.replaceChildren();
     const visible = shops.filter(shop => !shopFilter.value || String(shop.shop_id) === shopFilter.value);
+    renderRecap(visible);
     const expiredShops = visible.filter(expired);
     warning.hidden = expiredShops.length === 0;
     warning.querySelector('[data-session-message]').textContent = 'Sesi Shopee perlu diperbarui: ' + expiredShops.map(shop => shop.shop_name).join(', ') + '.';

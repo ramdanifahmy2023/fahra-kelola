@@ -31,6 +31,7 @@ Last reviewed: 2026-09-30 (Boost worker handoff). This is durable project contex
 | Boost automation | Fixed selected products per shop; independent CLI service `com.fahra.shopdash.boost`. See [Boost operations](ops/boost-automation.md) and [commands](tools.md#boost-worker-commands). |
 | Asset delivery | CSS compiled from source and tracked; filemtime-based URLs prevent ordinary stale asset reuse |
 | Background sync | Durable scheduler/worker queue; ordinary data pages read local data, not a new full upstream sync |
+| Order status mapping | `app/helpers/OrderStatusPolicy.php` owns English and Indonesian status aliases used by order summaries, filters, Dashboard totals, and terminal refresh checks. Unknown labels stay unclassified. |
 | Runtime settings | Database schedule rows and queue state are authoritative; old incident notes are historical evidence |
 | Extension downloads | `/panel/extensions`; `ExtensionRelease.php` reads per-version JSON in `resources/extensions/releases/`; immutable ZIPs live in `public/downloads/extensions/` |
 | Finance / HPP | `/panel/finance`; pending/latest overview, released overview or custom-date details with explicit reconciliation, multi-shop filters, dated per-variant cost and signed impact preview. See [finance contract](ops/finance.md). |
@@ -45,6 +46,7 @@ Last reviewed: 2026-09-30 (Boost worker handoff). This is durable project contex
 | 2026-09-29 | Unified shop pickers, added customer shop filtering and shop header logos | Commit `ca27ce6`; selector, branding, customer-filter tests |
 | 2026-09-29 | Aligned Ads and Topup selectors; documented UI conventions | Commit `469266e`; 267 browser checks passed at that revision |
 | 2026-09-29 | Added agent operating knowledge | This documentation set; reviewed against repository source |
+| 2026-10-14 | Unified Indonesian and English order-status mapping for recap/filter counts, Dashboard totals, and sync terminal intervals | `tests/page-recap-data.php`, `tests/order-sync.php`, and `tests/dashboard.php`; see [page recap contract](ops/page-recap-visuals.md). |
 
 Passing counts above are historical, not a promise about the current revision. Record new test results only after running them.
 

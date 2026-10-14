@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/OrderStatusPolicy.php';
+
 function bindAll(Database $db, array $values): void {
   foreach ($values as $key => $value) {
     $db->bind($key, $value);
@@ -21,6 +23,21 @@ function recordRun(Database $db, int $jobId, string $field, int $amount = 1, ?st
 
 if (!class_exists('SyncIdentityTransientException')) {
   class SyncIdentityTransientException extends RuntimeException {}
+}
+
+/** Keep worker diagnostics useful without persisting raw database messages. */
+function syncWorkerErrorSummary(string $context, Throwable $error): string {
+  $type = get_class($error);
+  if ($error instanceof PDOException) {
+    $info = is_array($error->errorInfo ?? null) ? $error->errorInfo : [];
+    $state = strtoupper((string)($info[0] ?? $error->getCode()));
+    $driverCode = $info[1] ?? null;
+    $diagnostics = [];
+    if (preg_match('/^[A-Z0-9]{5}$/D', $state)) $diagnostics[] = 'SQLSTATE ' . $state;
+    if (is_int($driverCode) || (is_string($driverCode) && ctype_digit($driverCode))) $diagnostics[] = 'driver ' . (int)$driverCode;
+    if ($diagnostics) $type .= ' ' . implode(' ', $diagnostics);
+  }
+  return $context . ': ' . $type;
 }
 
 function retryable(array $response): bool {
@@ -54,17 +71,7 @@ function verifyWorkerShopIdentity(ShopeeCurl $shopee, array $shop): void {
 }
 
 function normalizeStatus(string $status): string {
-  $value = strtolower(trim($status));
-  if (in_array($value, ['completed', 'delivered', 'order received', 'order_received', 'to confirm receive'], true)) {
-    return 'completed';
-  }
-  if ($value === 'cancelled' || $value === 'canceled') {
-    return 'cancelled';
-  }
-  if ($value === 'ready_to_ship' || $value === 'processed' || $value === 'shipped' || $value === 'to_confirm_receive') {
-    return 'active';
-  }
-  return 'pending';
+  return OrderStatusPolicy::syncState($status);
 }
 
 function insertOrderShell(Database $db, int $shopId, array $ids): void {

@@ -16,7 +16,7 @@ Credentials remain in `config/.env` and database records. Record only non-secret
 | Scheduler | `com.fahra.shopdash.scheduler.plist` | Every 60 seconds, enqueue limit 50; `shopdash-sync-scheduler` |
 | Worker | `com.fahra.shopdash.worker.plist` | Every 5 seconds, batch 10, rate-ms 350; `shopdash-sync-worker` |
 
-Each prefix has `.log` and `.error.log` files. These are template settings, not proof the service is currently loaded. Use `launchctl print` with the labels in [tools](../tools.md). Log tails can contain sensitive upstream errors; inspect selectively and summarize without copying credentials/payloads.
+Each prefix has `.log` and `.error.log` files. These are template settings, not proof the service is currently loaded. Use `launchctl print` with the labels in [tools](../tools.md). Log tails can contain sensitive upstream errors; inspect selectively and summarize without copying credentials/payloads. Worker PDO failures retain only SQLSTATE and numeric driver code; raw database messages and SQL are intentionally omitted.
 
 The worker has a process lock derived from the repository path. Do not launch repeated workers to bypass a busy one. `sync-daemon.php` combines scheduler/worker for an alternative runner; do not layer it on top of the existing LaunchAgents. Installing/reloading agents restarts services and can interrupt active work, so do it only when needed for the authorized task.
 

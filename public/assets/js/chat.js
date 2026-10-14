@@ -7,6 +7,7 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const date = value => value ? new Date(value.replace(' ', 'T') + 'Z').toLocaleString('id-ID', {dateStyle:'short',timeStyle:'short'}) : 'belum tersedia';
   const label = status => status === 'closed' ? 'Ditutup' : status === 'activated' ? 'Aktif' : status || 'Belum diketahui';
+  const count = value => Number(value || 0).toLocaleString('id-ID');
   const notice = (text, error = false) => { $('chat-state').textContent = text; $('chat-state').classList.toggle('text-error', error); };
   async function request(path, body) {
     const response = await fetch(api + path, {method: body ? 'POST' : 'GET', cache:'no-store', headers: {'X-Requested-With':'XMLHttpRequest', Accept:'application/json', ...(body ? {'X-CSRF-Token':page.dataset.csrf, 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'} : {})}, ...(body ? {body:new URLSearchParams(body)} : {})});
@@ -42,6 +43,130 @@
       if (String(shop.shop_id) === focusedShop) button.focus();
     }
     $('chat-selected-shop').textContent = state.shops.find(shop => Number(shop.shop_id) === state.shop)?.shop_name || 'Semua toko';
+  }
+  function renderRecap(totals = {}) {
+    const shops = state.shops;
+    const withHistory = shops.filter(shop => Boolean(shop.last_sync_at)).length;
+    const expired = shops.filter(shop => shop.session_expired).length;
+    const attention = shops.filter(shop => shop.error_message || shop.status === 'error' || shop.session_expired || !shop.sync_enabled).length;
+    $('chat-total-unread').textContent = count(totals.unread_count ?? shops.reduce((sum, shop) => sum + Number(shop.unread_count || 0), 0));
+    $('chat-total-conversations').textContent = count(totals.conversation_count ?? shops.reduce((sum, shop) => sum + Number(shop.conversation_count || 0), 0));
+    $('chat-total-active').textContent = count(totals.active_count ?? shops.reduce((sum, shop) => sum + Number(shop.active_count || 0), 0));
+    $('chat-total-expired').textContent = count(expired);
+    $('chat-total-issues').textContent = count(attention);
+    $('chat-recap-coverage').textContent = shops.length
+      ? `${count(withHistory)} dari ${count(shops.length)} toko memiliki pembaruan tersimpan`
+      : 'Belum ada toko untuk diringkas';
+    $('chat-recap-unread-context').textContent = withHistory
+      ? `Dari data lokal ${count(shops.length)} toko. Waktu pembaruan tiap toko dapat berbeda.`
+      : 'Belum ada sinkronisasi chat berhasil. Angka mengikuti percakapan lokal yang tersimpan.';
+
+    const groups = [
+      {key:'fresh', label:'Data terbaru', tone:'success'},
+      {key:'stale', label:'Perlu diperbarui', tone:'warning'},
+      {key:'error', label:'Gagal atau sesi berakhir', tone:'error'},
+      {key:'paused', label:'Jadwal dijeda', tone:'warning'},
+      {key:'missing', label:'Belum ada data', tone:'neutral'},
+    ];
+    const totalsByGroup = Object.fromEntries(groups.map(group => [group.key, 0]));
+    for (const shop of shops) {
+      const group = shop.error_message || shop.status === 'error' || shop.session_expired ? 'error'
+        : !shop.sync_enabled ? 'paused'
+        : !shop.last_sync_at ? 'missing'
+        : shop.stale ? 'stale' : 'fresh';
+      totalsByGroup[group]++;
+    }
+    const bar = $('chat-recap-bar');
+    bar.replaceChildren();
+    if (!shops.length) {
+      const empty = document.createElement('span');
+      empty.dataset.tone = 'neutral';
+      empty.style.setProperty('--page-recap-share', '100%');
+      empty.setAttribute('aria-hidden', 'true');
+      bar.append(empty);
+      bar.setAttribute('aria-label', 'Belum ada toko untuk diringkas.');
+    } else {
+      for (const group of groups) {
+        const value = totalsByGroup[group.key];
+        if (!value) continue;
+        const segment = document.createElement('span');
+        segment.dataset.tone = group.tone;
+        segment.style.setProperty('--page-recap-share', `${(value / shops.length) * 100}%`);
+        segment.setAttribute('aria-hidden', 'true');
+        bar.append(segment);
+      }
+      bar.setAttribute('aria-label', 'Kondisi data toko: ' + groups.map(group => `${group.label} ${count(totalsByGroup[group.key])}`).join(', ') + '.');
+    }
+    const legend = $('chat-recap-legend');
+    legend.replaceChildren();
+    for (const group of groups) {
+      const item = document.createElement('li');
+      const line = document.createElement('div');
+      line.className = 'page-recap-segment-link';
+      const swatch = document.createElement('span');
+      swatch.className = 'page-recap-swatch';
+      swatch.dataset.tone = group.tone;
+      swatch.setAttribute('aria-hidden', 'true');
+      const name = document.createElement('span');
+      name.textContent = group.label;
+      const total = document.createElement('strong');
+      total.textContent = count(totalsByGroup[group.key]);
+      line.append(swatch, name, total);
+      item.append(line);
+      legend.append(item);
+    }
+
+    const ranking = $('chat-recap-shops');
+    const focusedShop = ranking.contains(document.activeElement) ? document.activeElement.dataset.shopId : null;
+    ranking.replaceChildren();
+    const ranked = [...shops].sort((a, b) => Number(b.unread_count || 0) - Number(a.unread_count || 0) || String(a.shop_name).localeCompare(String(b.shop_name), 'id'));
+    const maxUnread = Math.max(1, ...ranked.map(shop => Number(shop.unread_count || 0)));
+    if (!ranked.length) {
+      const item = document.createElement('li');
+      item.className = 'page-recap-shop-line';
+      item.textContent = 'Belum ada data toko.';
+      ranking.append(item);
+      return;
+    }
+    for (const shop of ranked) {
+      const item = document.createElement('li');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'page-recap-shop-button';
+      button.dataset.shopId = String(shop.shop_id);
+      button.setAttribute('aria-pressed', String(Number(shop.shop_id) === state.shop));
+      button.setAttribute('aria-label', `Pilih toko ${shop.shop_name}: ${count(shop.unread_count)} pesan belum dibaca`);
+      const line = document.createElement('span');
+      line.className = 'page-recap-shop-line';
+      const identity = document.createElement('span');
+      identity.className = 'flex min-w-0 items-center gap-2';
+      const logo = document.createElement('span');
+      logo.className = 'shop-picker-logo';
+      window.renderShopLogo?.(logo, shop.shop_id);
+      const name = document.createElement('span');
+      name.textContent = shop.shop_name || 'Toko';
+      identity.append(logo, name);
+      const unread = document.createElement('strong');
+      unread.textContent = count(shop.unread_count);
+      line.append(identity, unread);
+      const track = document.createElement('span');
+      track.className = 'page-recap-shop-track';
+      track.setAttribute('aria-hidden', 'true');
+      const fill = document.createElement('span');
+      fill.style.width = `${Math.min(100, Math.max(0, Number(shop.unread_count || 0) / maxUnread * 100))}%`;
+      track.append(fill);
+      button.append(line, track);
+      button.addEventListener('click', () => {
+        state.shop = Number(shop.shop_id);
+        choose(null);
+        renderShops();
+        renderRecap(state.overviewTotals);
+        loadRows();
+      });
+      item.append(button);
+      ranking.append(item);
+      if (String(shop.shop_id) === focusedShop) button.focus();
+    }
   }
   function renderRows() {
     $('chat-conversation-count').textContent = state.rows.length + (state.rows.length === 100 ? ' terbaru' : '');
@@ -98,18 +223,23 @@
   }
   async function overview() {
     if (state.loading) return; state.loading = true;
+    $('chat-recap').setAttribute('aria-busy', 'true');
     try {
-      const result = await request('/overview'); state.shops = result.shops || [];
-      for (const [id, prop] of [['unread','unread_count'],['conversations','conversation_count'],['active','active_count'],['expired','expired_shops']]) $('chat-total-' + id).textContent = Number(result.totals?.[prop] || 0).toLocaleString('id-ID');
+      const result = await request('/overview'); state.shops = result.shops || []; state.overviewTotals = result.totals || {};
+      renderRecap(state.overviewTotals);
       renderShops();
-      const problems = state.shops.filter(shop => shop.error_message || shop.session_expired || !shop.sync_enabled);
+      const problems = state.shops.filter(shop => shop.error_message || shop.status === 'error' || shop.session_expired || !shop.sync_enabled);
       $('chat-session-warning').classList.toggle('hidden', !problems.length);
       $('chat-session-warning').textContent = problems.map(shop => `${shop.shop_name}: ${shop.error_message || (shop.session_expired ? 'perbarui cookie toko.' : 'jadwal chat dijeda. Perbarui manual tetap tersedia.')}`).join(' ');
       const times = state.shops.map(shop => shop.last_sync_at).filter(Boolean).sort();
       notice(times.length ? `Data tersimpan. Sinkronisasi daftar terbaru: ${date(times[times.length - 1])}. Waktu tiap toko dapat berbeda.` : 'Belum ada sinkronisasi chat yang berhasil. Pilih toko lalu perbarui dari Shopee.');
       await Promise.all([loadRows(), loadMessages()]);
-    } catch (error) { notice(error.message, true); }
-    finally { state.loading = false; }
+    } catch (error) {
+      notice(error.message, true);
+      $('chat-recap-coverage').textContent = 'Ringkasan chat belum dapat dimuat';
+      $('chat-recap-unread-context').textContent = 'Periksa koneksi lalu muat ulang halaman.';
+    }
+    finally { state.loading = false; $('chat-recap').setAttribute('aria-busy', 'false'); }
   }
   $('chat-mobile-back').addEventListener('click', () => choose(null));
   $('chat-refresh-thread').addEventListener('click', async () => { const row = state.selected; if (!row) return; try { await queueRefresh(row); await loadMessages(); } catch (error) { if (key(row) === selectedKey()) $('chat-history-state').textContent = error.message; } });

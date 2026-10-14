@@ -1,16 +1,15 @@
 <?php
 
+require_once __DIR__ . '/../helpers/OrderStatusPolicy.php';
+
 class Order extends BaseModel {
   protected $table = 'orders';
 
   private function statusFilterSql(string $filter): string {
     return match ($filter) {
-      'waiting' => " AND LOWER(TRIM(COALESCE(status_type,''))) IN ('unpaid','to ship','pending')",
-      'processing' => " AND LOWER(TRIM(COALESCE(status_type,''))) IN ('ready_to_ship','processed','shipping','shipped')",
-      'completed' => " AND LOWER(TRIM(COALESCE(status_type,''))) IN ('completed','delivered','order received','order_received','to confirm receive','to_confirm_receive')",
-      'cancelled' => " AND LOWER(TRIM(COALESCE(status_type,''))) IN ('cancelled','canceled')",
+      'waiting', 'processing', 'completed', 'cancelled' => ' AND ' . OrderStatusPolicy::sql('status_type', $filter),
       'advance' => " AND order_type = 'advance'",
-      'unknown' => " AND (TRIM(COALESCE(status_type,'')) = '' OR LOWER(TRIM(status_type)) NOT IN ('unpaid','to ship','pending','ready_to_ship','processed','shipping','shipped','completed','delivered','order received','order_received','to confirm receive','to_confirm_receive','cancelled','canceled'))",
+      'unknown' => " AND (TRIM(COALESCE(status_type,'')) = '' OR NOT " . OrderStatusPolicy::knownSql('status_type') . ')',
       default => '',
     };
   }
@@ -52,10 +51,10 @@ class Order extends BaseModel {
       SUM(order_type = 'advance') AS advance_count,
       SUM(created_at IS NOT NULL) AS dated_count,
       SUM(created_at IS NULL) AS undated_count,
-      SUM(LOWER(TRIM(COALESCE(status_type,''))) IN ('unpaid','to ship','pending')) AS waiting_count,
-      SUM(LOWER(TRIM(COALESCE(status_type,''))) IN ('ready_to_ship','processed','shipping','shipped')) AS processing_count,
-      SUM(LOWER(TRIM(COALESCE(status_type,''))) IN ('completed','delivered','order received','order_received','to confirm receive','to_confirm_receive')) AS completed_count,
-      SUM(LOWER(TRIM(COALESCE(status_type,''))) IN ('cancelled','canceled')) AS cancelled_count,
+      SUM(" . OrderStatusPolicy::sql('status_type', 'waiting') . ") AS waiting_count,
+      SUM(" . OrderStatusPolicy::sql('status_type', 'processing') . ") AS processing_count,
+      SUM(" . OrderStatusPolicy::sql('status_type', 'completed') . ") AS completed_count,
+      SUM(" . OrderStatusPolicy::sql('status_type', 'cancelled') . ") AS cancelled_count,
       SUM(TRIM(COALESCE(status_type,'')) = '') AS unknown_count
       FROM {$this->table}
       WHERE shop_id = :shop_id AND (created_at IS NULL OR (created_at >= :start_date AND created_at < :end_date))");
