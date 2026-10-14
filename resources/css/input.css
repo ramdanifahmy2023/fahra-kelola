@@ -561,7 +561,7 @@
 #automation-page .automation-heading p { margin-top: 6px; }
 #automation-page .automation-shop { width: 100%; min-width: 0; }
 #automation-page .automation-shop label { display: block; margin-bottom: 6px; font-weight: 600; }
-#automation-page .shop-picker:not(:focus-within) .shop-picker-list { display: none; }
+#automation-page .shop-picker:not(.dropdown-open):not(:focus-within) .shop-picker-list { display: none; }
 #automation-page .automation-notice { border: 1px solid var(--color-base-300); border-radius: 8px; padding: 12px 16px; }
 #automation-page .automation-availability { display: flex; align-items: start; justify-content: space-between; flex-wrap: wrap; gap: 4px 20px; margin-bottom: 20px; }
 #automation-page .automation-availability strong { display: flex; align-items: center; gap: 8px; min-height: 44px; }

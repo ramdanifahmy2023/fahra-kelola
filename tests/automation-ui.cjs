@@ -144,7 +144,9 @@ const sid=php("chdir('public'); require '../app/init.php'; $d=new Database(); $d
           await page.screenshot({path:path.join(output,`${width}-${theme}-${tab}.png`),fullPage:true});
         }
         await page.click('#automation-tab-settings');
-        await page.locator('#selectedShopDisplay').click();
+        const shopTrigger=page.locator('#selectedShopDisplay');
+        if(width===320&&theme==='light') await shopTrigger.evaluate(el=>el.addEventListener('mousedown',event=>event.preventDefault(),{once:true}));
+        await shopTrigger.click();
         const menu=page.locator('.shop-picker-list'); await menu.waitFor({state:'visible'});
         assert.ok(await menu.evaluate(el=>el.scrollWidth<=el.clientWidth));
         const rows=await menu.locator('li').evaluateAll(els=>els.map(el=>el.getBoundingClientRect().x));

@@ -22,6 +22,12 @@ Sync presents discovery, detail updates, queued, paused, retry and failed stages
 
 Notifications group by shop/type, with detail navigation and an urgent-only filter. “Ingatkan 1 jam” stores an account/revision-specific reminder in additive `notification_snoozes`. Other accounts remain unaffected. Revision changes, escalation and reopening bypass an old reminder; expiry restores visibility without changing read state. Read does not resolve an incident. Existing panel polling still drives evaluation; this feature does not add an unattended detector worker.
 
+## Shop picker focus regression — 2026-10-14
+
+The global notification outside-click handler previously restored focus to its bell on every page click, even while the notification panel was closed. That stole focus from shop controls and immediately closed their menus. Outside clicks now dismiss only an open notification panel and keep focus on the clicked control; Escape and the explicit close button still return focus to the bell. Automation's page-scoped closed-menu rule also respects the shared picker's explicit open state. Finance's optional clear control is guarded so staggered PHP/asset updates do not stop the page script.
+
+Verified with `tests/automation-ui.cjs`, `tests/notifications-ui.cjs`, `tests/shop-picker-pointer-ui.cjs`, and `tests/finance-visual-ui.cjs`. These exercise the local app and synthetic/mock data. The public authenticated panel redirects to login without a session, so live authenticated clicking was not verified.
+
 ## Verification and design review
 
 UI UX Pro Max and antislop guided the implementation and final review: preserve the established identity, use restrained motion, concise actionable copy, visible focus, real logos, 44px controls and vertical shop menus. Closed shared shop menus now leave hit testing correctly. The browser suite checks widths 320, 500, 999 and 1600 in light/dark themes, keyboard search/dialog flows, grouped reminders, preferences and failure recovery. Sampled changed-surface text contrast was at least 12.96:1; this is not a claim about every legacy element.

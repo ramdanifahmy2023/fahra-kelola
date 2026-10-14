@@ -67,14 +67,16 @@ const testSession=require('./panel-test-session.cjs')(root);const sid=testSessio
  assert.ok(await page.locator('#notification-list').evaluate(el=>el.clientHeight>=48));
  await page.setViewportSize({width:1600,height:1008});
  await page.keyboard.press('Escape');assert.ok(await page.locator('#notification-panel').isHidden());assert.equal(await page.evaluate(()=>document.activeElement.id),'notification-button');
- await page.click('#notification-button');await page.click('h1');assert.ok(await page.locator('#notification-panel').isHidden());
+ await page.evaluate(()=>{const target=document.createElement('button');target.id='outside-focus-probe';target.type='button';target.textContent='Tujuan fokus';document.body.append(target);});
+ await page.locator('#outside-focus-probe').click();assert.equal(await page.evaluate(()=>document.activeElement.id),'outside-focus-probe','A closed notification panel must not steal focus from other controls');
+ await page.click('#notification-button');await page.locator('#notification-panel').waitFor({state:'visible'});await page.click('#outside-focus-probe');assert.ok(await page.locator('#notification-panel').isHidden());assert.equal(await page.evaluate(()=>document.activeElement.id),'outside-focus-probe','Outside dismissal must preserve the clicked control focus');
  const csrf=await page.locator('#notification-menu').getAttribute('data-csrf');
  assert.equal((await ctx.request.post(base+'/procnotifications/acknowledge',{data:{items:[]}})).status(),403);
  assert.equal((await ctx.request.post(base+'/procnotifications/acknowledge',{headers:{'X-CSRF-Token':csrf},data:{items:[{id:1}]}})).status(),422);
  assert.equal((await ctx.request.get(base+'/procnotifications/acknowledge')).status(),405);
  const anon=await browser.newContext();assert.equal((await anon.request.get(base+'/procnotifications/summary',{maxRedirects:0})).status(),302);await anon.close();
  assert.equal(writes,3);assert.deepEqual(errors,[]);
- const order=JSON.parse(php("chdir('public');require '../app/init.php';$d=new Database();$d->query('SELECT id,shop_id FROM orders ORDER BY id DESC LIMIT 1');echo json_encode($d->single());"));
+ const order=JSON.parse(php(`chdir('public');require '../app/init.php';$d=new Database();$d->query('SELECT o.id,o.shop_id FROM orders o JOIN shops s ON s.id=o.shop_id WHERE s.account_id=${testSession.uid} ORDER BY o.id DESC LIMIT 1');echo json_encode($d->single());`));
  await page.route('**/procorders/**',r=>r.fulfill({json:{status:'success',orders:[],queue:[]}}));
  await page.route('**/procsync/**',r=>r.fulfill({json:{status:'success',jobs:[],schedules:[]}}));
  if(order){await page.goto(base+'/panel/orders?shop_id='+order.shop_id+'&order_id='+order.id);await page.locator('#notification-order-focus').waitFor();assert.equal(await page.locator('#order-row-'+order.id).count(),1);assert.equal(await page.locator('tr[id^="order-row-"]').count(),1);}

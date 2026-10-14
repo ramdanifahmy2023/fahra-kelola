@@ -24,7 +24,11 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
       if(!fs.existsSync(file))return route.fulfill({status:404,body:''});
       return route.fulfill({path:file,contentType:p.endsWith('.css')?'text/css':p.endsWith('.js')?'application/javascript':p.endsWith('.woff2')?'font/woff2':'application/octet-stream'});
     }
-    if(p==='/panel' || p==='/panel/finance')return route.fulfill({contentType:'text/html',body:execFileSync('php',['tests/fixtures/finance-visual.php',p==='/panel'?'dashboard':'finance'],{cwd:root,encoding:'utf8'})});
+    if(p==='/panel' || p==='/panel/finance' || p==='/panel/finance-legacy'){
+      let body=execFileSync('php',['tests/fixtures/finance-visual.php',p==='/panel'?'dashboard':'finance'],{cwd:root,encoding:'utf8'});
+      if(p==='/panel/finance-legacy') body=body.replace(/<button id="finance-clear-shops"[^>]*>[\s\S]*?<\/button>/,'').replace(/<p class="finance-help" id="finance-shop-hint">[\s\S]*?<\/p>/,'');
+      return route.fulfill({contentType:'text/html',body});
+    }
     if(p==='/procFinance/summary'){
       const selected=url.searchParams.get('shops')?.split(',').filter(Boolean)||[];requests.push(selected);
       if(fail)return route.fulfill({status:502,json:{status:'error',message:'Pembaruan data uji gagal.'}});
@@ -104,6 +108,14 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
     }
     stores=[store(1),store(2)];
   }
+  await page.goto(base+'/panel/finance-legacy');await loaded();
+  assert.equal(await page.locator('#finance-clear-shops').count(),0,'Legacy markup omits the newer optional clear control');
+  const legacyPicker=page.locator('#finance-shops-trigger'),legacyMenu=page.locator('#finance-shops-options');
+  await legacyPicker.click();await legacyMenu.locator('[data-shop-value="2"]').click();
+  assert.equal(await page.locator('#finance-shops').evaluate(el=>el.selectedOptions.length),1,'Finance picker remains functional with legacy markup');
+  assert.equal(await page.locator('#finance-filter-draft').isVisible(),true);
+  await page.locator('#finance-filters button[type=submit]').click();await loaded();
+  assert.deepEqual(requests.at(-1),['2'],'Legacy markup still applies the selected shop');
   await page.setViewportSize({width:500,height:1100});await page.evaluate(()=>document.documentElement.style.fontSize='200%');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'200% text reflows');
   assert.equal(writes,2,'Only mocked refresh actions');assert.deepEqual(unexpected,[]);assert.deepEqual(errors,[]);

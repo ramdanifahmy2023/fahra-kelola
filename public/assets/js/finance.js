@@ -19,7 +19,8 @@
   const requested = (params.get('shops') || '').split(',');
   if (requested.some(Boolean) && Array.from($('shops').options).some(o => requested.includes(o.value))) Array.from($('shops').options).forEach(o => { o.selected = requested.includes(o.value); });
   const syncPicker = window.enhanceShopSelect($('shops'));
-  const toggleAll = () => { const selected=$('shops').selectedOptions.length; $('all-shops').hidden=selected===$('shops').options.length; $('clear-shops').hidden=selected===0; };
+  const clearShops = $('clear-shops');
+  const toggleAll = () => { const selected=$('shops').selectedOptions.length; $('all-shops').hidden=selected===$('shops').options.length; if(clearShops) clearShops.hidden=selected===0; };
   toggleAll();
   for (const field of ['start','end']) if (/^\d{4}-\d{2}-\d{2}$/.test(params.get(field) || '')) $(field).value = params.get(field);
   const today = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -588,7 +589,7 @@
   }
   const draft=()=>{ toggleAll(); $('filter-draft').hidden=JSON.stringify(readFilters())===JSON.stringify(applied); };
   $('all-shops').onclick=()=>{ Array.from($('shops').options).forEach(o=>{o.selected=true;}); syncPicker(); draft(); };
-  $('clear-shops').onclick=()=>{ Array.from($('shops').options).forEach(o=>{o.selected=false;}); syncPicker(); draft(); };
+  if(clearShops) clearShops.onclick=()=>{ Array.from($('shops').options).forEach(o=>{o.selected=false;}); syncPicker(); draft(); };
   $('period').addEventListener('change',()=>{preparePeriod();draft();});
   $('shops').addEventListener('change',draft);
   for(const field of ['start','end']) $(field).addEventListener('input',draft);
