@@ -43,19 +43,53 @@ class Customer extends BaseModel {
     return $conditions ? ' WHERE ' . implode(' AND ', $conditions) : '';
   }
 
-  public function countForShop(int $shopId = 0) {
-    $this->db->query('SELECT COUNT(*) AS total FROM customers' . $this->shopFilter($shopId));
-    return (int)$this->db->single()['total'];
+  public function summaryForShop(int $shopId = 0): array {
+    $orderScope = $shopId > 0 ? " AND orders.shop_id = {$shopId}" : '';
+    $orderScope .= $this->orderAccountScope('orders');
+    $where = $this->shopFilter($shopId);
+    $this->db->query("SELECT COUNT(*) AS total,
+        SUM(customer_summary.order_count = 0) AS no_orders,
+        SUM(customer_summary.order_count = 1) AS one_order,
+        SUM(customer_summary.order_count >= 2) AS repeat_orders
+      FROM (
+        SELECT customers.id, COUNT(DISTINCT orders.id) AS order_count
+        FROM customers LEFT JOIN orders ON orders.buyer_username = customers.username{$orderScope}
+        {$where}
+        GROUP BY customers.id
+      ) customer_summary");
+    $row = $this->db->single() ?: [];
+    return [
+      'total' => (int)($row['total'] ?? 0),
+      'no_orders' => (int)($row['no_orders'] ?? 0),
+      'one_order' => (int)($row['one_order'] ?? 0),
+      'repeat_orders' => (int)($row['repeat_orders'] ?? 0),
+    ];
   }
 
-  public function findWithOrderStats($limit = 10, $offset = 0, int $shopId = 0, int $customerId = 0) {
+  public function countForShop(int $shopId = 0, string $segment = ''): int {
+    $summary = $this->summaryForShop($shopId);
+    return match ($segment) {
+      'no-orders' => $summary['no_orders'],
+      'one-order' => $summary['one_order'],
+      'repeat' => $summary['repeat_orders'],
+      default => $summary['total'],
+    };
+  }
+
+  public function findWithOrderStats($limit = 10, $offset = 0, int $shopId = 0, int $customerId = 0, string $segment = '') {
     $limit = (int)$limit;
     $offset = (int)$offset;
     $orderScope = $shopId > 0 ? " AND orders.shop_id = {$shopId}" : '';
     $orderScope .= $this->orderAccountScope('orders');
     $where=$this->shopFilter($shopId);
     if ($customerId>0) $where.=($where?' AND ':' WHERE ').'customers.id='.(int)$customerId;
-    $this->db->query("SELECT customers.*, COUNT(DISTINCT orders.id) AS total_orders, COUNT(order_items.id) AS total_items FROM customers LEFT JOIN orders ON orders.buyer_username = customers.username{$orderScope} LEFT JOIN order_items ON order_items.order_id = orders.id" . $where . " GROUP BY customers.id, customers.username, customers.address, customers.created_at ORDER BY customers.created_at DESC, customers.id DESC LIMIT {$limit} OFFSET {$offset}");
+    $having = match ($segment) {
+      'no-orders' => ' HAVING COUNT(DISTINCT orders.id) = 0',
+      'one-order' => ' HAVING COUNT(DISTINCT orders.id) = 1',
+      'repeat' => ' HAVING COUNT(DISTINCT orders.id) >= 2',
+      default => '',
+    };
+    $this->db->query("SELECT customers.*, COUNT(DISTINCT orders.id) AS total_orders, COUNT(order_items.id) AS total_items FROM customers LEFT JOIN orders ON orders.buyer_username = customers.username{$orderScope} LEFT JOIN order_items ON order_items.order_id = orders.id" . $where . " GROUP BY customers.id, customers.username, customers.address, customers.created_at{$having} ORDER BY customers.created_at DESC, customers.id DESC LIMIT {$limit} OFFSET {$offset}");
     return $this->db->getAll();
   }
 

@@ -8,8 +8,12 @@ foreach ($pickerShops as $pickerShop) {
   if ((int)$pickerShop['id'] === $pickerShopId) { $pickerActive = $pickerShop; break; }
 }
 $pickerQuery = isset($data['limit']) ? ['limit' => (int)$data['limit']] : [];
-if ($pickerPage === 'orders') $pickerQuery += ['startDate' => $data['start_date'], 'endDate' => $data['end_date']];
-if ($pickerPage === 'products' && ($data['stock_filter'] ?? '') === 'critical') $pickerQuery['stock'] = 'critical';
+if ($pickerPage === 'orders') {
+  $pickerQuery += ['startDate' => $data['start_date'], 'endDate' => $data['end_date']];
+  if (!empty($data['order_filter'])) $pickerQuery['status'] = $data['order_filter'];
+}
+if ($pickerPage === 'customers' && !empty($data['customer_filter'])) $pickerQuery['segment'] = $data['customer_filter'];
+if ($pickerPage === 'products' && !empty($data['stock_filter'])) $pickerQuery['stock'] = $data['stock_filter'];
 if ($pickerPage === 'products' && ($data['movement_view'] ?? false)) {
   $pickerQuery['view'] = 'movement';
   if (!empty($data['movement_filter'])) $pickerQuery['movement'] = $data['movement_filter'];

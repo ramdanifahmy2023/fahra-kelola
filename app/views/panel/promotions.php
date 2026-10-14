@@ -8,10 +8,27 @@
 
 <div id="promotion-state" class="mb-5 rounded-xl border border-base-content/10 bg-base-100 p-4 text-sm text-base-content/60">Memuat data promosi setiap toko…</div>
 <div id="promotion-session-warning" class="mb-5 hidden rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning-content" role="alert"></div>
+<section class="page-recap" id="promotion-recap" aria-labelledby="promotion-recap-title" hidden>
+  <header class="page-recap-heading"><div><h2 id="promotion-recap-title">Ringkasan promosi</h2><p id="promotion-recap-scope">Jumlah aktif dari data promosi yang tersedia.</p></div><p class="page-recap-scope" id="promotion-recap-coverage"></p></header>
+  <div class="page-recap-summary">
+    <div class="page-recap-primary"><span>Voucher aktif</span><strong id="promotion-recap-vouchers">–</strong><div id="promotion-recap-voucher-bar" class="page-recap-bar" role="img" aria-label="Perbandingan voucher aktif dan seluruh voucher"></div><p id="promotion-recap-vouchers-context"></p></div>
+    <div class="page-recap-metrics">
+      <div class="page-recap-metric"><span>Flash sale aktif</span><strong id="promotion-recap-flash">–</strong><small id="promotion-recap-flash-context"></small></div>
+      <div class="page-recap-metric"><span>Slot flash sale</span><strong id="promotion-recap-slots">–</strong><small>Jumlah slot pada toko dengan data tersedia</small></div>
+      <div class="page-recap-metric"><span>Data tersedia</span><strong id="promotion-recap-ready">–</strong><small>Promosi tersinkron dan masih baru</small></div>
+      <div class="page-recap-metric"><span>Perlu diperiksa</span><strong id="promotion-recap-issues">–</strong><small>Sesi, sinkronisasi, atau data lama</small></div>
+    </div>
+  </div>
+  <div class="page-recap-visual-row">
+    <div class="page-recap-breakdown"><h3>Kondisi data toko</h3><div id="promotion-recap-bar" class="page-recap-bar"></div><ul id="promotion-recap-legend" class="page-recap-legend"></ul></div>
+    <div class="page-recap-shop-rank"><h3>Voucher aktif per toko</h3><ol id="promotion-recap-shops"></ol></div>
+  </div>
+  <p id="promotion-recap-insight" class="page-recap-insight"></p>
+</section>
 <div id="promotion-grid" class="grid grid-cols-1 gap-5 xl:grid-cols-2"></div>
 
 <template id="promotion-card-template">
-  <article class="overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm">
+  <article class="overflow-hidden rounded-2xl border border-base-content/10 bg-base-100 shadow-sm" data-shop-card>
     <div class="flex flex-wrap items-start justify-between gap-3 border-b border-base-content/10 p-5">
       <div class="shop-identity"><span class="shop-logo" data-shop-logo></span><div class="min-w-0"><div class="break-words text-base font-black" data-shop-name></div><div class="mt-1 text-xs text-base-content/50" data-shop-sync></div></div></div>
       <span class="badge badge-ghost badge-sm" data-status></span>
@@ -40,6 +57,7 @@
 <script>
 (() => {
   const grid = document.getElementById('promotion-grid');
+  const recap = document.getElementById('promotion-recap');
   const state = document.getElementById('promotion-state');
   const refresh = document.getElementById('promotion-refresh');
   const template = document.getElementById('promotion-card-template');
@@ -49,6 +67,37 @@
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
   const date = unix => unix ? new Date(Number(unix) * 1000).toLocaleString('id-ID', {dateStyle:'short', timeStyle:'short'}) : '-';
   let inFlight = false;
+  const numeric = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  function renderRecap(shops) {
+    if (!shops.length) { recap.hidden = true; return; }
+    recap.hidden = false;
+    const fields=['active_voucher_count','voucher_total','active_flash_sale_count','flash_sale_total'];
+    const aggregate=field=>{const entries=shops.filter(shop=>shop.status==='ok'&&numeric(shop.summary?.[field]));return {count:entries.length,value:entries.reduce((sum,shop)=>sum+Number(shop.summary[field]),0)};};
+    const active=aggregate(fields[0]),total=aggregate(fields[1]),flash=aggregate(fields[2]),slots=aggregate(fields[3]);
+    const ready=shops.filter(shop=>shop.status==='ok'&&!shop.stale&&!shop.session_expired).length;
+    const issueCount=shops.length-ready;
+    document.getElementById('promotion-recap-scope').textContent='Voucher dan flash sale aktif, dijumlahkan dari ringkasan per toko.';
+    document.getElementById('promotion-recap-coverage').textContent=shops.length+' toko dalam cakupan';
+    document.getElementById('promotion-recap-vouchers').textContent=active.count?number(active.value):'Belum tersedia';
+    document.getElementById('promotion-recap-vouchers-context').textContent=active.count+' dari '+shops.length+' toko memiliki hitungan voucher aktif.';
+    document.getElementById('promotion-recap-flash').textContent=flash.count?number(flash.value):'Belum tersedia';
+    document.getElementById('promotion-recap-flash-context').textContent=flash.count+' dari '+shops.length+' toko memiliki ringkasan flash sale.';
+    document.getElementById('promotion-recap-slots').textContent=slots.count?number(slots.value):'Belum tersedia';
+    document.getElementById('promotion-recap-ready').textContent=number(ready);
+    document.getElementById('promotion-recap-issues').textContent=number(issueCount);
+    document.getElementById('promotion-recap-insight').textContent=total.count?number(active.value)+' voucher aktif dari '+number(total.value)+' voucher yang terdata pada '+active.count+' toko. Data toko lama atau gagal ditampilkan terpisah.':'Hitungan promosi belum tersedia. Periksa status tiap toko sebelum menyimpulkan tidak ada promosi.';
+    const voucherBar=document.getElementById('promotion-recap-voucher-bar');voucherBar.replaceChildren();
+    if(total.count&&total.value>0){const activeSegment=document.createElement('span'),restSegment=document.createElement('span');activeSegment.dataset.tone='primary';restSegment.dataset.tone='neutral';activeSegment.style.setProperty('--page-recap-share',(Math.min(100,active.value/total.value*100)).toFixed(3)+'%');restSegment.style.setProperty('--page-recap-share',(Math.max(0,100-active.value/total.value*100)).toFixed(3)+'%');voucherBar.append(activeSegment,restSegment);voucherBar.setAttribute('aria-label',number(active.value)+' voucher aktif dari '+number(total.value)+' voucher tercatat');}else voucherBar.setAttribute('aria-label','Perbandingan voucher belum tersedia');
+    const states={ready:0,stale:0,expired:0,failed:0,pending:0},labels={ready:'Tersedia',stale:'Data lama',expired:'Sesi habis',failed:'Gagal',pending:'Menunggu'};
+    shops.forEach(shop=>{const key=shop.session_expired||shop.session_status==='expired'?'expired':shop.status==='error'?'failed':shop.status==='ok'&&shop.stale?'stale':shop.status==='ok'?'ready':'pending';states[key]++;});
+    const tones={ready:'success',stale:'warning',expired:'error',failed:'error',pending:'neutral'},bar=document.getElementById('promotion-recap-bar');bar.replaceChildren();bar.setAttribute('role','img');bar.setAttribute('aria-label',Object.keys(states).map(key=>labels[key]+': '+states[key]).join(', '));
+    Object.keys(states).forEach(key=>{if(!states[key])return;const segment=document.createElement('span');segment.dataset.tone=tones[key];segment.style.setProperty('--page-recap-share',(states[key]/shops.length*100).toFixed(3)+'%');bar.append(segment);});
+    const legend=document.getElementById('promotion-recap-legend');legend.replaceChildren();Object.keys(states).forEach(key=>{const li=document.createElement('li'),line=document.createElement('span');line.className='page-recap-segment-link';const swatch=document.createElement('span');swatch.className='page-recap-swatch';swatch.dataset.tone=tones[key];swatch.setAttribute('aria-hidden','true');line.append(swatch,Object.assign(document.createElement('span'),{textContent:labels[key]}),Object.assign(document.createElement('strong'),{textContent:number(states[key])}));li.append(line);legend.append(li);});
+    const ranked=shops.filter(shop=>shop.status==='ok'&&numeric(shop.summary?.active_voucher_count)).sort((a,b)=>Number(b.summary.active_voucher_count)-Number(a.summary.active_voucher_count)).slice(0,5),target=document.getElementById('promotion-recap-shops');target.replaceChildren();
+    if(!ranked.length)target.append(Object.assign(document.createElement('li'),{textContent:'Perbandingan voucher belum tersedia.'}));
+    const max=Math.max(1,...ranked.map(shop=>Number(shop.summary.active_voucher_count)));
+    ranked.forEach(shop=>{const li=document.createElement('li'),button=document.createElement('button');button.type='button';button.className='page-recap-shop-button';button.setAttribute('aria-label','Lihat kartu promosi '+(shop.shop_name||'toko'));const line=document.createElement('span');line.className='page-recap-shop-line';line.append(Object.assign(document.createElement('span'),{textContent:shop.shop_name||'Toko #'+shop.shop_id}),Object.assign(document.createElement('strong'),{textContent:number(shop.summary.active_voucher_count)}));const track=document.createElement('span');track.className='page-recap-shop-track';track.setAttribute('aria-hidden','true');const fill=document.createElement('span');fill.style.width=(Number(shop.summary.active_voucher_count)/max*100).toFixed(2)+'%';track.append(fill);button.append(line,track);button.addEventListener('click',()=>{const card=[...document.querySelectorAll('[data-shop-card]')].find(item=>item.dataset.shopCard===String(shop.shop_id));card?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});});li.append(button);target.append(li);});
+  }
   function voucherLabel(v) {
     if (v.discount_type === 'persen') return Number(v.discount).toLocaleString('id-ID', {maximumFractionDigits:2}) + '%';
     if (v.discount_type === 'koin_persen') return Number(v.discount).toLocaleString('id-ID', {maximumFractionDigits:2}) + '% koin';
@@ -57,13 +106,14 @@
   }
   async function load() {
     if (inFlight) return;
-    inFlight = true; refresh.disabled = true; state.textContent = 'Memuat data promosi setiap toko…';
+    inFlight = true; refresh.disabled = true; recap.hidden = true; state.textContent = 'Memuat data promosi setiap toko…';
     try {
       const response = await fetch('<?= burl; ?>/procPromotions/summary', {headers:{'X-Requested-With':'XMLHttpRequest','Accept':'application/json'}, cache:'no-store'});
       const payload = await response.json();
       if (!response.ok || payload.status !== 'success') throw new Error(payload.message || 'Data promosi gagal dimuat.');
       grid.innerHTML = '';
       const shops = payload.shops || [];
+      renderRecap(shops);
       if (!shops.length) { state.textContent = 'Belum ada toko terhubung untuk dipantau.'; return; }
       const expired = shops.filter(s => s.session_expired || s.session_status === 'expired');
       const warning = document.getElementById('promotion-session-warning');
@@ -71,6 +121,7 @@
       else { warning.className = 'mb-5 hidden rounded-xl border border-warning/30 bg-warning/10 p-4 text-sm text-warning-content'; warning.textContent = ''; }
       shops.forEach(shop => {
         const node = template.content.cloneNode(true), data = shop.summary || {};
+        node.querySelector('[data-shop-card]').dataset.shopCard=String(shop.shop_id);
         node.querySelector('[data-shop-name]').textContent = shop.shop_name || 'Toko tanpa nama';
         window.renderShopLogo(node.querySelector('[data-shop-logo]'), shop.shop_id);
         node.querySelector('[data-shop-sync]').textContent = shop.synced_at ? 'Diperbarui ' + new Date(shop.synced_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'Belum pernah disinkronkan';

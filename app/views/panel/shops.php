@@ -12,6 +12,8 @@
   </div>
 </div>
 
+<?php require __DIR__ . '/templates/page-recap.php'; ?>
+
 <!-- Table Section -->
 <div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
   <div class="shop-table-scroll overflow-x-auto">

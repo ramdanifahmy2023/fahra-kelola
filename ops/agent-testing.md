@@ -14,6 +14,7 @@ Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior
 | Queue recovery | `php tests/sync-recovery.php` |
 | Live Chat | `php tests/chat.php`, `node tests/chat-ui.cjs` (`CHAT_TEST_URL`, default 8147); temporary tables and mocked chat mutations. Live transport limits: [implementation](live-chat-implementation-20260929.md). |
 | Order/product/package sync | `php tests/order-sync.php`, `php tests/product-sync.php`, `php tests/package-sync.php` |
+| Page-level data recap aggregates and filters | `php tests/page-recap-data.php`, plus `php tests/customer-shop-filter.php` |
 | Ads metric mapping | `php tests/ads-performance.php` |
 | Ads campaign traversal | `php tests/ads-campaign-reports.php` |
 | Browser report import | `php tests/ads-browser-import.php` |
@@ -22,6 +23,7 @@ Reviewed 2026-09-29. Run from repository root. Choose checks by changed behavior
 | Saldo Penjual / wallet | `php tests/finance.php` includes wallet parser/transport and temporary snapshot cases; `node tests/finance-wallet-ui.cjs` checks both pages, selected shops, period independence, null/zero/failure/restriction, responsive themes and keyboard. Uses isolated panel test sessions and synthetic wallet values; no withdrawal. |
 | Dashboard / Finance clarity and defaults | `php tests/dashboard.php`, `node tests/dashboard-ui.cjs` (same `FINANCE_TEST_URL`; temporary DB fixtures, mocked realtime/write responses and browser clock for rollover). Includes scope, partial/null/zero, request races, focus, all four widths and both themes. |
 | Dashboard / Finance visual hierarchy | `node tests/finance-visual-ui.cjs`: real templates and scripts with synthetic intercepted data, no database/session/upstream requests. Responsive themes, disclosures, shop scope, null/zero, recovery, chart, HPP dialog and contrast. Existing live browser tests need tenant-owned fixtures after account isolation; see [readability audit](visual-readability-20261014.md). |
+| Page recap visuals | `node tests/page-recap-ui.cjs`: synthetic partial-data fixtures, keyboard drilldowns, filter preservation, contrast, 320/500/999/1600px and both themes, plus authenticated local route smoke checks. Uses `PAGE_RECAP_TEST_URL` (default `http://127.0.0.1:59159`) and `PLAYWRIGHT_MODULE` when needed. See [page recap visuals](page-recap-visuals.md) for metric semantics. |
 | 9Router connections | `php tests/ai-connections.php`, `php tests/ai-http.php`, `node tests/ai-connections-ui.cjs`; temporary tables, local HTTP fixture and mocked browser mutations |
 | Extension catalog and immutable archives | `php tests/extension-releases.php` (isolated temporary release roots; also verifies published ZIP checksums) |
 | Extension page, downloads, and mobile navbar | `node tests/extensions-ui.cjs` (local authenticated page, mocked background endpoints, download checksums and responsive checks) |

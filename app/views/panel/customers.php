@@ -16,6 +16,12 @@
   </div>
 </div>
 
+<?php if (!empty($data['page_recap'])) require __DIR__ . '/templates/page-recap.php'; ?>
+<?php if (!empty($data['customer_filter'])): ?>
+  <?php $customerFilterLabels = ['no-orders'=>'Belum ada pesanan','one-order'=>'Satu pesanan','repeat'=>'Pelanggan kembali']; ?>
+  <div class="workspace-focus" role="status">Filter aktif: <?= htmlspecialchars($customerFilterLabels[$data['customer_filter']] ?? 'Pelanggan', ENT_QUOTES, 'UTF-8'); ?> · <?= number_format((int)$data['total_customers'],0,',','.'); ?> pelanggan <a href="<?= htmlspecialchars(burl . '/panel/customers?' . http_build_query(['shop_id'=>(int)$data['active_shop_id']]), ENT_QUOTES, 'UTF-8'); ?>">Hapus filter</a></div>
+<?php endif; ?>
+
 <script>
 let customerSyncController = null;
 let customerSyncToken = 0;
@@ -71,6 +77,13 @@ function queueCustomerBackgroundSync() {
   fetch('<?= burl; ?>/procsync/enqueue', { method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest'}, body: fd })
     .then(r => r.json()).then(data => { if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat'); document.getElementById('customer-sync-status').textContent = 'Sinkronisasi pelanggan masuk antrean background.'; })
     .catch(error => { document.getElementById('customer-sync-status').textContent = error.message || 'Antrean sinkronisasi gagal dibuat.'; }).finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; } });
+}
+
+function changeCustomerLimit(limit) {
+  const url = new URL(window.location.href);
+  url.searchParams.set('limit', limit);
+  url.searchParams.delete('page');
+  window.location.href = url.toString();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -135,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <div class="flex flex-wrap items-center justify-between gap-3 border-t border-base-content/8 bg-base-200/35 px-4 py-3">
     <div class="flex items-center gap-2 text-xs text-base-content/60">
       <label for="customer-page-size">Tampilkan</label>
-      <select id="customer-page-size" aria-label="Jumlah pelanggan per halaman" class="select select-sm h-8 min-h-8 w-18" onchange="window.location.href = '?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=' + this.value">
+      <select id="customer-page-size" aria-label="Jumlah pelanggan per halaman" class="select select-sm h-8 min-h-8 w-18" onchange="changeCustomerLimit(this.value)">
         <?php foreach ([10, 20, 50, 100] as $option): ?>
         <option value="<?= $option ?>" <?= $data['limit'] == $option ? 'selected' : '' ?>><?= $option ?></option>
         <?php endforeach; ?>
@@ -144,9 +157,10 @@ document.addEventListener('DOMContentLoaded', () => {
     </div>
     <?php if ($data['total_pages'] > 1): ?>
     <div class="join">
-      <?php if ($data['current_page'] > 1): ?><a aria-label="Halaman pelanggan sebelumnya" href="?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=<?= $data['limit'] ?>&page=<?= $data['current_page'] - 1 ?>" class="join-item btn btn-sm">«</a><?php else: ?><button aria-label="Halaman pelanggan sebelumnya" class="join-item btn btn-sm btn-disabled" disabled>«</button><?php endif; ?>
+      <?php $customerFilterQuery = !empty($data['customer_filter']) ? '&segment=' . urlencode($data['customer_filter']) : ''; ?>
+      <?php if ($data['current_page'] > 1): ?><a aria-label="Halaman pelanggan sebelumnya" href="?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=<?= $data['limit'] ?><?= $customerFilterQuery ?>&page=<?= $data['current_page'] - 1 ?>" class="join-item btn btn-sm">«</a><?php else: ?><button aria-label="Halaman pelanggan sebelumnya" class="join-item btn btn-sm btn-disabled" disabled>«</button><?php endif; ?>
       <span class="join-item btn btn-sm no-animation" aria-current="page">Hal <?= $data['current_page'] ?> / <?= $data['total_pages'] ?></span>
-      <?php if ($data['current_page'] < $data['total_pages']): ?><a aria-label="Halaman pelanggan berikutnya" href="?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=<?= $data['limit'] ?>&page=<?= $data['current_page'] + 1 ?>" class="join-item btn btn-sm">»</a><?php else: ?><button aria-label="Halaman pelanggan berikutnya" class="join-item btn btn-sm btn-disabled" disabled>»</button><?php endif; ?>
+      <?php if ($data['current_page'] < $data['total_pages']): ?><a aria-label="Halaman pelanggan berikutnya" href="?shop_id=<?= (int)$data['active_shop_id']; ?>&limit=<?= $data['limit'] ?><?= $customerFilterQuery ?>&page=<?= $data['current_page'] + 1 ?>" class="join-item btn btn-sm">»</a><?php else: ?><button aria-label="Halaman pelanggan berikutnya" class="join-item btn btn-sm btn-disabled" disabled>»</button><?php endif; ?>
     </div>
     <?php endif; ?>
   </div>

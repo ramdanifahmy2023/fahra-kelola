@@ -37,6 +37,23 @@
     </details>
   </div>
   <div id="ads-state" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" role="status" aria-live="polite">Memuat laporan iklan…</div>
+  <section class="page-recap" id="ads-recap" aria-labelledby="ads-recap-title" hidden>
+    <header class="page-recap-heading"><div><h2 id="ads-recap-title">Ringkasan iklan</h2><p id="ads-recap-scope"></p></div><p class="page-recap-scope" id="ads-recap-coverage"></p></header>
+    <div class="page-recap-summary">
+      <div class="page-recap-primary"><span>Biaya iklan</span><strong id="ads-recap-cost">–</strong><p id="ads-recap-cost-context"></p></div>
+      <div class="page-recap-metrics">
+        <div class="page-recap-metric"><span>Penjualan teratribusikan</span><strong id="ads-recap-sales">–</strong><small id="ads-recap-sales-context"></small></div>
+        <div class="page-recap-metric"><span>ROAS gabungan</span><strong id="ads-recap-roas">–</strong><small id="ads-recap-roas-context"></small></div>
+        <div class="page-recap-metric"><span>Laporan tersedia</span><strong id="ads-recap-available">–</strong><small>Untuk periode dan jenis iklan terpilih</small></div>
+        <div class="page-recap-metric"><span>Perlu diperiksa</span><strong id="ads-recap-issues">–</strong><small>Sesi berakhir, data lama, atau laporan kosong</small></div>
+      </div>
+    </div>
+    <div class="page-recap-visual-row">
+      <div class="page-recap-breakdown"><h3>Kondisi laporan toko</h3><div id="ads-recap-bar" class="page-recap-bar"></div><ul id="ads-recap-legend" class="page-recap-legend"></ul></div>
+      <div class="page-recap-shop-rank"><h3>Perbandingan biaya iklan</h3><ol id="ads-recap-shops"></ol></div>
+    </div>
+    <p id="ads-recap-insight" class="page-recap-insight"></p>
+  </section>
   <div id="ads-session-warning" class="mb-5 rounded-xl border border-base-content/20 bg-base-100 p-4 text-sm text-base-content" hidden>
     <p data-session-message></p>
     <a class="ads-inline-link" href="<?= burl; ?>/panel/shops">Perbarui koneksi toko</a>

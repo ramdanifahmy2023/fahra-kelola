@@ -10,11 +10,25 @@
   <p class="mb-3 text-sm">Baca riwayat di sini, balas melalui Shopee. Pesan pembeli baru masuk ke lonceng Shopdash setelah sinkronisasi berkala.</p>
   <p id="chat-state" class="mb-4 text-sm" role="status" aria-live="polite">Memuat status chat…</p>
   <div id="chat-session-warning" class="mb-4 hidden rounded-lg border border-warning p-3 text-sm" role="status"></div>
-  <section class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4" aria-label="Ringkasan chat Shopee">
-    <div class="rounded-xl border border-base-content/10 bg-base-100 p-4"><div class="text-xs">Belum dibaca di Shopee</div><div id="chat-total-unread" class="mt-1 text-2xl font-bold">–</div></div>
-    <div class="rounded-xl border border-base-content/10 bg-base-100 p-4"><div class="text-xs">Percakapan</div><div id="chat-total-conversations" class="mt-1 text-2xl font-bold">–</div></div>
-    <div class="rounded-xl border border-base-content/10 bg-base-100 p-4"><div class="text-xs">Percakapan aktif</div><div id="chat-total-active" class="mt-1 text-2xl font-bold">–</div></div>
-    <div class="rounded-xl border border-base-content/10 bg-base-100 p-4"><div class="text-xs">Sesi perlu diperbarui</div><div id="chat-total-expired" class="mt-1 text-2xl font-bold">–</div></div>
+  <section class="page-recap mb-5" id="chat-recap" aria-labelledby="chat-recap-title" aria-busy="true">
+    <header class="page-recap-heading">
+      <div><h2 id="chat-recap-title">Ringkasan chat</h2><p>Pesan belum dibaca dan kondisi sinkronisasi di seluruh toko.</p></div>
+      <p class="page-recap-scope" id="chat-recap-coverage">Memuat cakupan data…</p>
+    </header>
+    <div class="page-recap-summary">
+      <div class="page-recap-primary"><span>Belum dibaca di Shopee</span><strong id="chat-total-unread">–</strong><p id="chat-recap-unread-context">Jumlah dari data chat tersimpan di tiap toko.</p></div>
+      <div class="page-recap-metrics">
+        <div class="page-recap-metric"><span>Percakapan</span><strong id="chat-total-conversations">–</strong><small>Jumlah yang tersimpan</small></div>
+        <div class="page-recap-metric"><span>Percakapan aktif</span><strong id="chat-total-active">–</strong><small>Status aktif dari Shopee</small></div>
+        <div class="page-recap-metric" data-tone="warning"><span>Sesi perlu diperbarui</span><strong id="chat-total-expired">–</strong><small>Toko dengan sesi berakhir</small></div>
+        <div class="page-recap-metric"><span>Butuh perhatian</span><strong id="chat-total-issues">–</strong><small>Gagal, sesi berakhir, atau sinkronisasi dijeda</small></div>
+      </div>
+    </div>
+    <div class="page-recap-visual-row">
+      <div class="page-recap-breakdown"><h3>Kondisi data toko</h3><div id="chat-recap-bar" class="page-recap-bar" role="img" aria-label="Kondisi sinkronisasi toko"></div><ul id="chat-recap-legend" class="page-recap-legend"></ul></div>
+      <div class="page-recap-shop-rank"><h3>Pesan belum dibaca per toko</h3><ol id="chat-recap-shops"></ol></div>
+    </div>
+    <p class="page-recap-insight"><span class="material-symbols-outlined" aria-hidden="true">info</span>Angka mengikuti data chat tersimpan. Balas pesan dan ubah status percakapan melalui Shopee.</p>
   </section>
   <div id="chat-popup-backdrop" class="chat-popup-backdrop hidden" aria-hidden="true"></div>
   <section id="chat-shell" class="chat-shell rounded-xl border border-base-content/10 bg-base-100" aria-label="Ruang kerja percakapan">

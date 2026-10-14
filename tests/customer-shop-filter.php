@@ -30,9 +30,14 @@ try {
   customerCheck($model->countForShop(1) === 2, 'Mapping and order matches are not double-counted');
   customerCheck($model->countForShop(2) === 2, 'Second shop has its own customers');
   customerCheck($model->countForShop(99) === 0, 'Unknown shop is empty');
+  customerCheck($model->summaryForShop() === ['total'=>3,'no_orders'=>1,'one_order'=>1,'repeat_orders'=>1], 'All-shop lifetime purchase segments are complete');
+  customerCheck($model->summaryForShop(1) === ['total'=>2,'no_orders'=>1,'one_order'=>1,'repeat_orders'=>0], 'Shop segments are scoped to mapped buyers and that shop only');
+  customerCheck($model->countForShop(1, 'no-orders') === 1 && $model->countForShop(1, 'one-order') === 1, 'Segment counts reuse the same grouped summary');
   $rows = $model->findWithOrderStats(10, 0, 1);
   customerCheck(array_column($rows, 'username') === ['mapped-only', 'shared'], 'Selected shop list is scoped');
   customerCheck((int)$rows[1]['total_orders'] === 1, 'Order counts exclude other shops');
+  customerCheck(array_column($model->findWithOrderStats(10, 0, 0, 0, 'repeat'), 'username') === ['shared'], 'Repeat-customer filter matches two or more saved orders');
+  customerCheck(array_column($model->findWithOrderStats(10, 0, 1, 0, 'no-orders'), 'username') === ['mapped-only'], 'No-order filter remains shop scoped');
   customerCheck(count($model->findOrderHistory('shared', 1)) === 1, 'History excludes other shops');
   customerCheck(count($model->findOrderHistory('shared')) === 2, 'All-shop history is preserved');
   customerCheck(count($model->findWithOrderStats(1, 1, 1)) === 1, 'Pagination remains scoped');

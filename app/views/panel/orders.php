@@ -50,9 +50,15 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
 </div>
 <div id="order-background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi pesanan berjalan di belakang. Halaman ini membaca data lokal.</div>
 
+<?php if (empty($data['focused_order_id'])) require __DIR__ . '/templates/page-recap.php'; ?>
+<?php if (!empty($data['order_filter'])): ?>
+  <?php $orderFilterLabels = ['waiting'=>'Menunggu / perlu dikirim','processing'=>'Dalam proses','completed'=>'Selesai','cancelled'=>'Dibatalkan','advance'=>'Pesanan kilat','unknown'=>'Status belum lengkap']; ?>
+  <div class="workspace-focus" role="status">Filter aktif: <?= htmlspecialchars($orderFilterLabels[$data['order_filter']] ?? 'Status', ENT_QUOTES, 'UTF-8'); ?> · <?= number_format((int)$data['total_orders'],0,',','.'); ?> pesanan <a href="<?= htmlspecialchars(burl . '/panel/orders?' . http_build_query(['shop_id'=>(int)$data['active_shop_id'],'startDate'=>$data['start_date'],'endDate'=>$data['end_date'],'limit'=>$data['limit']]), ENT_QUOTES, 'UTF-8'); ?>">Hapus filter</a></div>
+<?php endif; ?>
+
 <?php if (!empty($data['focused_order_id'])): ?><div id="notification-order-focus">Menampilkan pesanan pilihan.<a href="<?= burl; ?>/panel/orders?shop_id=<?= (int)$data['active_shop_id']; ?>">Lihat semua pesanan toko</a></div><?php endif; ?>
 <!-- Table Section -->
-<div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm">
+<div class="card overflow-hidden border border-base-300 bg-base-100 shadow-sm" id="orders-table">
 
   <div class="overflow-x-auto order-desktop-table">
     <table class="table w-full">
@@ -114,11 +120,12 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
       $shopId = $data['active_shop_id'];
       $limit = $data['limit'];
       $dateQuery = '&startDate=' . urlencode($data['start_date']) . '&endDate=' . urlencode($data['end_date']);
+      $statusQuery = !empty($data['order_filter']) ? '&status=' . urlencode($data['order_filter']) : '';
       
       // Previous Button
       if ($current > 1): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?>&page=<?= $current - 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman pesanan sebelumnya">«</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?><?= $statusQuery ?>&page=<?= $current - 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman pesanan sebelumnya">«</a>
       <?php else: ?>
         <button type="button" class="join-item btn btn-sm btn-disabled border-base-300" aria-label="Tidak ada halaman pesanan sebelumnya" disabled>«</button>
       <?php endif; ?>
@@ -130,7 +137,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
       // Next Button
       if ($current < $total): 
       ?>
-        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?>&page=<?= $current + 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman pesanan berikutnya">»</a>
+        <a href="?shop_id=<?= $shopId ?>&limit=<?= $limit ?><?= $dateQuery ?><?= $statusQuery ?>&page=<?= $current + 1 ?>" class="join-item btn btn-sm bg-base-200 hover:bg-base-300 border-base-300" aria-label="Halaman pesanan berikutnya">»</a>
       <?php else: ?>
         <button type="button" class="join-item btn btn-sm btn-disabled border-base-300" aria-label="Tidak ada halaman pesanan berikutnya" disabled>»</button>
       <?php endif; ?>

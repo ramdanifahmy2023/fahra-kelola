@@ -1,4 +1,4 @@
-<section id="products-page" aria-label="Produk toko">
+<section id="products-page" aria-label="Produk toko" data-stock-filter="<?= htmlspecialchars($data['stock_filter'] ?? '',ENT_QUOTES,'UTF-8'); ?>">
 <!-- Loading Overlay -->
 <div id="page-loader" role="status" aria-live="polite" aria-busy="false" class="absolute inset-0 z-[50] bg-base-100/60 backdrop-blur-md flex flex-col items-center justify-center transition-opacity duration-500">
   <span class="loading loading-spinner loading-lg text-primary mb-4"></span>
@@ -12,7 +12,9 @@ foreach (($data['shops'] ?? []) as $s) {
   if ((int)$s['id'] === (int)($data['active_shop_id'] ?? 0)) { $activeShop = $s; break; }
 }
 if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
-$isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
+$stockFilter = (string)($data['stock_filter'] ?? '');
+$stockFilterLabels = ['critical'=>'Stok kritis','empty'=>'Stok habis','low'=>'Stok menipis','healthy'=>'Stok cukup','unknown'=>'Data stok belum lengkap','archived'=>'Produk diarsipkan'];
+$isStockFiltered = $stockFilter !== '';
 ?>
 <style>
   #product-toolbar { width: 100%; }
@@ -28,13 +30,13 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
 <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
   <div class="min-w-0">
     <div class="flex flex-wrap items-center gap-2">
-      <h2 class="text-2xl font-bold mb-1 text-base-content"><?= $isCriticalFilter ? 'Stok Kritis' : 'Daftar Produk'; ?></h2>
-      <?php if ($isCriticalFilter): ?><span class="badge badge-error badge-sm gap-1"><span class="material-symbols-outlined text-[14px]" aria-hidden="true">warning</span>Di bawah 15</span><?php endif; ?>
+      <h2 class="text-2xl font-bold mb-1 text-base-content"><?= htmlspecialchars($stockFilterLabels[$stockFilter] ?? 'Daftar Produk',ENT_QUOTES,'UTF-8'); ?></h2>
+      <?php if ($stockFilter === 'critical'): ?><span class="badge badge-warning badge-sm gap-1"><span class="material-symbols-outlined text-[14px]" aria-hidden="true">warning</span>Stok aktif di bawah 15</span><?php elseif ($stockFilter === 'low'): ?><span class="badge badge-warning badge-sm gap-1"><span class="material-symbols-outlined text-[14px]" aria-hidden="true">warning</span>Stok 1–14 unit</span><?php endif; ?>
     </div>
-    <?php if ($isCriticalFilter): ?><p class="mt-1 text-sm">Produk aktif dengan stok di bawah 15.</p><?php endif; ?>
+    <?php if ($isStockFiltered): ?><p class="mt-1 text-sm">Daftar produk difilter berdasarkan kondisi stok.</p><?php endif; ?>
   </div>
   <div id="product-toolbar" class="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
-  <?php if ($isCriticalFilter): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">close</span>Semua produk</a><?php endif; ?>
+  <?php if ($isStockFiltered): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">close</span>Semua produk</a><?php endif; ?>
   <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>&view=movement" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">monitoring</span>Pergerakan produk</a>
   <button type="button" class="product-sync-action btn btn-primary btn-sm w-full gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
     <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang
@@ -45,6 +47,8 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
   </div>
 </div>
 <div id="background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi berjalan di belakang. Halaman ini membaca data lokal.</div>
+
+<?php if (!empty($data['page_recap'])) require __DIR__ . '/templates/page-recap.php'; ?>
 
 <?php if (!empty($data['focused_product_id'])): ?><div class="workspace-focus">Menampilkan produk dari pencarian atau notifikasi.<a href="<?= burl; ?>/panel/products?shop_id=<?= (int)$data['active_shop_id']; ?>&stock=all&page=1">Lihat semua produk toko</a></div><?php endif; ?>
 <!-- Table Section -->
@@ -68,7 +72,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
           <td colspan="6" class="text-center py-10">
             <div class="flex flex-col items-center justify-center text-base-content/50">
               <span class="material-symbols-outlined text-[48px] mb-2 opacity-50" aria-hidden="true">inventory_2</span>
-              <p><?= $isCriticalFilter ? 'Tidak ada produk aktif dengan stok di bawah 15.' : 'Belum ada produk yang ditarik dari Shopee.'; ?></p>
+              <p><?= $isStockFiltered ? 'Tidak ada produk yang sesuai dengan filter kondisi stok.' : 'Belum ada produk yang ditarik dari Shopee.'; ?></p>
             </div>
           </td>
         </tr>
@@ -156,7 +160,7 @@ $isCriticalFilter = ($data['stock_filter'] ?? '') === 'critical';
       $total = $data['total_pages'];
       $shopId = $data['active_shop_id'];
       $limit = $data['limit'];
-      $stockQuery = $isCriticalFilter ? '&stock=critical' : '';
+      $stockQuery = $isStockFiltered ? '&stock=' . urlencode($stockFilter) : '';
       
       // Previous Button
       if ($current > 1): 
@@ -227,7 +231,8 @@ function changeLimit(limit, shopId) {
     const url = new URL('<?= burl; ?>/panel/products', window.location.origin);
     url.searchParams.set('shop_id', shopId);
     url.searchParams.set('limit', limit);
-    <?php if ($isCriticalFilter): ?>url.searchParams.set('stock', 'critical');<?php endif; ?>
+    const stockFilter = document.getElementById('products-page')?.dataset.stockFilter;
+    if (stockFilter) url.searchParams.set('stock', stockFilter);
     window.location.href = url.toString();
 }
 

@@ -13,12 +13,56 @@ class Product extends BaseModel {
           LEFT JOIN product_models m ON m.product_id = p.id AND m.deleted_at IS NULL";
     }
 
-    public function findPanelPaginated($shopId, $limit = 10, $offset = 0, $critical = false) {
+    private function panelFilter(string $filter): string {
+        return match ($filter) {
+            'critical' => ' AND p.status = 1 AND p.total_stock < 15',
+            'empty' => ' AND (p.status = 2 OR (p.status = 1 AND p.total_stock IS NOT NULL AND p.total_stock <= 0))',
+            'low' => ' AND p.status = 1 AND p.total_stock BETWEEN 1 AND 14',
+            'healthy' => ' AND p.status = 1 AND p.total_stock >= 15',
+            'unknown' => ' AND p.status = 1 AND p.total_stock IS NULL',
+            'archived' => ' AND COALESCE(p.status,0) NOT IN (1,2)',
+            default => '',
+        };
+    }
+
+    public function findPanelPaginated($shopId, $limit = 10, $offset = 0, $critical = false, string $filter = '') {
         $where = 'p.shop_id = :shop_id AND p.deleted_at IS NULL';
-        if ($critical) $where .= ' AND p.status = 1 AND p.total_stock < 15';
+        if ($critical) $filter = 'critical';
+        $where .= $this->panelFilter($filter);
         $this->db->query($this->panelSelect() . " WHERE {$where} GROUP BY p.id ORDER BY p.id DESC LIMIT " . (int)$limit . " OFFSET " . (int)$offset);
         $this->db->bind('shop_id', (int)$shopId);
         return $this->db->getAll();
+    }
+
+    public function summaryForShop(int $shopId): array {
+        $this->db->query("SELECT COUNT(*) AS total,
+          SUM(status = 1) AS active,
+          SUM(status = 2 OR (status = 1 AND total_stock IS NOT NULL AND total_stock <= 0)) AS empty,
+          SUM(status = 1 AND total_stock BETWEEN 1 AND 14) AS low,
+          SUM(status = 1 AND total_stock >= 15) AS healthy,
+          SUM(status = 1 AND total_stock IS NULL) AS unknown_stock,
+          SUM(COALESCE(status,0) NOT IN (1,2)) AS archived,
+          SUM(CASE WHEN status = 1 THEN GREATEST(COALESCE(total_stock,0),0) ELSE 0 END) AS active_stock
+          FROM {$this->table} WHERE shop_id = :shop_id AND deleted_at IS NULL");
+        $this->db->bind('shop_id', $shopId);
+        $row = $this->db->single() ?: [];
+        return array_map(static fn($value) => (int)($value ?? 0), $row);
+    }
+
+    public function countPanel(int $shopId, string $filter = ''): int {
+        $where = 'shop_id = :shop_id AND deleted_at IS NULL';
+        $filterSql = match ($filter) {
+            'critical' => ' AND status = 1 AND total_stock < 15',
+            'empty' => ' AND (status = 2 OR (status = 1 AND total_stock IS NOT NULL AND total_stock <= 0))',
+            'low' => ' AND status = 1 AND total_stock BETWEEN 1 AND 14',
+            'healthy' => ' AND status = 1 AND total_stock >= 15',
+            'unknown' => ' AND status = 1 AND total_stock IS NULL',
+            'archived' => ' AND COALESCE(status,0) NOT IN (1,2)',
+            default => '',
+        };
+        $this->db->query("SELECT COUNT(*) AS total FROM {$this->table} WHERE {$where}{$filterSql}");
+        $this->db->bind('shop_id', $shopId);
+        return (int)($this->db->single()['total'] ?? 0);
     }
 
     public function findPanelById($shopId, $productId) {
