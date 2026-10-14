@@ -1254,7 +1254,7 @@ table caption.sr-only { position: absolute; width: 1px; height: 1px; overflow: h
 #products-page, #shops-page { min-width: 0; max-width: 100%; color: var(--color-base-content); font-size: .875rem; }
 #products-page :is(.btn,.select), #shops-page .btn { min-height: 44px; height: auto; }
 #products-page .btn-square, #shops-page .btn-square { min-width: 44px; }
-#products-page :is(button,a,select):focus-visible, #shops-page :is(button,a,input,textarea):focus-visible { outline: 2px solid var(--color-base-content); outline-offset: -2px; }
+#products-page :is(button,a,select,summary):focus-visible, #shops-page :is(button,a,input,textarea):focus-visible { outline: 2px solid var(--color-base-content); outline-offset: -2px; }
 #products-page .product-table-scroll, #shops-page .shop-table-scroll { min-width: 0; max-width: 100%; }
 #products-page .product-table th, #shops-page .shop-table th { font-size: .8125rem; }
 #products-page .product-table td, #shops-page .shop-table td { font-size: .875rem; }
@@ -1263,6 +1263,13 @@ table caption.sr-only { position: absolute; width: 1px; height: 1px; overflow: h
 .product-name { display: block; min-height: 44px; width: 100%; font-size: .875rem; font-weight: 700; text-align: left; white-space: normal; overflow-wrap: anywhere; text-decoration: underline; text-decoration-color: var(--color-base-300); text-underline-offset: 3px; cursor: pointer; }
 .product-name:hover { text-decoration-color: currentColor; }
 .product-sku { font-size: .8125rem; margin-top: 4px; overflow-wrap: anywhere; }
+.product-sku-details { min-width: 0; }
+.product-sku-details > summary { width: fit-content; max-width: 100%; min-height: 44px; padding-block: 10px; cursor: pointer; overflow-wrap: anywhere; }
+.product-sku-variant-list { display: grid; gap: 4px; max-height: 10rem; overflow: auto; margin: 0; padding: 8px; list-style: none; border: 1px solid var(--color-base-300); border-radius: 6px; background: var(--color-base-200); }
+.product-sku-variant-list li { display: grid; grid-template-columns: minmax(0,1fr); gap: 2px; min-width: 0; padding-block: 5px; }
+.product-sku-variant-list li + li { border-top: 1px solid var(--color-base-300); }
+.product-sku-variant-list li span { min-width: 0; overflow-wrap: anywhere; }
+.product-sku-variant-list li code { color: var(--color-base-content); font-family: var(--font-mono); font-size: .75rem; white-space: normal; overflow-wrap: anywhere; }
 .product-shop-logo { width: 24px; height: 24px; flex-shrink: 0; object-fit: cover; border-radius: 4px; }
 .product-shop-fallback { width: 24px; height: 24px; flex-shrink: 0; }
 .product-shop-name { min-width: 0; font-size: .8125rem; overflow-wrap: anywhere; }

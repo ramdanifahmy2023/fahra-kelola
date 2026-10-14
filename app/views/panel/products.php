@@ -78,7 +78,10 @@ $isStockFiltered = $stockFilter !== '';
         </tr>
         <?php else: ?>
         <?php foreach ($data['products'] as $p): ?>
-        <?php $productName = trim(str_replace(['<', '>'], '', (string)$p['name'])); ?>
+        <?php
+          $productName = trim(str_replace(['<', '>'], '', (string)$p['name']));
+          $productVariants = is_array($p['variants'] ?? null) ? $p['variants'] : [];
+        ?>
         <tr id="product-<?= (int)$p['id']; ?>" class="hover">
           <td class="product-identity-cell">
             <div class="product-identity">
@@ -96,10 +99,19 @@ $isStockFiltered = $stockFilter !== '';
                   <?= htmlspecialchars($productName); ?>
                 </button>
                 <div class="product-sku">SKU utama: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
-                <?php if ((int)($p['variant_count'] ?? 0) > 0): ?>
-                  <div class="product-sku product-sku-variants">
-                    SKU varian: <?= (int)($p['variant_sku_count'] ?? 0); ?>/<?= (int)$p['variant_count']; ?> terisi
-                  </div>
+                <?php if ($productVariants): ?>
+                  <details class="product-sku-details">
+                    <summary class="product-sku product-sku-variants">SKU varian Shopee: <?= (int)($p['variant_sku_count'] ?? 0); ?>/<?= count($productVariants); ?> terisi</summary>
+                    <ul class="product-sku-variant-list" aria-label="Nama varian dan SKU dari Shopee">
+                      <?php foreach ($productVariants as $variant): ?>
+                        <?php $variantSku = trim((string)($variant['sku'] ?? '')); ?>
+                        <li>
+                          <span><?= htmlspecialchars(trim((string)($variant['name'] ?? '')) ?: 'Nama varian tidak tersedia', ENT_QUOTES, 'UTF-8'); ?></span>
+                          <code><?= $variantSku !== '' ? 'SKU: ' . htmlspecialchars($variantSku, ENT_QUOTES, 'UTF-8') : 'SKU belum diisi'; ?></code>
+                        </li>
+                      <?php endforeach; ?>
+                    </ul>
+                  </details>
                 <?php endif; ?>
               </div>
             </div>
