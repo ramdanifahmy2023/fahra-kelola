@@ -91,6 +91,7 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
     assert.equal(await page.locator('#finance-filter-draft').isVisible(),true,'A changed selection prompts the user to apply it');
     await page.locator('#finance-filters button[type=submit]').click();await loaded();
     assert.equal(await page.locator('.finance-store').count(),1);assert.equal(await page.locator('.finance-store').getAttribute('data-store-id'),'2');assert.match(await page.locator('#finance-wallet').innerText(),/Rp\s*0/);assert.deepEqual(requests.at(-1),['2']);
+    if(route==='/panel')await page.locator('.dashboard-filter-help > summary').click();
     await page.locator('#finance-clear-shops').click();
     assert.equal(await shopTrigger.innerText(), 'storefront\nPilih toko\nexpand_more');
     assert.equal(await page.locator('#finance-all-shops').isVisible(),true,'An empty selection offers a way to restore all shops');
@@ -98,6 +99,7 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
     await page.locator('#finance-error').waitFor({state:'visible'});
     assert.match(await page.locator('#finance-error').innerText(),/Pilih setidaknya satu toko/);
     assert.equal(requests.length,requestCount,'An empty selection cannot silently become Semua toko');
+    if(route==='/panel' && !await page.locator('#finance-all-shops').isVisible())await page.locator('.dashboard-filter-help > summary').click();
     await page.locator('#finance-all-shops').click();
     stores[1].wallet.amount=null;await refresh();await page.waitForFunction(()=>document.getElementById('finance-wallet').textContent==='Belum tersedia');assert.equal(await page.locator('#finance-wallet-quality .is-partial').isVisible(),true);
     fail=true;await refresh();await page.locator('#finance-error').waitFor({state:'visible'});fail=false;stores[1].wallet.amount=0;await page.locator('#finance-retry').click();await loaded();

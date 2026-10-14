@@ -1,6 +1,10 @@
 <?php
 $financeToday=(new DateTimeImmutable('now',new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
 $financeDashboard=!empty($data['finance_dashboard']);
+if ($financeDashboard) {
+  require __DIR__.'/templates/dashboard-overview.php';
+  return;
+}
 ?>
 <section id="finance-page" data-user="<?= (int)(authUser()['id'] ?? 0); ?>" data-dashboard="<?= $financeDashboard ? 'true' : 'false'; ?>" data-base="<?= htmlspecialchars(burl,ENT_QUOTES,'UTF-8'); ?>" data-endpoint="<?= htmlspecialchars(burl.'/procFinance',ENT_QUOTES,'UTF-8'); ?>" data-csrf="<?= htmlspecialchars(authCsrfToken(),ENT_QUOTES,'UTF-8'); ?>" data-today="<?= $financeToday; ?>">
   <header class="finance-heading"><div><h1><?= $financeDashboard ? 'Dashboard' : 'Keuangan'; ?></h1><p><?= $financeDashboard ? 'Pantau uang masuk, penjualan, dan kondisi toko.' : 'Saldo Shopee, rincian penghasilan, dan HPP produk.'; ?></p></div><div class="finance-actions"><button id="finance-sync" class="btn btn-primary" type="button" <?= !$data['shops'] ? 'disabled' : ''; ?>><span class="material-symbols-outlined" aria-hidden="true">sync</span>Perbarui saldo Shopee</button></div></header>

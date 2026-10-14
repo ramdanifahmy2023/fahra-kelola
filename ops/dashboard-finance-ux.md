@@ -4,7 +4,7 @@ Implemented 2026-09-29 from the user's UI audit and explicit implementation requ
 
 ## Reading the screen
 
-- `/panel` and `/panel/finance` share the same monetary template, controller source, and client rendering. Pending and Released dominate; paid GMV and consumed advertising cost are secondary. Amounts are not combined into a fabricated wallet balance or profit.
+- `/panel` and `/panel/finance` share monetary sources and client calculations. Dashboard now uses `templates/dashboard-overview.php` to prioritize today's confirmed sales; Finance retains its report layout. Dashboard's pending/released/wallet values stay separate and retain their source meanings. See the Dashboard-only follow-up in [the visual review](visual-readability-20261014.md).
 - The shop picker uses existing logos and keyboard behavior. Its applied scope appears below the form. Draft selections explicitly require Terapkan. All-shop scope is encoded as an empty selection parameter so a new page includes newly added shops.
 - Bulan ini means day 1 through today in WIB. Hari ini and custom dates are available. Presets advance on the next visible refresh at midnight/month rollover; custom dates and shop subsets survive reload and navigation to Finance. The date fields appear only for custom periods.
 - Pending is the latest snapshot, independent of report dates. Released and the secondary figures carry the selected date range. Released is explicitly labelled as money released by Shopee, not bank withdrawal.
