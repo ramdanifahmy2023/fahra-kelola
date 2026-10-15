@@ -33,12 +33,14 @@
   </section>
 
   <?php require __DIR__.'/dashboard-operations.php'; ?>
-  <details class="dashboard-detail-section"><summary><span>Lihat tahap pesanan &amp; dana tertahan</span><span id="finance-pending-summary" class="dashboard-detail-note">Memuat rincian…</span></summary><?php require __DIR__.'/finance-pending.php'; ?></details>
+  <details class="dashboard-detail-section"><summary><span>Tahap pesanan &amp; dana tertahan</span><span id="finance-pending-summary" class="dashboard-detail-note">Memuat rincian…</span></summary><?php require __DIR__.'/finance-pending.php'; ?></details>
   <details id="finance-summary-panel" class="finance-surface dashboard-ledger" aria-label="Ringkasan per toko">
     <summary><span>Rincian dana per toko</span><span id="finance-store-summary" class="dashboard-detail-note">Memuat rincian…</span></summary>
+    <div class="dashboard-disclosure-body">
     <div class="finance-section-heading"><div><h2>Ringkasan per toko</h2><p id="finance-store-period"></p></div><?php if (!empty($financeProfitPanel)): ?><div class="finance-actions"><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance?tab=profit">Laporan laba rugi</a><a id="finance-hpp-open" class="btn" href="<?= burl; ?>/panel/finance?tab=cost">Atur HPP</a></div><?php else: ?><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance">Buka Keuangan &amp; HPP</a><?php endif; ?></div>
     <div id="finance-store-list"></div>
     <details class="finance-explanation"><summary>Cara membaca angka toko</summary><p>Pending dan Saldo Penjual adalah posisi terbaru. Dana dilepas, omset, top up, dan biaya iklan mengikuti periode laporan. Rincian pengiriman dan retur sudah termasuk Pending.</p><p>Ringkasan Shopee dan jumlah rincian dapat berbeda. Lihat sumber dan waktu pembaruan setiap toko sebelum membandingkan.</p></details>
+    </div>
   </details>
   <?= $financeProfitPanel ?? ''; ?>
   <?php require __DIR__.'/shop-logos.php'; ?>

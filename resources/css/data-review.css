@@ -13,12 +13,6 @@ nav[aria-label="Navigasi panel"] a:focus-visible { outline: 2px solid var(--colo
 .page-recap-more[open] { margin-bottom: 10px; }
 #products-page .product-name > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 #products-page .product-sku-overview > summary { font-size: .8125rem; }
-.dashboard-overview .dashboard-ledger > summary { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 20px; min-height: 44px; padding-block: 8px; cursor: pointer; font-weight: 650; }
-.dashboard-overview .dashboard-ledger > summary::before { content: '+'; width: 16px; flex: 0 0 16px; font-size: 1.25rem; }
-.dashboard-overview .dashboard-ledger[open] > summary::before { content: '−'; }
-.dashboard-overview .dashboard-ledger > summary::-webkit-details-marker { display: none; }
-.dashboard-overview .dashboard-ledger > summary .dashboard-detail-note { flex: 1 1 100%; margin-left: 36px; }
-.dashboard-overview .dashboard-ledger > .finance-section-heading { margin-top: 16px; }
 .finance-profit-panel .finance-profit-caveat { margin-block: 12px; font-size: .875rem; line-height: 1.5; }
 .finance-profit-panel .finance-profit-metrics { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 1px; border: 1px solid var(--color-base-300); background: var(--color-base-300); border-radius: 8px; overflow: hidden; }
 .finance-profit-panel .finance-profit-metrics article { padding: 16px; background: var(--color-base-100); min-width: 0; }
