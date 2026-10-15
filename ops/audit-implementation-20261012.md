@@ -2,7 +2,11 @@
 
 All changes in this audit were prepared on branch `audit/implement-20261012`.
 The pre-audit Git bundle is stored outside the repository at
-`../backups/shopdash-pre-audit-20261012.bundle`.
+`../backups/shopdash/git/2026-10/shopdash-pre-audit-20261012.bundle`
+(relative to the primary `shopdash` checkout). Backups were consolidated on
+2026-10-15; the adjacent commit note remains with the bundle. The external
+`../backups/README.md`, `manifest.json`, and `SHA256SUMS` document the archive
+layout, original locations, and verified checksums. No backup archive was deleted.
 
 ## Implemented areas
 
