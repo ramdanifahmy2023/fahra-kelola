@@ -82,8 +82,11 @@ document.getElementById('run').addEventListener('click',async()=>{
       check(dialog.open,key+' dialog opens');check(d.activeElement.id==='product-detail-close',key+' initial focus');
       check(dialog.textContent.includes('Rp 0')&&dialog.textContent.includes('Belum tersedia'),key+' null/zero');
       check(dialog.scrollWidth<=dialog.clientWidth+1,key+' dialog overflow');
+      const deadline=performance.now()+2000;
+      while(d.querySelector('.product-cover')&&performance.now()<deadline)await sleep(20);
+      check(!d.querySelector('.product-cover'),key+' image fallback after load/error');
+      check(!!dialog.querySelector('.product-image-fallback'),key+' dialog has visible image fallback');
       dialog.close();await sleep(0);check(d.activeElement===button,key+' focus restored');
-      check(!d.querySelector('.product-cover'),key+' image fallback');
       check([...d.querySelectorAll('.btn,.product-name,.select')].filter(e=>e.getClientRects().length).every(e=>e.getBoundingClientRect().height>=43.5),key+' controls 44px');
       const name=d.querySelector('.product-name');check(name.scrollWidth<=name.clientWidth+1,key+' full name reflow');
     }

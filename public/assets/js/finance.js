@@ -3,6 +3,7 @@
   if (!root || !document.getElementById('finance-shops')) return;
   const $ = id => document.getElementById('finance-' + id);
   const dashboard = root.dataset.dashboard === 'true';
+  const profitView = window.createFinanceProfitView?.({root, request:api});
   const icon = name => `<span class="material-symbols-outlined" aria-hidden="true">${name}</span>`;
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const imageUrl = value => { const source=String(value || '').trim(); return !source ? '' : /^https?:\/\//i.test(source) ? source : 'https://cf.shopee.co.id/file/'+encodeURIComponent(source); };
@@ -201,6 +202,11 @@
     }
     replaceKeepingLink($('pending-states'),stateList(totals,stateCounts,hasUnknown || incomplete)+`<p class="finance-help">${pending.length}/${count} toko · status diperiksa paling lama ${esc(stamp(statusTimes[0]))}.${hasUnknown || incomplete ? ' Sebagian status belum tersedia. Penyebabnya ada pada rincian toko.' : ''}</p>`+(pending.length && Math.abs(pendingTotal-detailTotal)>.005 ? `<p class="finance-notice">Rincian berbeda ${esc(money(Math.abs(pendingTotal-detailTotal)))} dari ringkasan Shopee. Total Pending mengikuti ringkasan Shopee.</p>` : ''));
     $('store-period').textContent=`Pending dan Saldo Penjual: posisi terbaru. Angka lainnya: ${day(data.range.start)} sampai ${day(data.range.end)}.`;
+    if($('store-summary')) {
+      const differences=stores.filter(s=>s.released_difference || (s.pending!==null && s.pending_detail!==null && Math.abs(s.pending-s.pending_detail)>.005)).length;
+      const issues=stores.filter(s=>s.error || unknownState(s) || s.wallet?.withdrawal_restricted || s.pending===null || s.released===null).length;
+      $('store-summary').textContent=[`${count} toko`,differences ? `${differences} toko memiliki selisih rincian` : '',issues ? `${issues} toko perlu diperiksa` : ''].filter(Boolean).join(' · ');
+    }
     const markup = stores.map(s => `<article class="finance-store" data-store-id="${s.id}">
       <header><span class="shop-picker-logo" data-logo="${s.id}"></span><h3>${esc(s.name)}</h3></header>
       <dl class="finance-store-values">
@@ -246,6 +252,7 @@
   }
   async function loadSummary(reset = false) {
     const sequence = ++summarySequence; clearTimeout(timer); error('');
+    if(reset && $('store-summary'))$('store-summary').textContent='Memuat rincian…';
     if (reset) { for (const id of ['pending','released','wallet']) { $(id).textContent='Memuat…'; $(id+'-note').textContent='Memuat pilihan ini…'; $(id+'-quality').replaceChildren(); } $('wallet-restrictions').hidden=true; $('secondary').textContent='Memuat omset dan biaya iklan…'; $('pending-states').textContent='Memuat rincian Pending…'; if($('pending-summary'))$('pending-summary').textContent='Memuat rincian…'; $('store-list').replaceChildren(); lastStoresMarkup=''; }
     $('summary-panel').setAttribute('aria-busy','true');
     try {
@@ -253,7 +260,7 @@
       const active = renderSummary(data);
       timer=setTimeout(refreshView,active ? 5000 : 30000);
     } catch (e) { if(sequence!==summarySequence)return; error(e.message); $('status').textContent='Pembaruan gagal. Angka yang masih tampil adalah data sebelumnya.'; if($('pending-summary'))$('pending-summary').textContent='Pembaruan gagal. Periksa data terakhir.'; if(reset) { for(const id of ['pending','released','wallet']) { $(id).textContent='Belum dapat dimuat'; $(id+'-note').textContent=''; } $('secondary').textContent='Omset dan biaya iklan belum dapat dimuat.'; $('pending-states').textContent='Rincian Pending belum dapat dimuat.'; } timer=setTimeout(refreshView,30000); }
-    finally { if(sequence===summarySequence)$('summary-panel').setAttribute('aria-busy','false'); }
+    finally { if(sequence===summarySequence){$('summary-panel').setAttribute('aria-busy','false');if(!$('error').hidden && $('store-summary'))$('store-summary').textContent='Pembaruan gagal. Periksa data terakhir.';} }
   }
   function pagination(kind,result) {
     const container=$(kind+'-pagination'); container.replaceChildren();

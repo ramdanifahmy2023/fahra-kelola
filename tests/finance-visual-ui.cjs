@@ -107,7 +107,7 @@ const realtime=ids=>({status:'success',selected_shop_count:ids.length,failures:[
     await page.locator('#finance-sync').click();await loaded();
     if(route==='/panel/finance'){
       if(await page.locator('[data-finance-tab="profit"]').count()){
-        await page.locator('[data-finance-tab="profit"]').click();await page.locator('#finance-profit-panel').waitFor({state:'visible'});await page.locator('.finance-profit-metrics').waitFor();
+        await page.locator('[data-finance-tab="profit"]').click();await page.locator('#finance-profit-panel').waitFor({state:'visible'});await page.locator('.finance-profit-metrics').first().waitFor();
         await page.selectOption('#finance-profit-basis','cash');await page.waitForFunction(()=>document.querySelector('#finance-profit-content')?.textContent.includes('Penghasilan bersih Shopee'));
         assert.match(await page.locator('#finance-profit-content').innerText(),/Belum diketahui/);
       }

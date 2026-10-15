@@ -33,5 +33,5 @@ $detailStatus = match ((int)$p['status']) { 1 => 'Aktif', 2 => 'Habis', default 
     <div><dt>Harga jual</dt><dd><?= $detailPrice($p['selling_price_min'] ?? null, $p['selling_price_max'] ?? null); ?></dd></div>
     <div><dt>Terjual</dt><dd><?= isset($p['sold_count']) ? number_format((int)$p['sold_count'], 0, ',', '.') . ' buah' : 'Belum tersedia'; ?></dd></div>
   </dl>
-  <p class="product-detail-note">Data produk tersimpan. Gunakan tombol Sync sekarang untuk memperbarui data toko.</p>
+  <p class="product-detail-note">Data produk tersimpan. Gunakan Ambil data Shopee untuk meminta pembaruan.</p>
 </article>

@@ -39,14 +39,14 @@ $isStockFiltered = $stockFilter !== '';
   <?php if ($isStockFiltered): ?><a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto" title="Tampilkan semua produk"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">close</span>Semua produk</a><?php endif; ?>
   <a href="<?= burl; ?>/panel/products?shop_id=<?= (int)($data['active_shop_id'] ?? 0); ?>&view=movement" class="btn btn-ghost btn-sm w-full gap-1 sm:w-auto"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">monitoring</span>Pergerakan produk</a>
   <button type="button" class="product-sync-action btn btn-primary btn-sm w-full gap-1" onclick="queueBackgroundSync('products')" id="product-sync-button">
-    <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang
+    <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Ambil data Shopee
   </button>
   <div class="form-control relative min-w-0 flex-1">
     <?php require __DIR__ . '/templates/shop-picker.php'; ?>
   </div>
   </div>
 </div>
-<div id="background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi berjalan di belakang. Halaman ini membaca data lokal.</div>
+<div id="background-sync-status" class="mb-4 text-sm" role="status">Data tersimpan. Pembaruan Shopee berjalan otomatis sesuai jadwal.</div>
 
 <?php if (!empty($data['page_recap'])) require __DIR__ . '/templates/page-recap.php'; ?>
 
@@ -96,12 +96,13 @@ $isStockFiltered = $stockFilter !== '';
               </div>
               <div class="product-identity-copy">
                 <button type="button" class="product-name" data-product-details="<?= (int)$p['id']; ?>" aria-haspopup="dialog">
-                  <?= htmlspecialchars($productName); ?>
+                  <span><?= htmlspecialchars($productName); ?></span>
                 </button>
-                <div class="product-sku">SKU utama: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
+                <details class="product-sku-details product-sku-overview">
+                  <summary>SKU<?= $productVariants ? ' &amp; ' . count($productVariants) . ' varian' : ' produk'; ?></summary>
+                  <div class="product-sku">SKU utama: <?= htmlspecialchars($p['parent_sku'] ?: '-'); ?></div>
                 <?php if ($productVariants): ?>
-                  <details class="product-sku-details">
-                    <summary class="product-sku product-sku-variants">SKU varian Shopee: <?= (int)($p['variant_sku_count'] ?? 0); ?>/<?= count($productVariants); ?> terisi</summary>
+                    <p class="product-sku product-sku-variants">SKU varian Shopee: <?= (int)($p['variant_sku_count'] ?? 0); ?>/<?= count($productVariants); ?> terisi</p>
                     <ul class="product-sku-variant-list" aria-label="Nama varian dan SKU dari Shopee">
                       <?php foreach ($productVariants as $variant): ?>
                         <?php $variantSku = trim((string)($variant['sku'] ?? '')); ?>
@@ -111,8 +112,8 @@ $isStockFiltered = $stockFilter !== '';
                         </li>
                       <?php endforeach; ?>
                     </ul>
-                  </details>
                 <?php endif; ?>
+                </details>
               </div>
             </div>
           </td>
@@ -129,7 +130,7 @@ $isStockFiltered = $stockFilter !== '';
             <?php endif; ?>
           </td>
           <td data-label="Stok" class="text-center">
-            <span class="font-semibold text-sm <?= $p['total_stock'] == 0 ? 'text-error' : '' ?>"><?= number_format($p['total_stock'], 0, ',', '.'); ?></span>
+            <span class="font-semibold text-sm <?= isset($p['total_stock']) && $p['total_stock'] == 0 ? 'text-error' : '' ?>"><?= isset($p['total_stock']) ? number_format($p['total_stock'], 0, ',', '.') : 'Belum tersedia'; ?></span>
           </td>
           <td data-label="Status">
             <?php if ($p['status'] == 1): ?>
@@ -153,8 +154,8 @@ $isStockFiltered = $stockFilter !== '';
   </div>
   
   <!-- Pagination Controls -->
-  <div class="p-4 border-t border-base-200 flex items-center justify-between bg-base-100 flex-wrap gap-4">
-    <div class="text-sm opacity-70 flex items-center gap-2">
+  <div class="product-pagination p-4 border-t border-base-200 flex items-center justify-between bg-base-100 flex-wrap gap-4">
+    <div class="product-pagination-count text-sm opacity-70 flex items-center flex-wrap gap-2">
       Menampilkan 
       <select aria-label="Jumlah produk per halaman" class="select select-bordered select-sm w-20 px-2 py-0 h-8 text-base-content bg-base-200" onchange="changeLimit(this.value, <?= (int)$data['active_shop_id']; ?>)">
         <option value="10" <?= $data['limit'] == 10 ? 'selected' : '' ?>>10</option>
@@ -262,10 +263,10 @@ function queueBackgroundSync(type) {
       .then(data => {
         if (data.status !== 'accepted') throw new Error(data.message || 'Antrean gagal dibuat');
         const status = document.getElementById('background-sync-status');
-        if (status) status.innerText = 'Sinkronisasi produk sudah masuk antrean background (job #' + data.job_id + ').';
+        if (status) status.innerText = 'Pembaruan produk masuk antrean. Data akan tersedia setelah sinkronisasi selesai.';
       })
       .catch(error => { const status = document.getElementById('background-sync-status'); if (status) status.innerText = error.message; })
-      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; } });
+      .finally(() => { if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Ambil data Shopee'; } });
 }
 
 function refreshBackgroundStatus(shopId) {
@@ -275,7 +276,7 @@ function refreshBackgroundStatus(shopId) {
         const status = document.getElementById('background-sync-status');
         if (!status || !row) return;
         const when = row.last_success_at ? new Date(row.last_success_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'belum pernah';
-        status.innerText = 'Update terakhir: ' + when + '. Sinkronisasi berikutnya dijalankan otomatis di background.';
+        status.innerText = 'Diperbarui: ' + when + '. Pembaruan berikutnya mengikuti jadwal otomatis.';
       }).catch(() => {});
 }
 

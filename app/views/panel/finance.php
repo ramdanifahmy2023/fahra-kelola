@@ -117,6 +117,7 @@ if ($financeDashboard) {
   <?php else: require __DIR__.'/templates/dashboard-operations.php'; endif; ?>
   <?php require __DIR__.'/templates/shop-logos.php'; ?>
   <script src="<?= assets; ?>/js/shop-select.js?v=<?= filemtime(__DIR__.'/../../../public/assets/js/shop-select.js'); ?>"></script>
+  <?php require __DIR__.'/templates/finance-report-scripts.php'; ?>
   <script src="<?= assets; ?>/js/finance.js?v=<?= filemtime(__DIR__.'/../../../public/assets/js/finance.js'); ?>" defer></script>
   <?php if ($financeDashboard): ?><script src="<?= assets; ?>/js/dashboard.js?v=<?= filemtime(__DIR__.'/../../../public/assets/js/dashboard.js'); ?>" defer></script><?php endif; ?>
   <?php endif; ?>

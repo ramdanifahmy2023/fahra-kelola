@@ -26,7 +26,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
   </div>
   <div class="flex flex-wrap items-center gap-3">
     <button type="button" class="btn btn-primary btn-sm min-h-11 gap-1 px-4" onclick="queueOrderBackgroundSync()" id="order-sync-button">
-      <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang
+      <span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Ambil data Shopee
     </button>
     <div class="join h-9" aria-label="Filter bulan pesanan">
       <button type="button" class="join-item btn btn-sm h-8 min-h-8 w-10 p-0 border-base-300 <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'btn-disabled bg-base-200 text-base-content/40' : 'bg-base-200 hover:bg-base-300'; ?>" onclick="changeOrderMonth(-1)" title="Bulan sebelumnya" <?= $selectedYear === $currentYear - 5 && $selectedMonth === 1 ? 'disabled' : ''; ?>>‹</button>
@@ -48,7 +48,7 @@ if (!$activeShop && !empty($data['shops'])) $activeShop = $data['shops'][0];
   </div>
 </div>
 </div>
-<div id="order-background-sync-status" class="mb-4 text-[11px] text-base-content/55">Sinkronisasi pesanan berjalan di belakang. Halaman ini membaca data lokal.</div>
+<div id="order-background-sync-status" class="mb-4 text-sm" role="status">Data tersimpan. Pembaruan Shopee berjalan otomatis sesuai jadwal.</div>
 
 <?php if (empty($data['focused_order_id'])) require __DIR__ . '/templates/page-recap.php'; ?>
 <?php if (!empty($data['order_filter'])): ?>
@@ -214,7 +214,7 @@ function queueOrderBackgroundSync() {
       }).catch(error => {
         activeOrderSyncShopId = null;
         if (status) status.innerText = error.message || 'Antrean sinkronisasi gagal dibuat.';
-        if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang'; }
+        if (button) { button.disabled = false; button.innerHTML = '<span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Ambil data Shopee'; }
       });
 }
 
@@ -225,7 +225,7 @@ function refreshOrderBackgroundStatus(shopId) {
         const status = document.getElementById('order-background-sync-status');
         if (!status || !row || status.dataset.syncResult === 'true') return;
         const when = row.last_success_at ? new Date(row.last_success_at.replace(' ', 'T') + 'Z').toLocaleString('id-ID') : 'belum pernah';
-        status.innerText = 'Update terakhir: ' + when + '. Sinkronisasi berikutnya dijalankan otomatis di background.';
+        status.innerText = 'Diperbarui: ' + when + '. Pembaruan berikutnya mengikuti jadwal otomatis.';
       }).catch(() => {});
 }
 

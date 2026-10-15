@@ -5,11 +5,10 @@
 
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
   <div>
-    <div class="mb-1 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-primary"><span class="material-symbols-outlined text-sm" aria-hidden="true">group</span>Customer directory</div>
     <h2 class="text-xl font-black tracking-tight text-base-content">Daftar Pelanggan</h2>
   </div>
   <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto">
-    <button type="button" class="btn btn-primary btn-sm min-h-11 gap-1 px-4" onclick="queueCustomerBackgroundSync()" id="customer-sync-button" aria-describedby="customer-sync-status"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Sync sekarang</button>
+    <button type="button" class="btn btn-primary btn-sm min-h-11 gap-1 px-4" onclick="queueCustomerBackgroundSync()" id="customer-sync-button" aria-describedby="customer-sync-status"><span class="material-symbols-outlined text-[17px]" aria-hidden="true">sync</span>Ambil data Shopee</button>
     <div class="badge badge-outline h-9 gap-2 px-3 text-xs font-bold"><span class="material-symbols-outlined text-sm text-primary" aria-hidden="true">database</span><?= number_format($data['total_customers']) ?> pelanggan</div>
     <div class="w-full min-w-0 sm:w-64"><?php require __DIR__ . '/templates/shop-picker.php'; ?></div>
   </div>

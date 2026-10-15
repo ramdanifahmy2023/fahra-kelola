@@ -187,57 +187,76 @@ class ShopPerformance extends BaseModel {
     $ranges = $this->ranges($endDate);
     $sortAllowed = ['confirmed_gmv', 'confirmed_orders', 'shop_uv', 'shop_pv', 'product_clicks', 'confirmed_sales_per_order'];
     if (!in_array($sort, $sortAllowed, true)) $sort = 'confirmed_gmv';
-    $shopFilter = (int)$shopId > 0 ? ' AND d.shop_id = :shop_id' : '';
+    $shopFilter = (int)$shopId > 0 ? ' AND s.id = :shop_id' : '';
     $accountFilter = $accountId > 0 ? ' AND s.account_id = :account_id' : '';
     $sortColumns = ['confirmed_gmv' => 'current_confirmed_gmv', 'confirmed_orders' => 'current_confirmed_orders', 'shop_uv' => 'current_shop_uv', 'shop_pv' => 'current_shop_pv', 'product_clicks' => 'current_product_clicks', 'confirmed_sales_per_order' => 'current_confirmed_gmv'];
     $orderBy = $sortColumns[$sort] ?? 'current_confirmed_gmv';
-    $this->db->query("SELECT s.id AS shop_id, s.name AS shop_name, s.sync_status,
-      SUM(CASE WHEN d.metric_date BETWEEN :cs AND :ce THEN COALESCE(d.confirmed_gmv,0) ELSE 0 END) AS current_confirmed_gmv,
-      SUM(CASE WHEN d.metric_date BETWEEN :ps AND :pe THEN COALESCE(d.confirmed_gmv,0) ELSE 0 END) AS previous_confirmed_gmv,
-      SUM(CASE WHEN d.metric_date BETWEEN :cs2 AND :ce2 THEN COALESCE(d.confirmed_orders,0) ELSE 0 END) AS current_confirmed_orders,
-      SUM(CASE WHEN d.metric_date BETWEEN :ps2 AND :pe2 THEN COALESCE(d.confirmed_orders,0) ELSE 0 END) AS previous_confirmed_orders,
-      SUM(CASE WHEN d.metric_date BETWEEN :cs3 AND :ce3 THEN COALESCE(d.shop_uv,0) ELSE 0 END) AS current_shop_uv,
-      SUM(CASE WHEN d.metric_date BETWEEN :ps3 AND :pe3 THEN COALESCE(d.shop_uv,0) ELSE 0 END) AS previous_shop_uv,
-      SUM(CASE WHEN d.metric_date BETWEEN :cs4 AND :ce4 THEN COALESCE(d.shop_pv,0) ELSE 0 END) AS current_shop_pv,
-      SUM(CASE WHEN d.metric_date BETWEEN :ps4 AND :pe4 THEN COALESCE(d.shop_pv,0) ELSE 0 END) AS previous_shop_pv,
-      SUM(CASE WHEN d.metric_date BETWEEN :cs5 AND :ce5 THEN COALESCE(d.product_clicks,0) ELSE 0 END) AS current_product_clicks,
-      SUM(CASE WHEN d.metric_date BETWEEN :ps5 AND :pe5 THEN COALESCE(d.product_clicks,0) ELSE 0 END) AS previous_product_clicks,
-      COUNT(DISTINCT CASE WHEN d.metric_date BETWEEN :cs6 AND :ce6 THEN d.metric_date END) AS current_days,
-      COUNT(DISTINCT CASE WHEN d.metric_date BETWEEN :ps6 AND :pe6 THEN d.metric_date END) AS previous_days
-      FROM shops s LEFT JOIN shop_performance_daily d ON d.shop_id = s.id AND d.source = 'homepage'
-      WHERE 1=1 {$shopFilter} {$accountFilter} GROUP BY s.id, s.name, s.sync_status ORDER BY {$orderBy} DESC");
-    $bind = [
-      'cs' => $ranges['current']['start']->format('Y-m-d'), 'ce' => $ranges['current']['end']->format('Y-m-d'),
-      'ps' => $ranges['previous']['start']->format('Y-m-d'), 'pe' => $ranges['previous']['end']->format('Y-m-d')
-    ];
-    for ($i = 2; $i <= 6; $i++) {
-      $bind['cs' . $i] = $bind['cs']; $bind['ce' . $i] = $bind['ce']; $bind['ps' . $i] = $bind['ps']; $bind['pe' . $i] = $bind['pe'];
+    $metrics = ['confirmed_gmv', 'confirmed_orders', 'shop_uv', 'shop_pv', 'product_clicks'];
+    $columns = [];
+    $bind = [];
+    foreach ($ranges as $period => $range) {
+      foreach ($metrics as $metric) {
+        $key = $period . '_' . $metric;
+        $columns[] = "SUM(CASE WHEN d.metric_date BETWEEN :{$key}_start AND :{$key}_end THEN d.{$metric} END) AS {$key}";
+        $columns[] = "COUNT(CASE WHEN d.metric_date BETWEEN :{$key}_known_start AND :{$key}_known_end THEN d.{$metric} END) AS {$key}_days";
+        foreach (['', '_known'] as $suffix) {
+          $bind[$key . $suffix . '_start'] = $range['start']->format('Y-m-d');
+          $bind[$key . $suffix . '_end'] = $range['end']->format('Y-m-d');
+        }
+      }
+      $columns[] = "COUNT(DISTINCT CASE WHEN d.metric_date BETWEEN :{$period}_start AND :{$period}_end THEN d.metric_date END) AS {$period}_days";
+      $bind[$period . '_start'] = $range['start']->format('Y-m-d');
+      $bind[$period . '_end'] = $range['end']->format('Y-m-d');
     }
+    $this->db->query("SELECT s.id AS shop_id, s.name AS shop_name, s.sync_status, " . implode(', ', $columns) . "
+      FROM shops s LEFT JOIN shop_performance_daily d ON d.shop_id = s.id AND d.source = 'homepage'
+        AND d.metric_date BETWEEN :first_date AND :last_date
+      WHERE 1=1 {$shopFilter} {$accountFilter} GROUP BY s.id, s.name, s.sync_status ORDER BY {$orderBy} DESC, s.id ASC");
+    $bind['first_date'] = $ranges['previous']['start']->format('Y-m-d');
+    $bind['last_date'] = $ranges['current']['end']->format('Y-m-d');
     foreach ($bind as $key => $value) $this->db->bind($key, $value);
     if ($shopFilter) $this->db->bind('shop_id', (int)$shopId);
     if ($accountFilter) $this->db->bind('account_id', $accountId);
     $rows = $this->db->getAll();
     $rank = 0;
+    $expectedDays = (int)$ranges['current']['start']->diff($ranges['current']['end']->setTime(0, 0, 0))->format('%a') + 1;
+    $totals = ['coverage' => ['current' => [], 'previous' => []]];
+    foreach (['current', 'previous'] as $period) foreach ($metrics as $metric) {
+      $totals[$period === 'current' ? $metric : 'previous_' . $metric] = null;
+      $totals['coverage'][$period][$metric] = ['known_days' => 0, 'expected_days' => $expectedDays * count($rows), 'complete' => false];
+    }
     foreach ($rows as &$row) {
       $rank++;
-      $current = (float)$row['current_confirmed_gmv'];
-      $previous = (float)$row['previous_confirmed_gmv'];
       $row['rank'] = $rank;
-      $row['growth_percent'] = $previous > 0 ? (($current - $previous) / $previous) * 100 : null;
-      $row['conversion_rate'] = (float)$row['current_shop_uv'] > 0 ? ((float)$row['current_confirmed_orders'] / (float)$row['current_shop_uv']) * 100 : null;
-      $row['expected_days'] = (int)$ranges['current']['start']->diff($ranges['current']['end']->setTime(0, 0, 0))->format('%a') + 1;
-      $row['coverage_percent'] = $row['expected_days'] > 0 ? min(100, ((int)$row['current_days'] / $row['expected_days']) * 100) : 0;
-      $row['previous_coverage_percent'] = $row['expected_days'] > 0 ? min(100, ((int)$row['previous_days'] / $row['expected_days']) * 100) : 0;
-      if ((int)$row['previous_days'] < (int)$row['expected_days']) $row['growth_percent'] = null;
+      $row['expected_days'] = $expectedDays;
+      foreach (['current', 'previous'] as $period) {
+        $knownDays = [];
+        foreach ($metrics as $metric) {
+          $column = $period . '_' . $metric;
+          $row[$column] = $this->numeric($row[$column]);
+          $known = (int)$row[$column . '_days'];
+          $row['coverage'][$period][$metric] = ['known_days' => $known, 'expected_days' => $expectedDays, 'complete' => $known === $expectedDays];
+          $knownDays[] = $known;
+          $totalKey = $period === 'current' ? $metric : $column;
+          if ($row[$column] !== null) $totals[$totalKey] = ($totals[$totalKey] ?? 0) + $row[$column];
+          $totals['coverage'][$period][$metric]['known_days'] += $known;
+        }
+        $row[$period === 'current' ? 'coverage_percent' : 'previous_coverage_percent'] = min($knownDays) / $expectedDays * 100;
+      }
+      $comparable = $row['coverage']['current']['confirmed_gmv']['complete'] && $row['coverage']['previous']['confirmed_gmv']['complete'];
+      $row['growth_percent'] = $comparable && $row['previous_confirmed_gmv'] > 0 ? (($row['current_confirmed_gmv'] - $row['previous_confirmed_gmv']) / $row['previous_confirmed_gmv']) * 100 : null;
+      $row['conversion_rate'] = $row['coverage']['current']['confirmed_orders']['complete'] && $row['coverage']['current']['shop_uv']['complete'] && $row['current_shop_uv'] > 0 ? ($row['current_confirmed_orders'] / $row['current_shop_uv']) * 100 : null;
       $row['session_expired'] = ($row['sync_status'] ?? '') === 'expired';
     }
     unset($row);
-    $totals = ['confirmed_gmv' => 0, 'confirmed_orders' => 0, 'shop_uv' => 0, 'product_clicks' => 0, 'previous_confirmed_gmv' => 0];
-    $totalColumns = ['confirmed_gmv' => 'current_confirmed_gmv', 'confirmed_orders' => 'current_confirmed_orders', 'shop_uv' => 'current_shop_uv', 'product_clicks' => 'current_product_clicks', 'previous_confirmed_gmv' => 'previous_confirmed_gmv'];
-    foreach ($rows as $row) foreach ($totalColumns as $key => $column) $totals[$key] += (float)($row[$column] ?? 0);
-    $comparisonComplete = !empty($rows) && count(array_filter($rows, static function ($row) { return (int)($row['previous_coverage_percent'] ?? 0) >= 100; })) === count($rows);
+    foreach (['current', 'previous'] as $period) foreach ($metrics as $metric) {
+      $coverage = &$totals['coverage'][$period][$metric];
+      $coverage['complete'] = $coverage['expected_days'] > 0 && $coverage['known_days'] === $coverage['expected_days'];
+      unset($coverage);
+    }
+    $comparisonComplete = $totals['coverage']['current']['confirmed_gmv']['complete'] && $totals['coverage']['previous']['confirmed_gmv']['complete'];
     $totals['growth_percent'] = $comparisonComplete && $totals['previous_confirmed_gmv'] > 0 ? (($totals['confirmed_gmv'] - $totals['previous_confirmed_gmv']) / $totals['previous_confirmed_gmv']) * 100 : null;
-    $totals['conversion_rate'] = $totals['shop_uv'] > 0 ? ($totals['confirmed_orders'] / $totals['shop_uv']) * 100 : null;
+    $totals['conversion_rate'] = $totals['coverage']['current']['confirmed_orders']['complete'] && $totals['coverage']['current']['shop_uv']['complete'] && $totals['shop_uv'] > 0 ? ($totals['confirmed_orders'] / $totals['shop_uv']) * 100 : null;
     return ['ranges' => array_map(static function ($range) { return ['start' => $range['start']->format('Y-m-d'), 'end' => $range['end']->format('Y-m-d')]; }, $ranges), 'rows' => $rows, 'totals' => $totals, 'comparison_available' => $comparisonComplete, 'sort' => $sort, 'refreshed_at' => date('c')];
   }
 
@@ -273,10 +292,10 @@ class ShopPerformance extends BaseModel {
       if (!isset($series[$id])) $series[$id] = ['shop_id' => $id, 'shop_name' => $row['shop_name'], 'points' => []];
       $series[$id]['points'][] = [
         'date' => $row['metric_date'],
-        'confirmed_gmv' => (float)$row['confirmed_gmv'],
-        'confirmed_orders' => (float)$row['confirmed_orders'],
-        'shop_uv' => (float)$row['shop_uv'],
-        'product_clicks' => (float)$row['product_clicks']
+        'confirmed_gmv' => $this->numeric($row['confirmed_gmv']),
+        'confirmed_orders' => $this->numeric($row['confirmed_orders']),
+        'shop_uv' => $this->numeric($row['shop_uv']),
+        'product_clicks' => $this->numeric($row['product_clicks'])
       ];
     }
     return ['ranges' => ['current' => ['start' => $ranges['current']['start']->format('Y-m-d'), 'end' => $ranges['current']['end']->format('Y-m-d')]], 'series' => array_values($series)];

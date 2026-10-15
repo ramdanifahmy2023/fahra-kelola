@@ -1,8 +1,8 @@
 <?php
 $active = $data['active_menu'] ?? '';
 $activeClass = 'bg-primary text-primary-content';
-$inactiveClass = 'text-neutral-content/65 hover:bg-neutral-content/10 hover:text-neutral-content';
-$navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-semibold transition-colors';
+$inactiveClass = 'text-neutral-content/80 hover:bg-neutral-content/10 hover:text-neutral-content';
+$navItemClass = 'flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors';
 ?>
 <aside class="flex min-h-screen w-64 flex-col overflow-hidden border-r border-neutral-content/10 bg-neutral text-neutral-content">
   <div class="flex h-16 shrink-0 items-center gap-3 border-b border-neutral-content/10 px-4">
@@ -15,7 +15,7 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
   </div>
 
   <nav class="flex-1 overflow-y-auto px-3 py-5" aria-label="Navigasi panel">
-    <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">Menu utama</p>
+    <p class="panel-nav-group">Menu utama</p>
     <div class="space-y-1">
       <a href="<?= burl; ?>/panel" class="<?= $navItemClass; ?> <?= ($active == 'dashboard') ? $activeClass : $inactiveClass; ?>" <?= $active == 'dashboard' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">grid_view</span><span>Dashboard</span></a>
       <a href="<?= burl; ?>/panel/products" class="<?= $navItemClass; ?> <?= ($active == 'products') ? $activeClass : $inactiveClass; ?>" <?= $active == 'products' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">inventory_2</span><span>Produk</span></a>
@@ -32,12 +32,12 @@ $navItemClass = 'flex h-10 items-center gap-3 rounded-lg px-3 text-[12px] font-s
 
     <div class="my-5 h-px bg-neutral-content/10"></div>
 
-    <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">AI Agent</p>
+    <p class="panel-nav-group">AI Agent</p>
     <div class="space-y-1">
       <a href="<?= burl; ?>/panel/automation" class="<?= $navItemClass; ?> min-h-11 <?= $active === 'automation' ? $activeClass : $inactiveClass; ?>" <?= $active === 'automation' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">rule</span><span>Automation</span></a>
     </div>
     <div class="my-5 h-px bg-neutral-content/10"></div>
-    <p class="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.18em] text-neutral-content/35">Manajemen</p>
+    <p class="panel-nav-group">Manajemen</p>
     <div class="space-y-1">
       <a href="<?= burl; ?>/panel/shops" class="<?= $navItemClass; ?> <?= ($active == 'shops') ? $activeClass : $inactiveClass; ?>" <?= $active == 'shops' ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">storefront</span><span>Toko</span></a>
       <a href="<?= burl; ?>/panel/extensions" class="<?= $navItemClass; ?> min-h-11 <?= ($active == 'extensions') ? $activeClass : $inactiveClass; ?>" <?= ($active == 'extensions') ? 'aria-current="page"' : ''; ?>><span class="material-symbols-outlined text-[19px]" aria-hidden="true">extension</span><span>Ekstensi</span></a>

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./dashboard.css";
+@import "./data-review.css";
 
 /* History scrolls independently from its Shopee reply link. */
 .chat-shell { position: relative; display: grid; grid-template-columns: 200px minmax(240px, 320px) minmax(0, 1fr); height: min(780px, 85dvh); min-height: 560px; overflow: hidden; }

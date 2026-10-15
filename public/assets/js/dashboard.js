@@ -10,6 +10,7 @@
   const productLink=p=>root.dataset.base+'/panel/products?'+new URLSearchParams({shop_id:p.shop_id,stock:'critical',highlight:p.id});
   function revealTarget(hash) {
     const target=document.getElementById(hash.slice(1));
+    if(target?.tagName==='DETAILS')target.open=true;
     for(let parent=target?.parentElement;parent && parent!==root;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
     return target;
   }

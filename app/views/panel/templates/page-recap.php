@@ -23,16 +23,31 @@ if (count($trend) > 1) {
 }
 $shops = array_values(array_filter($recap['shops'] ?? [], static fn($item) => is_array($item) && isset($item['value'])));
 $shopMax = $shops ? max(1, ...array_map(static fn($item) => max(0, (float)$item['value']), $shops)) : 1;
+$compact = in_array($recap['id'] ?? '', ['products-recap', 'orders-recap', 'customers-recap'], true);
 ?>
-<section class="page-recap" id="<?= $e($recap['id'] ?? 'page-recap'); ?>" aria-labelledby="<?= $e(($recap['id'] ?? 'page-recap') . '-title'); ?>">
+<section class="page-recap<?= $compact ? ' page-recap-compact' : ''; ?>" id="<?= $e($recap['id'] ?? 'page-recap'); ?>" aria-labelledby="<?= $e(($recap['id'] ?? 'page-recap') . '-title'); ?>">
   <header class="page-recap-heading">
     <div>
       <h2 id="<?= $e(($recap['id'] ?? 'page-recap') . '-title'); ?>"><?= $e($recap['title'] ?? 'Ringkasan'); ?></h2>
-      <?php if (!empty($recap['description'])): ?><p><?= $e($recap['description']); ?></p><?php endif; ?>
+      <?php if (!$compact && !empty($recap['description'])): ?><p><?= $e($recap['description']); ?></p><?php endif; ?>
     </div>
     <?php if (!empty($recap['scope'])): ?><p class="page-recap-scope"><?= $e($recap['scope']); ?></p><?php endif; ?>
   </header>
 
+  <?php if ($compact): ?>
+    <div class="page-recap-quick">
+      <p><strong><?= $e($formatValue($recap['primary']['value'] ?? null, $recap['primary']['format'] ?? 'number')); ?></strong><span><?= $e($recap['primary']['label'] ?? 'Total'); ?></span></p>
+      <?php foreach (array_slice(array_filter($segments, static fn($segment) => !empty($segment['href']) && (float)$segment['value'] > 0 && in_array($segment['tone'] ?? '', ['warning','error'], true)), 0, 2) as $segment): ?>
+        <a class="page-recap-quick-link" href="<?= $e($segment['href']); ?>"><span><?= $e($segment['label']); ?></span><strong><?= $e($formatValue($segment['value'])); ?></strong></a>
+      <?php endforeach; ?>
+    </div>
+    <?php if (!empty($recap['primary']['context'])): ?><p class="page-recap-quick-context"><?= $e($recap['primary']['context']); ?></p><?php endif; ?>
+    <?php foreach ($segments as $segment): if ((float)$segment['value'] <= 0 || empty($segment['incomplete'])) continue; ?>
+      <p class="page-recap-quick-context"><?php if (!empty($segment['href'])): ?><a class="page-recap-quick-link" href="<?= $e($segment['href']); ?>"><?php endif; ?><?= $e($segment['label']); ?>: <?= $e($formatValue($segment['value'])); ?><?php if (!empty($segment['href'])): ?></a><?php endif; ?></p>
+    <?php endforeach; ?>
+    <details class="page-recap-more"><summary>Rincian &amp; grafik</summary>
+      <?php if (!empty($recap['description'])): ?><p class="page-recap-quick-context"><?= $e($recap['description']); ?></p><?php endif; ?>
+  <?php endif; ?>
   <div class="page-recap-summary">
     <div class="page-recap-primary">
       <span><?= $e($recap['primary']['label'] ?? 'Total'); ?></span>
@@ -114,5 +129,6 @@ $shopMax = $shops ? max(1, ...array_map(static fn($item) => max(0, (float)$item[
     </div>
   <?php endif; ?>
 
+  <?php if ($compact): ?></details><?php endif; ?>
   <?php if (!empty($recap['insight'])): ?><p class="page-recap-insight"><span class="material-symbols-outlined" aria-hidden="true">info</span><?= $e($recap['insight']); ?></p><?php endif; ?>
 </section>

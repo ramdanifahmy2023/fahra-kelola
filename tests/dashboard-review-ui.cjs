@@ -11,6 +11,7 @@ fs.mkdirSync(output, { recursive: true });
   try {
     const context = await browser.newContext({ locale: 'id-ID', timezoneId: 'Asia/Jakarta', reducedMotion: 'reduce' });
     let mode = 'normal';
+    let profitFailBasis = '';
     let mutations = 0;
     const errors = [], requests = [], external = [];
     await context.route('**/*', async route => {
@@ -23,7 +24,7 @@ fs.mkdirSync(output, { recursive: true });
       }
       if (['/procFinance/summary', '/procFinance/profitLoss', '/procDashboard/overview', '/procRealtime/metrics'].includes(url.pathname)) {
         requests.push(url.pathname + url.search);
-        if (mode === 'error') return route.fulfill({ status: 502, json: { status: 'error', message: 'Koneksi data contoh gagal.' } });
+        if (mode === 'error' || (url.pathname === '/procFinance/profitLoss' && url.searchParams.get('basis') === profitFailBasis)) return route.fulfill({ status: 502, json: { status: 'error', message: 'Koneksi data contoh gagal.' } });
         const response = await route.fetch();
         const data = await response.json();
         if (mode === 'partial') {
@@ -60,10 +61,19 @@ fs.mkdirSync(output, { recursive: true });
     await loaded();
     const hasProfit = await page.locator('#finance-profit-panel').count() > 0;
     if (hasProfit) {
-      await page.locator('.finance-profit-metrics').waitFor();
+      await page.locator('.finance-profit-metrics').first().waitFor();
       assert.match(await page.locator('#finance-profit-content').innerText(), /Belum diketahui/);
+      assert.equal(await page.locator('.finance-profit-breakdown').evaluate(el => el.open), false);
+      await page.locator('.finance-profit-breakdown > summary').click();
       assert.match(await page.locator('#finance-profit-content').innerText(), /Rp\s*0/);
+      await page.locator('.finance-profit-breakdown > summary').click();
+      profitFailBasis = 'cash';
       await page.selectOption('#finance-profit-basis', 'cash');
+      await page.waitForFunction(() => document.getElementById('finance-profit-content').getAttribute('aria-busy') === 'false');
+      assert.equal(await page.locator('#finance-profit-content').innerText(), '', 'Failed basis change cannot leave accrual numbers under CASH');
+      assert.match(await page.locator('#finance-profit-scope').innerText(), /CASH/);
+      profitFailBasis = '';
+      await page.locator('#finance-profit-retry').click();
       await page.waitForFunction(() => document.querySelector('#finance-profit-content')?.textContent.includes('Penghasilan bersih Shopee'));
       assert.match(await page.locator('#finance-open').getAttribute('href'), /tab=profit.*basis=cash/);
     }
@@ -74,6 +84,8 @@ fs.mkdirSync(output, { recursive: true });
     assert.match(await page.locator('#dashboard-attention').innerText(), /1 koneksi perlu diperiksa/);
     assert.match(await page.locator('#finance-pending-summary').innerText(), /Sebagian status belum dipastikan/);
     assert.equal(await page.locator('.dashboard-detail-section').evaluate(el => el.open), false);
+    assert.equal(await page.locator('#finance-summary-panel').evaluate(el => el.open), false);
+    assert.match(await page.locator('#finance-store-summary').innerText(), /toko perlu diperiksa/, 'Warnings stay visible above closed store ledger');
 
     const contrast = [];
     for (const width of [320, 500, 999, 1600]) {
@@ -85,6 +97,7 @@ fs.mkdirSync(output, { recursive: true });
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `No page overflow ${width}/${theme}`);
         const targets = await page.locator('#finance-page :is(button,select,summary,a)').evaluateAll(elements => elements.filter(el => el.checkVisibility()).filter(el => el.getBoundingClientRect().height < 43.5).map(el => ({ tag: el.tagName, id: el.id, text: el.textContent.trim(), height: el.getBoundingClientRect().height })));
         assert.deepEqual(targets, [], `44px controls ${width}/${theme}`);
+        assert.deepEqual(await page.locator('nav[aria-label="Navigasi panel"] a').evaluateAll(elements => elements.filter(el => el.checkVisibility() && el.getBoundingClientRect().height < 43.5).map(el => el.textContent.trim())), [], 'Sidebar targets are at least 44px');
         const primary = page.locator('[data-live-metric="sales"] dd');
         assert.ok(await primary.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'Amount fits');
         await page.locator('#finance-shops-trigger').focus();
@@ -155,7 +168,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(await page.locator('#finance-error').isVisible(), true);
     if (hasProfit) assert.equal(await page.locator('#finance-profit-error').isVisible(), true);
     mode = 'normal'; await page.locator('#finance-retry').click(); await page.locator('#dashboard-live-refresh').click(); await page.locator('#dashboard-operations-retry').click(); await loaded();
-    if (hasProfit) { await page.locator('#finance-profit-retry').click(); await page.locator('.finance-profit-metrics').waitFor(); assert.equal(await page.locator('#finance-profit-error').isVisible(), false); }
+    if (hasProfit) { await page.locator('#finance-profit-retry').click(); await page.locator('.finance-profit-metrics').first().waitFor(); assert.equal(await page.locator('#finance-profit-error').isVisible(), false); }
     await page.locator('#finance-shops-trigger').click(); await page.locator('[data-shop-value="2"]').click();
     assert.equal(await page.locator('#finance-filter-draft').isVisible(), true);
     await page.locator('#finance-filters button[type="submit"]').click(); await loaded();

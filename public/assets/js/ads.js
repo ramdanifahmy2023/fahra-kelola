@@ -411,7 +411,7 @@
   function finishAdsSync() {
     syncInProgress = false;
     syncButton.disabled = !loaded;
-    syncButton.textContent = 'Sinkronkan laporan';
+    syncButton.textContent = 'Ambil data Shopee';
   }
 
   async function loadAds() {

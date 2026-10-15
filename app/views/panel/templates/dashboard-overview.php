@@ -34,14 +34,16 @@
 
   <?php require __DIR__.'/dashboard-operations.php'; ?>
   <details class="dashboard-detail-section"><summary><span>Lihat tahap pesanan &amp; dana tertahan</span><span id="finance-pending-summary" class="dashboard-detail-note">Memuat rincian…</span></summary><?php require __DIR__.'/finance-pending.php'; ?></details>
-  <section id="finance-summary-panel" class="finance-surface" aria-label="Ringkasan per toko">
+  <details id="finance-summary-panel" class="finance-surface dashboard-ledger" aria-label="Ringkasan per toko">
+    <summary><span>Rincian dana per toko</span><span id="finance-store-summary" class="dashboard-detail-note">Memuat rincian…</span></summary>
     <div class="finance-section-heading"><div><h2>Ringkasan per toko</h2><p id="finance-store-period"></p></div><?php if (!empty($financeProfitPanel)): ?><div class="finance-actions"><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance?tab=profit">Laporan laba rugi</a><a id="finance-hpp-open" class="btn" href="<?= burl; ?>/panel/finance?tab=cost">Atur HPP</a></div><?php else: ?><a id="finance-open" class="btn" href="<?= burl; ?>/panel/finance">Buka Keuangan &amp; HPP</a><?php endif; ?></div>
     <div id="finance-store-list"></div>
     <details class="finance-explanation"><summary>Cara membaca angka toko</summary><p>Pending dan Saldo Penjual adalah posisi terbaru. Dana dilepas, omset, top up, dan biaya iklan mengikuti periode laporan. Rincian pengiriman dan retur sudah termasuk Pending.</p><p>Ringkasan Shopee dan jumlah rincian dapat berbeda. Lihat sumber dan waktu pembaruan setiap toko sebelum membandingkan.</p></details>
-  </section>
+  </details>
   <?= $financeProfitPanel ?? ''; ?>
   <?php require __DIR__.'/shop-logos.php'; ?>
   <script src="<?= assets; ?>/js/shop-select.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/shop-select.js'); ?>"></script>
+  <?php require __DIR__.'/finance-report-scripts.php'; ?>
   <script src="<?= assets; ?>/js/finance.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/finance.js'); ?>" defer></script>
   <script src="<?= assets; ?>/js/dashboard.js?v=<?= filemtime(__DIR__.'/../../../../public/assets/js/dashboard.js'); ?>" defer></script>
   <?php endif; ?>
